@@ -1,0 +1,9 @@
+namespace: ferry-system
+
+bases:
+- ../../../config/default
+
+resources:
+- ferry-policy.yaml
+- data-plane-cluster-1.yaml
+- data-plane-cluster-2.yaml

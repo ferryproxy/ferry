@@ -39,57 +39,46 @@ spec:
             properties:
               domain:
                 properties:
-                  domain:
+                  kind:
                     type: string
                 required:
-                - domain
+                - kind
                 type: object
               egress:
                 properties:
-                  apiVersion:
-                    description: 'APIVersion defines the versioned schema of this
-                      representation of an object. Servers should convert recognized
-                      schemas to the latest internal value, and may reject unrecognized
-                      values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+                  apiGroup:
+                    type: string
+                  ip:
                     type: string
                   kind:
-                    description: 'Kind is a string value representing the REST resource
-                      this object represents. Servers may infer this from the endpoint
-                      the client submits requests to. Cannot be updated. In CamelCase.
-                      More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
                     type: string
+                  port:
+                    format: int32
+                    type: integer
                   serviceName:
                     type: string
                   serviceNamespace:
                     type: string
                 required:
-                - serviceName
-                - serviceNamespace
+                - port
                 type: object
               ingress:
                 properties:
-                  apiVersion:
-                    description: 'APIVersion defines the versioned schema of this
-                      representation of an object. Servers should convert recognized
-                      schemas to the latest internal value, and may reject unrecognized
-                      values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+                  apiGroup:
                     type: string
-                  hostIPs:
-                    items:
-                      type: string
-                    type: array
-                  hostPort:
+                  ip:
+                    type: string
+                  kind:
+                    type: string
+                  port:
                     format: int32
                     type: integer
-                  kind:
-                    description: 'Kind is a string value representing the REST resource
-                      this object represents. Servers may infer this from the endpoint
-                      the client submits requests to. Cannot be updated. In CamelCase.
-                      More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+                  serviceName:
+                    type: string
+                  serviceNamespace:
                     type: string
                 required:
-                - hostIPs
-                - hostPort
+                - port
                 type: object
               kubeconfig:
                 format: byte

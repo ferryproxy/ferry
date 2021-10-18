@@ -1,0 +1,17 @@
+apiVersion: ferry.daocloud.io/v1alpha1
+kind: FerryPolicy
+metadata:
+  name: ferry-test
+spec:
+  rules:
+    - exports:
+        - clusterName: ferry-cluster1
+          match:
+            labels:
+              ferry.daocloud.io/export: "true"
+
+      imports:
+        - clusterName: ferry-cluster2
+          match:
+            labels:
+              ferry.daocloud.io/export: "true"

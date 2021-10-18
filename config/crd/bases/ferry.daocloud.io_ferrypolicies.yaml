@@ -49,33 +49,17 @@ spec:
                           clusterName:
                             type: string
                           match:
-                            items:
-                              description: Match defines the desired match of FerryPolicyRule
-                              properties:
-                                labels:
-                                  additionalProperties:
-                                    type: string
-                                  type: object
-                                mamespace:
+                            description: Match defines the desired match of FerryPolicyRule
+                            properties:
+                              labels:
+                                additionalProperties:
                                   type: string
-                              type: object
-                            type: array
+                                type: object
+                              namespace:
+                                type: string
+                            type: object
                         required:
                         - clusterName
-                        type: object
-                      type: array
-                    exportsMatch:
-                      description: ExportsMatch is a list of strings that are used
-                        to match the exports of the FerryPolicy.
-                      items:
-                        description: Match defines the desired match of FerryPolicyRule
-                        properties:
-                          labels:
-                            additionalProperties:
-                              type: string
-                            type: object
-                          mamespace:
-                            type: string
                         type: object
                       type: array
                     imports:
@@ -87,33 +71,17 @@ spec:
                           clusterName:
                             type: string
                           match:
-                            items:
-                              description: Match defines the desired match of FerryPolicyRule
-                              properties:
-                                labels:
-                                  additionalProperties:
-                                    type: string
-                                  type: object
-                                mamespace:
+                            description: Match defines the desired match of FerryPolicyRule
+                            properties:
+                              labels:
+                                additionalProperties:
                                   type: string
-                              type: object
-                            type: array
+                                type: object
+                              namespace:
+                                type: string
+                            type: object
                         required:
                         - clusterName
-                        type: object
-                      type: array
-                    importsMatch:
-                      description: ImportsMatch is a list of strings that are used
-                        to match the imports of the FerryPolicy.
-                      items:
-                        description: Match defines the desired match of FerryPolicyRule
-                        properties:
-                          labels:
-                            additionalProperties:
-                              type: string
-                            type: object
-                          mamespace:
-                            type: string
                         type: object
                       type: array
                   required:

@@ -30,32 +30,28 @@ type FerryPolicySpec struct {
 
 // FerryPolicySpecRule defines the desired rule of FerryPolicyRule
 type FerryPolicySpecRule struct {
-	// ExportsMatch is a list of strings that are used to match the exports of the FerryPolicy.
-	ExportsMatch []*Match `json:"exportsMatch,omitempty"`
 	// Exports is a list of exports of the FerryPolicy.
 	Exports []FerryPolicySpecRuleExport `json:"exports"`
-	// ImportsMatch is a list of strings that are used to match the imports of the FerryPolicy.
-	ImportsMatch []*Match `json:"importsMatch,omitempty"`
 	// Imports is a list of imports of the FerryPolicy.
 	Imports []FerryPolicySpecRuleImport `json:"imports"`
 }
 
 // FerryPolicySpecRuleExport defines the desired export of FerryPolicyRule
 type FerryPolicySpecRuleExport struct {
-	ClusterName string   `json:"clusterName"`
-	Match       []*Match `json:"match,omitempty"`
+	ClusterName string `json:"clusterName"`
+	Match       *Match `json:"match,omitempty"`
 }
 
 // FerryPolicySpecRuleImport defines the desired import of FerryPolicyRule
 type FerryPolicySpecRuleImport struct {
-	ClusterName string   `json:"clusterName"`
-	Match       []*Match `json:"match,omitempty"`
+	ClusterName string `json:"clusterName"`
+	Match       *Match `json:"match,omitempty"`
 }
 
 // Match defines the desired match of FerryPolicyRule
 type Match struct {
 	Labels    map[string]string `json:"labels,omitempty"`
-	Namespace string            `json:"mamespace,omitempty"`
+	Namespace string            `json:"namespace,omitempty"`
 }
 
 // FerryPolicyStatus defines the observed state of FerryPolicy

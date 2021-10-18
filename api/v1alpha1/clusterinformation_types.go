@@ -25,14 +25,14 @@ import (
 
 // ClusterInformationSpec defines the desired state of ClusterInformation
 type ClusterInformationSpec struct {
-	Kubeconfig []byte                         `json:"kubeconfig"`
-	Domain     *ClusterInformationSpecDomain  `json:"domain,omitempty"`
-	Ingress    *ClusterInformationSpecIngress `json:"ingress,omitempty"`
-	Egress     *ClusterInformationSpecEgress  `json:"egress,omitempty"`
+	Kubeconfig []byte                        `json:"kubeconfig"`
+	Domain     *ClusterInformationSpecDomain `json:"domain,omitempty"`
+	Ingress    *ClusterInformationSpecRoute  `json:"ingress,omitempty"`
+	Egress     *ClusterInformationSpecRoute  `json:"egress,omitempty"`
 }
 
 type ClusterInformationSpecDomain struct {
-	Kind DomainKind `json:"domain"`
+	Kind DomainKind `json:"kind"`
 }
 
 type DomainKind string
@@ -42,16 +42,13 @@ const (
 	DomainKindDNS     DomainKind = "DNS"
 )
 
-type ClusterInformationSpecIngress struct {
-	metav1.TypeMeta `json:",inline,omitempty"`
-	HostIPs         []string `json:"hostIPs"`
-	HostPort        int32    `json:"hostPort"`
-}
-
-type ClusterInformationSpecEgress struct {
-	metav1.TypeMeta  `json:",inline,omitempty"`
-	ServiceName      string `json:"serviceName"`
-	ServiceNamespace string `json:"serviceNamespace"`
+type ClusterInformationSpecRoute struct {
+	APIGroup         *string `json:"apiGroup,omitempty"`
+	Kind             *string `json:"kind,omitempty"`
+	Port             int32   `json:"port"`
+	IP               *string `json:"ip,omitempty"`
+	ServiceName      *string `json:"serviceName,omitempty"`
+	ServiceNamespace *string `json:"serviceNamespace,omitempty"`
 }
 
 // ClusterInformationStatus defines the observed state of ClusterInformation

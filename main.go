@@ -17,6 +17,7 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"flag"
 	"os"
 
@@ -24,15 +25,16 @@ import (
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
+	ferrydaocloudiov1alpha1 "github.com/DaoCloud-OpenSource/ferry/api/v1alpha1"
+	"github.com/DaoCloud-OpenSource/ferry/controllers"
+	client "github.com/DaoCloud-OpenSource/ferry/pkg/client"
+	"github.com/DaoCloud-OpenSource/ferry/pkg/controller"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
-
-	ferrydaocloudiov1alpha1 "github.com/DaoCloud-OpenSource/ferry/api/v1alpha1"
-	"github.com/DaoCloud-OpenSource/ferry/controllers"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -42,6 +44,8 @@ var (
 )
 
 func init() {
+	utilruntime.Must(ferrydaocloudiov1alpha1.AddToScheme(clientgoscheme.Scheme))
+
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
 	utilruntime.Must(ferrydaocloudiov1alpha1.AddToScheme(scheme))
@@ -52,6 +56,7 @@ func main() {
 	var metricsAddr string
 	var enableLeaderElection bool
 	var probeAddr string
+	var ctx = context.Background()
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
@@ -64,6 +69,24 @@ func main() {
 	flag.Parse()
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
+	setupLog.Info("Start")
+	cli, err := client.NewClientsetFromSelfCluster()
+	if err != nil {
+		setupLog.Error(err, "not running in cluster")
+		os.Exit(1)
+	}
+
+	control, err := controller.NewController(cli, "ferry-system")
+	if err != nil {
+		setupLog.Error(err, "unable to create main controller")
+		os.Exit(1)
+	}
+
+	err = control.Start(ctx)
+	if err != nil {
+		setupLog.Error(err, "unable to start main controller")
+		os.Exit(1)
+	}
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:                 scheme,
