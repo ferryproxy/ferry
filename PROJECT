@@ -1,0 +1,6 @@
+domain: ferry.daocloud.io
+layout:
+- go.kubebuilder.io/v3
+projectName: ferry
+repo: github.com/DaoCloud-OpenSource/ferry
+version: "3"
