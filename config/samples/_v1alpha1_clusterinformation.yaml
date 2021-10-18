@@ -1,0 +1,7 @@
+apiVersion: ferry.daocloud.io/v1alpha1
+kind: ClusterInformation
+metadata:
+  name: clusterinformation-sample
+spec:
+  # Add fields here
+  foo: bar

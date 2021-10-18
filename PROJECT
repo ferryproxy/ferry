@@ -3,4 +3,21 @@ layout:
 - go.kubebuilder.io/v3
 projectName: ferry
 repo: github.com/DaoCloud-OpenSource/ferry
+resources:
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: ferry.daocloud.io
+  kind: FerryPolicy
+  path: github.com/DaoCloud-OpenSource/ferry/api/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: ferry.daocloud.io
+  kind: ClusterInformation
+  path: github.com/DaoCloud-OpenSource/ferry/api/v1alpha1
+  version: v1alpha1
 version: "3"

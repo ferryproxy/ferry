@@ -1,0 +1,7 @@
+apiVersion: ferry.daocloud.io/v1alpha1
+kind: FerryPolicy
+metadata:
+  name: ferrypolicy-sample
+spec:
+  # Add fields here
+  foo: bar
