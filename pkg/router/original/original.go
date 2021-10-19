@@ -92,7 +92,7 @@ func (IngressBuilder) Build(proxy *router.Proxy, destinationServices []*corev1.S
 				},
 			}
 
-			igressName := proxy.RemotePrefix + "-igress-" + svc.Name
+			igressName := proxy.RemotePrefix + "-ingress-" + svc.Name
 			ingress := &networkingv1.Ingress{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      igressName,
