@@ -4,9 +4,8 @@ import (
 	"context"
 	"sync"
 
-	"github.com/go-logr/logr"
-
 	"github.com/DaoCloud-OpenSource/ferry/api/v1alpha1"
+	"github.com/go-logr/logr"
 	restclient "k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 )

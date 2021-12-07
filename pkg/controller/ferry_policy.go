@@ -5,17 +5,14 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/go-logr/logr"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	"k8s.io/client-go/kubernetes"
-
 	"github.com/DaoCloud-OpenSource/ferry/api/v1alpha1"
 	"github.com/DaoCloud-OpenSource/ferry/pkg/client"
 	"github.com/DaoCloud-OpenSource/ferry/pkg/router"
 	"github.com/DaoCloud-OpenSource/ferry/pkg/router/original"
+	"github.com/go-logr/logr"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/client-go/kubernetes"
 	restclient "k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 )
