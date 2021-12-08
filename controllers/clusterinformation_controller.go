@@ -24,7 +24,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	ferrydaocloudiov1alpha1 "github.com/DaoCloud-OpenSource/ferry/api/v1alpha1"
+	ferrydaocloudiov1alpha1 "github.com/ferry-proxy/ferry/api/v1alpha1"
 )
 
 // ClusterInformationReconciler reconciles a ClusterInformation object

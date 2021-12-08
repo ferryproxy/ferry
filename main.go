@@ -25,10 +25,10 @@ import (
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
-	ferrydaocloudiov1alpha1 "github.com/DaoCloud-OpenSource/ferry/api/v1alpha1"
-	"github.com/DaoCloud-OpenSource/ferry/controllers"
-	client "github.com/DaoCloud-OpenSource/ferry/pkg/client"
-	"github.com/DaoCloud-OpenSource/ferry/pkg/controller"
+	ferrydaocloudiov1alpha1 "github.com/ferry-proxy/ferry/api/v1alpha1"
+	"github.com/ferry-proxy/ferry/controllers"
+	client "github.com/ferry-proxy/ferry/pkg/client"
+	"github.com/ferry-proxy/ferry/pkg/controller"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
