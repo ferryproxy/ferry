@@ -1,4 +1,4 @@
-module github.com/DaoCloud-OpenSource/ferry
+module github.com/ferry-proxy/ferry
 
 go 1.17
 

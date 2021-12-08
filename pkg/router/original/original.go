@@ -1,7 +1,7 @@
 package original
 
 import (
-	"github.com/DaoCloud-OpenSource/ferry/pkg/router"
+	"github.com/ferry-proxy/ferry/pkg/router"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

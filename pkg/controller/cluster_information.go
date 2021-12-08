@@ -4,7 +4,7 @@ import (
 	"context"
 	"sync"
 
-	"github.com/DaoCloud-OpenSource/ferry/api/v1alpha1"
+	"github.com/ferry-proxy/ferry/api/v1alpha1"
 	"github.com/go-logr/logr"
 	restclient "k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
