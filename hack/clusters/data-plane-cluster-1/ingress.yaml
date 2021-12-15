@@ -323,7 +323,7 @@ spec:
       dnsPolicy: ClusterFirst
       containers:
         - name: controller
-          image: ghcr.io/mirrorshub/k8s-ingress-nginx/controller:v1.0.3
+          image: k8s-gcr.m.daocloud.io/ingress-nginx/controller:v1.0.3
           imagePullPolicy: IfNotPresent
           lifecycle:
             preStop:
@@ -613,7 +613,7 @@ spec:
     spec:
       containers:
         - name: create
-          image: ghcr.io/mirrorshub/k8s-ingress-nginx/kube-webhook-certgen:v1.0
+          image: k8s-gcr.m.daocloud.io/ingress-nginx/kube-webhook-certgen:v1.0
           imagePullPolicy: IfNotPresent
           args:
             - create
@@ -663,7 +663,7 @@ spec:
     spec:
       containers:
         - name: patch
-          image: ghcr.io/mirrorshub/k8s-ingress-nginx/kube-webhook-certgen:v1.0
+          image: k8s-gcr.m.daocloud.io/ingress-nginx/kube-webhook-certgen:v1.0
           imagePullPolicy: IfNotPresent
           args:
             - patch

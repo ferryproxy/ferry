@@ -14,13 +14,15 @@ type clusterInformationControllerConfig struct {
 	Logger    logr.Logger
 	Config    *restclient.Config
 	Namespace string
+	SyncFunc  func(context.Context, string)
 }
 type clusterInformationController struct {
 	mut       sync.RWMutex
 	ctx       context.Context
 	logger    logr.Logger
 	config    *restclient.Config
-	mapping   map[string]*v1alpha1.ClusterInformation
+	cache     map[string]*v1alpha1.ClusterInformation
+	syncFunc  func(context.Context, string)
 	namespace string
 }
 
@@ -29,11 +31,14 @@ func newClusterInformationController(conf *clusterInformationControllerConfig) *
 		config:    conf.Config,
 		namespace: conf.Namespace,
 		logger:    conf.Logger,
-		mapping:   map[string]*v1alpha1.ClusterInformation{},
+		syncFunc:  conf.SyncFunc,
+		cache:     map[string]*v1alpha1.ClusterInformation{},
 	}
 }
 
 func (c *clusterInformationController) Run(ctx context.Context) error {
+	c.logger.Info("ClusterInformation controller started")
+	defer c.logger.Info("ClusterInformation controller stopped")
 	cache, err := cache.New(c.config, cache.Options{
 		Namespace: c.namespace,
 	})
@@ -50,49 +55,48 @@ func (c *clusterInformationController) Run(ctx context.Context) error {
 }
 
 func (c *clusterInformationController) OnAdd(obj interface{}) {
-	c.mut.Lock()
-	defer c.mut.Unlock()
-
 	f := obj.(*v1alpha1.ClusterInformation)
 	f = f.DeepCopy()
 	c.logger.Info("OnAdd",
-		"ClusterInformation", f.Name,
+		"ClusterInformation", uniqueKey(f.Name, f.Namespace),
 	)
 
-	c.mapping[f.Name] = f
+	c.mut.Lock()
+	defer c.mut.Unlock()
+
+	c.cache[f.Name] = f
+	c.syncFunc(c.ctx, f.Name)
 }
 
 func (c *clusterInformationController) OnUpdate(oldObj, newObj interface{}) {
-	c.mut.Lock()
-	defer c.mut.Unlock()
-
 	f := newObj.(*v1alpha1.ClusterInformation)
 	f = f.DeepCopy()
 	c.logger.Info("OnUpdate",
-		"ClusterInformation", f.Name,
+		"ClusterInformation", uniqueKey(f.Name, f.Namespace),
 	)
 
-	c.mapping[f.Name] = f
-}
-
-func (c *clusterInformationController) OnDelete(obj interface{}) {
 	c.mut.Lock()
 	defer c.mut.Unlock()
 
+	c.cache[f.Name] = f
+	c.syncFunc(c.ctx, f.Name)
+}
+
+func (c *clusterInformationController) OnDelete(obj interface{}) {
 	f := obj.(*v1alpha1.ClusterInformation)
 	c.logger.Info("OnDelete",
-		"ClusterInformation", f.Name,
+		"ClusterInformation", uniqueKey(f.Name, f.Namespace),
 	)
 
-	delete(c.mapping, f.Name)
+	c.mut.Lock()
+	defer c.mut.Unlock()
+
+	delete(c.cache, f.Name)
+	c.syncFunc(c.ctx, f.Name)
 }
 
 func (c *clusterInformationController) Get(name string) *v1alpha1.ClusterInformation {
 	c.mut.RLock()
 	defer c.mut.RUnlock()
-	return c.mapping[name]
-}
-
-type ClusterInformationGetter interface {
-	Get(name string) *v1alpha1.ClusterInformation
+	return c.cache[name]
 }

@@ -29,7 +29,7 @@ spec:
         - /manager
         args:
         - --leader-elect
-        image: ghcr.io/ferry-proxy/ferry/controller:latest
+        image: ghcr.io/ferry-proxy/ferry:v0.0.1
         name: manager
         securityContext:
           allowPrivilegeEscalation: false
