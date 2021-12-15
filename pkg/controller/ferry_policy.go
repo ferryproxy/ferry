@@ -6,47 +6,61 @@ import (
 	"sync"
 
 	"github.com/ferry-proxy/ferry/api/v1alpha1"
-	"github.com/ferry-proxy/ferry/pkg/client"
-	"github.com/ferry-proxy/ferry/pkg/router"
-	"github.com/ferry-proxy/ferry/pkg/router/original"
 	"github.com/go-logr/logr"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
 	restclient "k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 )
 
 type ferryPolicyControllerConfig struct {
-	Logger                   logr.Logger
-	Config                   *restclient.Config
-	Namespace                string
-	ClusterInformationGetter ClusterInformationGetter
+	Logger    logr.Logger
+	Config    *restclient.Config
+	Namespace string
+	SyncFunc  func(context.Context, *v1alpha1.FerryPolicy)
 }
 
 type ferryPolicyController struct {
-	clusterInformationGetter ClusterInformationGetter
-	ctx                      context.Context
-	mut                      sync.RWMutex
-	config                   *restclient.Config
-	mapping                  map[string]*v1alpha1.FerryPolicy
-	mapCancel                map[string]func()
-	namespace                string
-	logger                   logr.Logger
+	ctx       context.Context
+	mut       sync.RWMutex
+	config    *restclient.Config
+	cache     map[string]*v1alpha1.FerryPolicy
+	mapCancel map[string]func()
+	namespace string
+	syncFunc  func(context.Context, *v1alpha1.FerryPolicy)
+	logger    logr.Logger
 }
 
 func newFerryPolicyController(conf *ferryPolicyControllerConfig) *ferryPolicyController {
 	return &ferryPolicyController{
-		clusterInformationGetter: conf.ClusterInformationGetter,
-		config:                   conf.Config,
-		namespace:                conf.Namespace,
-		logger:                   conf.Logger,
-		mapping:                  map[string]*v1alpha1.FerryPolicy{},
-		mapCancel:                map[string]func(){},
+		config:    conf.Config,
+		namespace: conf.Namespace,
+		logger:    conf.Logger,
+		syncFunc:  conf.SyncFunc,
+		cache:     map[string]*v1alpha1.FerryPolicy{},
+		mapCancel: map[string]func(){},
 	}
 }
 
+func (c *ferryPolicyController) List() []string {
+	c.mut.RLock()
+	defer c.mut.RUnlock()
+	var list []string
+	for _, v := range c.cache {
+		list = append(list, v.Name)
+	}
+	return list
+}
+
+func (c *ferryPolicyController) Get(name string) *v1alpha1.FerryPolicy {
+	c.mut.RLock()
+	defer c.mut.RUnlock()
+	return c.cache[name]
+}
+
 func (c *ferryPolicyController) Run(ctx context.Context) error {
+	c.logger.Info("FerryPolicy controller started")
+	defer c.logger.Info("FerryPolicy controller stopped")
 	cache, err := cache.New(c.config, cache.Options{
 		Namespace: c.namespace,
 	})
@@ -63,33 +77,33 @@ func (c *ferryPolicyController) Run(ctx context.Context) error {
 }
 
 func (c *ferryPolicyController) OnAdd(obj interface{}) {
-	c.mut.Lock()
-	defer c.mut.Unlock()
-
 	f := obj.(*v1alpha1.FerryPolicy)
 	f = f.DeepCopy()
 	c.logger.Info("OnAdd",
-		"FerryPolicy", f.Name,
+		"FerryPolicy", uniqueKey(f.Name, f.Namespace),
 	)
 
-	c.mapping[f.Name] = f
-
-	ctx, cancel := context.WithCancel(c.ctx)
-	c.mapCancel[f.Name] = cancel
-	go c.sync(ctx, f)
-}
-
-func (c *ferryPolicyController) OnUpdate(oldObj, newObj interface{}) {
 	c.mut.Lock()
 	defer c.mut.Unlock()
 
+	c.cache[f.Name] = f
+
+	ctx, cancel := context.WithCancel(c.ctx)
+	c.mapCancel[f.Name] = cancel
+	c.syncFunc(ctx, f)
+}
+
+func (c *ferryPolicyController) OnUpdate(oldObj, newObj interface{}) {
 	f := newObj.(*v1alpha1.FerryPolicy)
 	f = f.DeepCopy()
 	c.logger.Info("OnUpdate",
-		"FerryPolicy", f.Name,
+		"FerryPolicy", uniqueKey(f.Name, f.Namespace),
 	)
 
-	c.mapping[f.Name] = f
+	c.mut.Lock()
+	defer c.mut.Unlock()
+
+	c.cache[f.Name] = f
 
 	cancel, ok := c.mapCancel[f.Name]
 	if ok && cancel != nil {
@@ -98,19 +112,19 @@ func (c *ferryPolicyController) OnUpdate(oldObj, newObj interface{}) {
 
 	ctx, cancel := context.WithCancel(c.ctx)
 	c.mapCancel[f.Name] = cancel
-	go c.sync(ctx, f)
+	c.syncFunc(ctx, f)
 }
 
 func (c *ferryPolicyController) OnDelete(obj interface{}) {
+	f := obj.(*v1alpha1.FerryPolicy)
+	c.logger.Info("OnDelete",
+		"FerryPolicy", uniqueKey(f.Name, f.Namespace),
+	)
+
 	c.mut.Lock()
 	defer c.mut.Unlock()
 
-	f := obj.(*v1alpha1.FerryPolicy)
-	c.logger.Info("OnDelete",
-		"FerryPolicy", f.Name,
-	)
-
-	delete(c.mapping, f.Name)
+	delete(c.cache, f.Name)
 
 	cancel, ok := c.mapCancel[f.Name]
 	if ok && cancel != nil {
@@ -118,160 +132,6 @@ func (c *ferryPolicyController) OnDelete(obj interface{}) {
 	}
 
 	delete(c.mapCancel, f.Name)
-}
-
-func (c *ferryPolicyController) sync(ctx context.Context, policy *v1alpha1.FerryPolicy) {
-	c.mut.RLock()
-	defer c.mut.RUnlock()
-
-	for _, rule := range policy.Spec.Rules {
-		for _, export := range rule.Exports {
-			if export.ClusterName == "" {
-				continue
-			}
-
-			exportCluster := c.clusterInformationGetter.Get(export.ClusterName)
-			if exportCluster == nil {
-				c.logger.Info("Not found ClusterInformation",
-					"FerryPolicy", policy.Name,
-					"ClusterInformation", export.ClusterName,
-					"Namespace", policy.Namespace,
-				)
-				continue
-			}
-			if exportCluster.Spec.Ingress == nil {
-				c.logger.Info("Tried to export Service but Ingress is empty",
-					"FerryPolicy", policy.Name,
-					"ClusterInformation", export.ClusterName,
-					"Namespace", policy.Namespace,
-				)
-				continue
-			}
-
-			for _, impor := range rule.Imports {
-				if impor.ClusterName == "" || impor.ClusterName == export.ClusterName {
-					continue
-				}
-
-				importCluster := c.clusterInformationGetter.Get(impor.ClusterName)
-				if importCluster == nil {
-					c.logger.Info("Not found ClusterInformation",
-						"FerryPolicy", policy.Name,
-						"ClusterInformation", impor.ClusterName,
-						"Namespace", policy.Namespace,
-					)
-					continue
-				}
-				if importCluster.Spec.Egress == nil {
-					c.logger.Info("Tried to export Service but Egress is empty",
-						"FerryPolicy", policy.Name,
-						"ClusterInformation", importCluster.Name,
-						"Namespace", policy.Namespace,
-					)
-					continue
-				}
-
-				if export.Match == nil {
-					export.Match = &v1alpha1.Match{}
-				}
-				if impor.Match == nil {
-					impor.Match = &v1alpha1.Match{}
-				}
-				if export.Match.Namespace != "" && export.Match.Namespace != impor.Match.Namespace {
-					continue
-				}
-
-				var matchSet labels.Set
-				var err error
-				switch {
-				case len(export.Match.Labels) != 0 && len(impor.Match.Labels) != 0:
-					matchSet, err = mergeMaps(export.Match.Labels, impor.Match.Labels)
-					if err != nil {
-						c.logger.Error(err, "",
-							"FerryPolicy", policy.Name,
-							"ClusterInformation", importCluster.Name,
-							"Namespace", policy.Namespace,
-						)
-						continue
-					}
-				case len(export.Match.Labels) != 0 && len(impor.Match.Labels) == 0:
-					matchSet = export.Match.Labels
-				case len(export.Match.Labels) == 0 && len(impor.Match.Labels) != 0:
-					matchSet = impor.Match.Labels
-				}
-
-				exportClientset, err := client.NewClientsetFromKubeconfig(exportCluster.Spec.Kubeconfig)
-				if err != nil {
-					c.logger.Error(err, "Get Clientset",
-						"FerryPolicy", policy.Name,
-						"ClusterInformation", exportCluster.Name,
-						"Namespace", policy.Namespace,
-					)
-					continue
-				}
-				importClientset, err := client.NewClientsetFromKubeconfig(importCluster.Spec.Kubeconfig)
-				if err != nil {
-					c.logger.Error(err, "Get Clientset",
-						"FerryPolicy", policy.Name,
-						"ClusterInformation", importCluster.Name,
-						"Namespace", policy.Namespace,
-					)
-					continue
-				}
-
-				egressIPs, err := getIPs(ctx, importClientset, importCluster.Spec.Egress)
-				if err != nil {
-					c.logger.Error(err, "Get IPs",
-						"FerryPolicy", policy.Name,
-						"ClusterInformation", importCluster.Name,
-						"Namespace", policy.Namespace,
-					)
-					continue
-				}
-
-				ingressIPs, err := getIPs(ctx, exportClientset, exportCluster.Spec.Ingress)
-				if err != nil {
-					c.logger.Error(err, "Get IPs",
-						"FerryPolicy", policy.Name,
-						"ClusterInformation", exportCluster.Name,
-						"Namespace", policy.Namespace,
-					)
-					continue
-				}
-				c.logger.Info("Run DataPlaneController",
-					"ExportClusterName", exportCluster.Name,
-					"ImportClusterName", importCluster.Name,
-					"Selector", labels.SelectorFromSet(matchSet),
-					"EgressIPs", egressIPs,
-					"EgressPort", importCluster.Spec.Egress.Port,
-					"IngressIPs", ingressIPs,
-					"IngressPort", exportCluster.Spec.Ingress.Port,
-				)
-				c := NewDataPlaneController(DataPlaneControllerConfig{
-					ExportClusterName:          exportCluster.Name,
-					ImportClusterName:          importCluster.Name,
-					Selector:                   labels.SelectorFromSet(matchSet),
-					ExportClientset:            exportClientset,
-					ImportClientset:            importClientset,
-					Logger:                     c.logger,
-					SourceResourceBuilder:      router.ResourceBuilders{original.IngressBuilder{}},
-					DestinationResourceBuilder: router.ResourceBuilders{original.EgressBuilder{}, original.ServiceEgressDiscoveryBuilder{}},
-					Proxy: router.Proxy{
-						RemotePrefix: "ferry",
-						EgressIPs:    egressIPs,
-						EgressPort:   importCluster.Spec.Egress.Port,
-						IngressIPs:   ingressIPs,
-						IngressPort:  exportCluster.Spec.Ingress.Port,
-						Labels: map[string]string{
-							"manage-by": "ferry",
-						},
-					},
-				})
-				go c.Run(ctx)
-			}
-		}
-	}
-	return
 }
 
 func getIPs(ctx context.Context, clientset *kubernetes.Clientset, route *v1alpha1.ClusterInformationSpecRoute) ([]string, error) {
@@ -304,18 +164,4 @@ func getIPs(ctx context.Context, clientset *kubernetes.Clientset, route *v1alpha
 		ips = append(ips, address.IP)
 	}
 	return ips, nil
-}
-
-func mergeMaps(ms ...map[string]string) (map[string]string, error) {
-	n := map[string]string{}
-	for _, m := range ms {
-		for k, v := range m {
-			o, ok := n[k]
-			if ok && o != v {
-				return nil, fmt.Errorf("import and export have different matching values with the same key value %s", k)
-			}
-			n[k] = v
-		}
-	}
-	return n, nil
 }

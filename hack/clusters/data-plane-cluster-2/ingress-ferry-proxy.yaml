@@ -1,0 +1,322 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ingress-ferry-proxy
+  labels:
+    app.kubernetes.io/name: ingress-ferry-proxy
+    app.kubernetes.io/instance: ingress-ferry-proxy
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  labels:
+    app.kubernetes.io/name: ingress-ferry-proxy
+    app.kubernetes.io/instance: ingress-ferry-proxy
+    app.kubernetes.io/component: controller
+  name: ingress-ferry-proxy
+  namespace: ingress-ferry-proxy
+automountServiceAccountToken: true
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/name: ingress-ferry-proxy
+    app.kubernetes.io/instance: ingress-ferry-proxy
+  name: ingress-ferry-proxy
+rules:
+  - apiGroups:
+      - ''
+    resources:
+      - configmaps
+      - endpoints
+      - nodes
+      - pods
+      - secrets
+    verbs:
+      - list
+      - watch
+  - apiGroups:
+      - ''
+    resources:
+      - nodes
+    verbs:
+      - get
+  - apiGroups:
+      - ''
+    resources:
+      - services
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - networking.k8s.io
+    resources:
+      - ingresses
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - ''
+    resources:
+      - events
+    verbs:
+      - create
+      - patch
+  - apiGroups:
+      - networking.k8s.io
+    resources:
+      - ingresses/status
+    verbs:
+      - update
+  - apiGroups:
+      - networking.k8s.io
+    resources:
+      - ingressclasses
+    verbs:
+      - get
+      - list
+      - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  labels:
+    app.kubernetes.io/name: ingress-ferry-proxy
+    app.kubernetes.io/instance: ingress-ferry-proxy
+  name: ingress-ferry-proxy
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: ingress-ferry-proxy
+subjects:
+  - kind: ServiceAccount
+    name: ingress-ferry-proxy
+    namespace: ingress-ferry-proxy
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  labels:
+    app.kubernetes.io/name: ingress-ferry-proxy
+    app.kubernetes.io/instance: ingress-ferry-proxy
+    app.kubernetes.io/component: controller
+  name: ingress-ferry-proxy
+  namespace: ingress-ferry-proxy
+rules:
+  - apiGroups:
+      - ''
+    resources:
+      - namespaces
+    verbs:
+      - get
+  - apiGroups:
+      - ''
+    resources:
+      - configmaps
+      - pods
+      - secrets
+      - endpoints
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - ''
+    resources:
+      - services
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - networking.k8s.io
+    resources:
+      - ingresses
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - networking.k8s.io
+    resources:
+      - ingresses/status
+    verbs:
+      - update
+  - apiGroups:
+      - networking.k8s.io
+    resources:
+      - ingressclasses
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - ''
+    resources:
+      - configmaps
+    resourceNames:
+      - ingress-controller-leader
+    verbs:
+      - get
+      - update
+  - apiGroups:
+      - ''
+    resources:
+      - configmaps
+    verbs:
+      - create
+  - apiGroups:
+      - ''
+    resources:
+      - events
+    verbs:
+      - create
+      - patch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  labels:
+    app.kubernetes.io/name: ingress-ferry-proxy
+    app.kubernetes.io/instance: ingress-ferry-proxy
+    app.kubernetes.io/component: controller
+  name: ingress-ferry-proxy
+  namespace: ingress-ferry-proxy
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: ingress-ferry-proxy
+subjects:
+  - kind: ServiceAccount
+    name: ingress-ferry-proxy
+    namespace: ingress-ferry-proxy
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/name: ingress-ferry-proxy
+    app.kubernetes.io/instance: ingress-ferry-proxy
+    app.kubernetes.io/component: controller
+  name: ingress-ferry-proxy-controller
+  namespace: ingress-ferry-proxy
+spec:
+  type: NodePort
+  ports:
+    - name: http
+      port: 80
+      protocol: TCP
+      targetPort: http
+      appProtocol: http
+    - name: https
+      port: 443
+      protocol: TCP
+      targetPort: https
+      appProtocol: https
+  selector:
+    app.kubernetes.io/name: ingress-ferry-proxy
+    app.kubernetes.io/instance: ingress-ferry-proxy
+    app.kubernetes.io/component: controller
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/name: ingress-ferry-proxy
+    app.kubernetes.io/instance: ingress-ferry-proxy
+    app.kubernetes.io/component: controller
+  name: ingress-ferry-proxy-controller
+  namespace: ingress-ferry-proxy
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: ingress-ferry-proxy
+      app.kubernetes.io/instance: ingress-ferry-proxy
+      app.kubernetes.io/component: controller
+  revisionHistoryLimit: 10
+  strategy:
+    rollingUpdate:
+      maxUnavailable: 1
+    type: RollingUpdate
+  minReadySeconds: 0
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: ingress-ferry-proxy
+        app.kubernetes.io/instance: ingress-ferry-proxy
+        app.kubernetes.io/component: controller
+    spec:
+      dnsPolicy: ClusterFirst
+      containers:
+        - name: controller
+          image: ghcr.io/ferry-proxy/ferry-proxy-controller:v0.0.11
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+          livenessProbe:
+            failureThreshold: 5
+            httpGet:
+              path: /healthz
+              port: 10254
+              scheme: HTTP
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 1
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /healthz
+              port: 10254
+              scheme: HTTP
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 1
+          ports:
+            - name: http
+              containerPort: 80
+              hostPort: 80
+              protocol: TCP
+            - name: https
+              containerPort: 443
+              hostPort: 443
+              protocol: TCP
+          resources:
+            requests:
+              cpu: 100m
+              memory: 90Mi
+      nodeSelector:
+        kubernetes.io/os: linux
+      tolerations:
+        - effect: NoSchedule
+          key: node-role.kubernetes.io/master
+          operator: Equal
+      serviceAccountName: ingress-ferry-proxy
+      terminationGracePeriodSeconds: 5
+---
+
+apiVersion: networking.k8s.io/v1
+kind: IngressClass
+metadata:
+  labels:
+    app.kubernetes.io/name: ingress-ferry-proxy
+    app.kubernetes.io/instance: ingress-ferry-proxy
+    app.kubernetes.io/component: controller
+  name: ferry-proxy
+  namespace: ingress-ferry-proxy
+spec:
+  controller: k8s.io/ingress-ferry-proxy
+---
