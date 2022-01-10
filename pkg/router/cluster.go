@@ -35,11 +35,23 @@ func (r ResourceBuilders) Build(proxy *Proxy, destinationServices []*corev1.Serv
 
 type Proxy struct {
 	RemotePrefix string
-	Labels       map[string]string
-	EgressIPs    []string
-	EgressPort   int32
-	IngressIPs   []string
-	IngressPort  int32
+	Reverse      bool
+
+	ImportClusterName string
+	ExportClusterName string
+
+	ImportPortOffset int32
+	ExportPortOffset int32
+
+	Labels map[string]string
+
+	InClusterEgressIPs []string
+
+	ExportIngressIPs  []string
+	ExportIngressPort int32
+
+	ImportIngressIPs  []string
+	ImportIngressPort int32
 }
 
 type Resourcer interface {
@@ -96,14 +108,16 @@ type Ingress struct {
 }
 
 func (i Ingress) Apply(ctx context.Context, clientset *kubernetes.Clientset) (err error) {
-	_, err = clientset.NetworkingV1().Ingresses(i.Ingress.Namespace).
+	_, err = clientset.NetworkingV1().
+		Ingresses(i.Ingress.Namespace).
 		Create(ctx, i.Ingress, metav1.CreateOptions{
 			FieldManager: ferry,
 		})
 	if err != nil {
 		if errors.IsAlreadyExists(err) {
 			i.Ingress.ResourceVersion = "0"
-			_, err = clientset.NetworkingV1().Ingresses(i.Ingress.Namespace).
+			_, err = clientset.NetworkingV1().
+				Ingresses(i.Ingress.Namespace).
 				Update(ctx, i.Ingress, metav1.UpdateOptions{
 					FieldManager: ferry,
 				})
@@ -123,6 +137,44 @@ func (i Ingress) Delete(ctx context.Context, clientset *kubernetes.Clientset) (e
 		Delete(ctx, i.Ingress.Name, metav1.DeleteOptions{})
 	if err != nil && !errors.IsNotFound(err) {
 		return fmt.Errorf("delete ingress %s.%s: %w", i.Ingress.Name, i.Ingress.Namespace, err)
+	}
+	return nil
+}
+
+type ConfigMap struct {
+	ConfigMap *corev1.ConfigMap
+}
+
+func (i ConfigMap) Apply(ctx context.Context, clientset *kubernetes.Clientset) (err error) {
+	_, err = clientset.CoreV1().
+		ConfigMaps(i.ConfigMap.Namespace).
+		Create(ctx, i.ConfigMap, metav1.CreateOptions{
+			FieldManager: ferry,
+		})
+	if err != nil {
+		if errors.IsAlreadyExists(err) {
+			i.ConfigMap.ResourceVersion = "0"
+			_, err = clientset.CoreV1().
+				ConfigMaps(i.ConfigMap.Namespace).
+				Update(ctx, i.ConfigMap, metav1.UpdateOptions{
+					FieldManager: ferry,
+				})
+			if err != nil {
+				return fmt.Errorf("update ConfigMap %s.%s: %w", i.ConfigMap.Name, i.ConfigMap.Namespace, err)
+			}
+		} else {
+			return fmt.Errorf("create ConfigMap %s.%s: %w", i.ConfigMap.Name, i.ConfigMap.Namespace, err)
+		}
+	}
+	return nil
+}
+
+func (i ConfigMap) Delete(ctx context.Context, clientset *kubernetes.Clientset) (err error) {
+	err = clientset.CoreV1().
+		ConfigMaps(i.ConfigMap.Namespace).
+		Delete(ctx, i.ConfigMap.Name, metav1.DeleteOptions{})
+	if err != nil && !errors.IsNotFound(err) {
+		return fmt.Errorf("delete ConfigMap %s.%s: %w", i.ConfigMap.Name, i.ConfigMap.Namespace, err)
 	}
 	return nil
 }
@@ -155,43 +207,54 @@ type Backend struct {
 }
 
 func (b Backend) Apply(ctx context.Context, clientset *kubernetes.Clientset) (err error) {
-	_, err = clientset.CoreV1().
+	ori, err := clientset.CoreV1().
 		Services(b.Service.Namespace).
-		Create(ctx, b.Service, metav1.CreateOptions{
-			FieldManager: ferry,
-		})
+		Get(ctx, b.Service.Name, metav1.GetOptions{})
 	if err != nil {
-		if errors.IsAlreadyExists(err) {
-			b.Service.ResourceVersion = "0"
-			_, err = clientset.CoreV1().Services(b.Service.Namespace).
-				Update(ctx, b.Service, metav1.UpdateOptions{
+		if errors.IsNotFound(err) {
+			_, err = clientset.CoreV1().
+				Services(b.Service.Namespace).
+				Create(ctx, b.Service, metav1.CreateOptions{
 					FieldManager: ferry,
 				})
 			if err != nil {
-				return fmt.Errorf("update service %s.%s: %w", b.Service.Name, b.Service.Namespace, err)
+				return fmt.Errorf("create service %s.%s: %w", b.Service.Name, b.Service.Namespace, err)
 			}
 		} else {
-			return fmt.Errorf("create service %s.%s: %w", b.Service.Name, b.Service.Namespace, err)
+			return fmt.Errorf("get service %s.%s: %w", b.Service.Name, b.Service.Namespace, err)
+		}
+	} else {
+		ori.Spec.Ports = b.Service.Spec.Ports
+		_, err = clientset.CoreV1().
+			Services(b.Service.Namespace).
+			Update(ctx, ori, metav1.UpdateOptions{
+				FieldManager: ferry,
+			})
+		if err != nil {
+			return fmt.Errorf("update service %s.%s: %w", b.Service.Name, b.Service.Namespace, err)
 		}
 	}
 
-	_, err = clientset.CoreV1().
-		Endpoints(b.Endpoints.Namespace).
-		Create(ctx, b.Endpoints, metav1.CreateOptions{
-			FieldManager: ferry,
-		})
-	if err != nil {
-		if errors.IsAlreadyExists(err) {
-			b.Endpoints.ResourceVersion = "0"
-			_, err = clientset.CoreV1().Endpoints(b.Endpoints.Namespace).
-				Update(ctx, b.Endpoints, metav1.UpdateOptions{
-					FieldManager: ferry,
-				})
-			if err != nil {
-				return fmt.Errorf("update endpoints %s.%s: %w", b.Endpoints.Name, b.Endpoints.Namespace, err)
+	if b.Endpoints != nil {
+		_, err = clientset.CoreV1().
+			Endpoints(b.Endpoints.Namespace).
+			Create(ctx, b.Endpoints, metav1.CreateOptions{
+				FieldManager: ferry,
+			})
+		if err != nil {
+			if errors.IsAlreadyExists(err) {
+				b.Endpoints.ResourceVersion = "0"
+				_, err = clientset.CoreV1().
+					Endpoints(b.Endpoints.Namespace).
+					Update(ctx, b.Endpoints, metav1.UpdateOptions{
+						FieldManager: ferry,
+					})
+				if err != nil {
+					return fmt.Errorf("update endpoints %s.%s: %w", b.Endpoints.Name, b.Endpoints.Namespace, err)
+				}
+			} else {
+				return fmt.Errorf("create endpoints %s.%s: %w", b.Endpoints.Name, b.Endpoints.Namespace, err)
 			}
-		} else {
-			return fmt.Errorf("create endpoints %s.%s: %w", b.Endpoints.Name, b.Endpoints.Namespace, err)
 		}
 	}
 	return nil
@@ -199,16 +262,18 @@ func (b Backend) Apply(ctx context.Context, clientset *kubernetes.Clientset) (er
 
 func (b Backend) Delete(ctx context.Context, clientset *kubernetes.Clientset) (err error) {
 	err = clientset.CoreV1().
-		Endpoints(b.Service.Namespace).
-		Delete(ctx, b.Endpoints.Name, metav1.DeleteOptions{})
-	if err != nil && !errors.IsNotFound(err) {
-		return fmt.Errorf("delete endpoints %s.%s: %w", b.Endpoints.Name, b.Endpoints.Namespace, err)
-	}
-	err = clientset.CoreV1().
 		Services(b.Service.Namespace).
 		Delete(ctx, b.Service.Name, metav1.DeleteOptions{})
 	if err != nil && !errors.IsNotFound(err) {
 		return fmt.Errorf("delete service %s.%s: %w", b.Endpoints.Name, b.Endpoints.Namespace, err)
+	}
+	if b.Endpoints != nil {
+		err = clientset.CoreV1().
+			Endpoints(b.Endpoints.Namespace).
+			Delete(ctx, b.Endpoints.Name, metav1.DeleteOptions{})
+		if err != nil && !errors.IsNotFound(err) {
+			return fmt.Errorf("delete endpoints %s.%s: %w", b.Endpoints.Name, b.Endpoints.Namespace, err)
+		}
 	}
 	return nil
 }
@@ -237,7 +302,7 @@ func BuildBackend(proxy *Proxy, name, ns string, ips []string, srcPort, destPort
 			ObjectMeta: meta,
 			Subsets: []corev1.EndpointSubset{
 				{
-					Addresses: buildIPToEndpointAddress(ips),
+					Addresses: BuildIPToEndpointAddress(ips),
 					Ports: []corev1.EndpointPort{
 						{
 							Port: destPort,
@@ -249,7 +314,7 @@ func BuildBackend(proxy *Proxy, name, ns string, ips []string, srcPort, destPort
 	}
 }
 
-func buildIPToEndpointAddress(ips []string) []corev1.EndpointAddress {
+func BuildIPToEndpointAddress(ips []string) []corev1.EndpointAddress {
 	eps := []corev1.EndpointAddress{}
 	for _, ip := range ips {
 		eps = append(eps, corev1.EndpointAddress{

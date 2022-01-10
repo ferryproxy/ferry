@@ -3,17 +3,14 @@ package controller
 import (
 	"context"
 	"sync"
-	"time"
 
 	"github.com/ferry-proxy/ferry/pkg/router"
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/cache"
 )
 
 type DataPlaneControllerConfig struct {
@@ -58,7 +55,7 @@ type DataPlaneController struct {
 	cache                      map[string]*corev1.Service
 }
 
-func (c *DataPlaneController) Run(ctx context.Context) {
+func (c *DataPlaneController) Run(ctx context.Context) error {
 	c.logger.Info("DataPlane controller started")
 	defer func() {
 		// TODO: Just clean up what is no longer needed
@@ -67,19 +64,14 @@ func (c *DataPlaneController) Run(ctx context.Context) {
 		c.logger.Info("DataPlane controller stopped")
 	}()
 	c.ctx = ctx
-	cli := c.exportClientset.CoreV1().Services("")
-	informer := cache.NewSharedInformer(&cache.ListWatch{
-		ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
+	informerFactory := informers.NewSharedInformerFactoryWithOptions(c.exportClientset, 0,
+		informers.WithTweakListOptions(func(options *metav1.ListOptions) {
 			options.LabelSelector = c.labelSelector
-			return cli.List(ctx, options)
-		},
-		WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
-			options.LabelSelector = c.labelSelector
-			return cli.Watch(ctx, options)
-		},
-	}, &corev1.Service{}, 0*time.Second)
+		}))
+	informer := informerFactory.Core().V1().Services().Informer()
 	informer.AddEventHandler(c)
 	informer.Run(ctx.Done())
+	return nil
 }
 
 func (c *DataPlaneController) apply(ctx context.Context, svcs []*corev1.Service) error {
@@ -97,13 +89,13 @@ func (c *DataPlaneController) apply(ctx context.Context, svcs []*corev1.Service)
 
 	err = ir.Apply(ctx, c.exportClientset)
 	if err != nil {
-		c.logger.Error(err, "Apply Server")
+		c.logger.Error(err, "Apply To Export")
 		return err
 	}
 
 	err = er.Apply(ctx, c.importClientset)
 	if err != nil {
-		c.logger.Error(err, "Apply Client")
+		c.logger.Error(err, "Apply To Import")
 		return err
 	}
 	return nil
@@ -172,7 +164,6 @@ func (c *DataPlaneController) OnUpdate(oldObj, newObj interface{}) {
 			"Service", uniqueKey(svc.Name, svc.Namespace),
 		)
 	}
-
 }
 
 func (c *DataPlaneController) OnDelete(obj interface{}) {

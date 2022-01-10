@@ -5,12 +5,13 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/ferry-proxy/ferry/api/v1alpha1"
+	"github.com/ferry-proxy/api/apis/ferry/v1alpha1"
+	versioned "github.com/ferry-proxy/client-go/generated/clientset/versioned"
+	externalversions "github.com/ferry-proxy/client-go/generated/informers/externalversions"
 	"github.com/go-logr/logr"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	restclient "k8s.io/client-go/rest"
-	"sigs.k8s.io/controller-runtime/pkg/cache"
 )
 
 type ferryPolicyControllerConfig struct {
@@ -61,19 +62,21 @@ func (c *ferryPolicyController) Get(name string) *v1alpha1.FerryPolicy {
 func (c *ferryPolicyController) Run(ctx context.Context) error {
 	c.logger.Info("FerryPolicy controller started")
 	defer c.logger.Info("FerryPolicy controller stopped")
-	cache, err := cache.New(c.config, cache.Options{
-		Namespace: c.namespace,
-	})
+
+	clientset, err := versioned.NewForConfig(c.config)
 	if err != nil {
 		return err
 	}
-	informer, err := cache.GetInformer(ctx, &v1alpha1.FerryPolicy{})
-	if err != nil {
-		return err
-	}
-	informer.AddEventHandler(c)
 	c.ctx = ctx
-	return cache.Start(ctx)
+	informerFactory := externalversions.NewSharedInformerFactoryWithOptions(clientset, 0,
+		externalversions.WithNamespace(c.namespace))
+	informer := informerFactory.Ferry().
+		V1alpha1().
+		FerryPolicies().
+		Informer()
+	informer.AddEventHandler(c)
+	informer.Run(ctx.Done())
+	return nil
 }
 
 func (c *ferryPolicyController) OnAdd(obj interface{}) {
@@ -134,7 +137,44 @@ func (c *ferryPolicyController) OnDelete(obj interface{}) {
 	delete(c.mapCancel, f.Name)
 }
 
+func getPort(ctx context.Context, clientset *kubernetes.Clientset, route *v1alpha1.ClusterInformationSpecRoute) (int32, error) {
+	if route == nil {
+		return 31087, nil
+	}
+	if route.Port != 0 {
+		return route.Port, nil
+	}
+
+	if route.ServiceNamespace == nil {
+		return 0, fmt.Errorf("ServiceNamespace is empty")
+	}
+	if route.ServiceName == nil {
+		return 0, fmt.Errorf("ServiceName is empty")
+	}
+	ep, err := clientset.CoreV1().Endpoints(*route.ServiceNamespace).Get(ctx, *route.ServiceName, metav1.GetOptions{})
+	if err != nil {
+		return 0, err
+	}
+	if len(ep.Subsets) == 0 {
+		return 0, fmt.Errorf("Endpoints's Subsets is empty")
+	}
+
+	if len(ep.Subsets[0].Ports) == 0 {
+		return 0, fmt.Errorf("Endpoints's Subsets[0].Ports is empty")
+	}
+
+	for _, port := range ep.Subsets[0].Ports {
+		if port.Port != 0 {
+			return port.Port, nil
+		}
+	}
+	return 31087, nil
+}
+
 func getIPs(ctx context.Context, clientset *kubernetes.Clientset, route *v1alpha1.ClusterInformationSpecRoute) ([]string, error) {
+	if route == nil {
+		return nil, nil
+	}
 	if route.IP != nil {
 		return []string{*route.IP}, nil
 	}

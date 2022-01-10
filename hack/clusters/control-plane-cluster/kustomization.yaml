@@ -1,9 +1,10 @@
 namespace: ferry-system
 
 bases:
-- ../../../config/default
+- https://github.com/ferry-proxy/api/config/crd
 
 resources:
+- ns.yaml
 - ferry-policy.yaml
 - data-plane-cluster-1.yaml
 - data-plane-cluster-2.yaml

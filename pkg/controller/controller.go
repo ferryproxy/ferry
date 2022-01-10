@@ -6,16 +6,15 @@ import (
 	"sync"
 	"time"
 
-	"github.com/go-logr/logr"
+	// "github.com/ferry-proxy/ferry/pkg/router/original"
 
-	"github.com/ferry-proxy/ferry/api/v1alpha1"
+	"github.com/ferry-proxy/api/apis/ferry/v1alpha1"
 	"github.com/ferry-proxy/ferry/pkg/client"
 	"github.com/ferry-proxy/ferry/pkg/router"
-	"github.com/ferry-proxy/ferry/pkg/router/original"
+	original "github.com/ferry-proxy/ferry/pkg/router/tunnel"
+	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/labels"
-
 	restclient "k8s.io/client-go/rest"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 type Controller struct {
@@ -30,8 +29,12 @@ type Controller struct {
 }
 
 func NewController(ctx context.Context, config *restclient.Config, namespace string) (*Controller, error) {
+	log, err := logr.FromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
 	return &Controller{
-		logger:                   log.FromContext(ctx),
+		logger:                   log,
 		config:                   config,
 		namespace:                namespace,
 		cacheDataPlaneController: map[string]*DataPlaneController{},
@@ -39,11 +42,11 @@ func NewController(ctx context.Context, config *restclient.Config, namespace str
 	}, nil
 }
 
-func (c *Controller) Start(ctx context.Context) error {
+func (c *Controller) Run(ctx context.Context) error {
 	clusterInformation := newClusterInformationController(&clusterInformationControllerConfig{
 		Config:    c.config,
 		Namespace: c.namespace,
-		Logger:    c.logger.WithName("cluster-infomation"),
+		Logger:    c.logger.WithName("cluster-information"),
 		SyncFunc: func(ctx context.Context, s string) {
 			go func() {
 				list := c.ferryPolicyController.List()
@@ -75,13 +78,12 @@ func (c *Controller) Start(ctx context.Context) error {
 
 	time.Sleep(time.Second * 2)
 
-	go func() {
-		err := ferryPolicy.Run(ctx)
-		if err != nil {
-			c.logger.Error(err, "Run FerryPolicyController")
-		}
-		cancel()
-	}()
+	err := ferryPolicy.Run(ctx)
+	if err != nil {
+		c.logger.Error(err, "Run FerryPolicyController")
+	}
+	cancel()
+
 	return nil
 }
 
@@ -101,13 +103,6 @@ func (c *Controller) sync(ctx context.Context, policyName string, syncCluster st
 			exportCluster := c.clusterInformationController.Get(export.ClusterName)
 			if exportCluster == nil {
 				c.logger.Info("Not found ClusterInformation",
-					"FerryPolicy", uniqueKey(policy.Name, policy.Namespace),
-					"ClusterInformation", export.ClusterName,
-				)
-				continue
-			}
-			if exportCluster.Spec.Ingress == nil {
-				c.logger.Info("Tried to export Service but Ingress is empty",
 					"FerryPolicy", uniqueKey(policy.Name, policy.Namespace),
 					"ClusterInformation", export.ClusterName,
 				)
@@ -185,34 +180,84 @@ func (c *Controller) sync(ctx context.Context, policyName string, syncCluster st
 					continue
 				}
 
-				egressIPs, err := getIPs(ctx, importClientset, importCluster.Spec.Egress)
+				inClusterEgressIPs, err := getIPs(ctx, importClientset, importCluster.Spec.Egress)
 				if err != nil {
-					c.logger.Error(err, "Get IPs",
+					c.logger.Error(err, "Get IPs for inClusterEgressIPs",
 						"FerryPolicy", uniqueKey(policy.Name, policy.Namespace),
 						"ClusterInformation", importCluster.Name,
 					)
 					continue
 				}
 
-				ingressIPs, err := getIPs(ctx, exportClientset, exportCluster.Spec.Ingress)
+				exportIngressIPs, err := getIPs(ctx, exportClientset, exportCluster.Spec.Ingress)
 				if err != nil {
-					c.logger.Error(err, "Get IPs",
+					c.logger.Error(err, "Get IPs for exportIngressIPs",
 						"FerryPolicy", uniqueKey(policy.Name, policy.Namespace),
 						"ClusterInformation", exportCluster.Name,
 					)
 					continue
 				}
+				exportIngressPort, err := getPort(ctx, exportClientset, exportCluster.Spec.Ingress)
+				if err != nil {
+					c.logger.Error(err, "Get port for exportIngressPort",
+						"FerryPolicy", uniqueKey(policy.Name, policy.Namespace),
+						"ClusterInformation", exportCluster.Name,
+					)
+					continue
+				}
+
+				importIngressIPs, err := getIPs(ctx, importClientset, importCluster.Spec.Ingress)
+				if err != nil {
+					c.logger.Error(err, "Get IPs for importIngressIPs",
+						"FerryPolicy", uniqueKey(policy.Name, policy.Namespace),
+						"ClusterInformation", importCluster.Name,
+					)
+					continue
+				}
+				importIngressPort, err := getPort(ctx, importClientset, importCluster.Spec.Ingress)
+				if err != nil {
+					c.logger.Error(err, "Get port for importIngressPort",
+						"FerryPolicy", uniqueKey(policy.Name, policy.Namespace),
+						"ClusterInformation", importCluster.Name,
+					)
+					continue
+				}
+
+				reverse := false
+
+				if len(exportIngressIPs) == 0 {
+					if len(importIngressIPs) == 0 {
+						c.logger.Info("Tried to export Service but Ingress is empty",
+							"FerryPolicy", uniqueKey(policy.Name, policy.Namespace),
+							"ClusterInformation", export.ClusterName,
+						)
+						continue
+					} else {
+						reverse = true
+					}
+				}
+
 				c.logger.Info("Run DataPlaneController",
 					"ExportClusterName", exportCluster.Name,
 					"ImportClusterName", importCluster.Name,
 					"Selector", labels.SelectorFromSet(matchSet),
-					"EgressIPs", egressIPs,
-					"EgressPort", importCluster.Spec.Egress.Port,
-					"IngressIPs", ingressIPs,
-					"IngressPort", exportCluster.Spec.Ingress.Port,
+					"InClusterEgressIPs", inClusterEgressIPs,
+					"ExportIngressIPs", exportIngressIPs,
+					"ExportIngressPort", exportIngressPort,
+					"ImportIngressIPs", importIngressIPs,
+					"ImportIngressPort", importIngressPort,
+					"Reverse", reverse,
 				)
 
 				key := exportCluster.Name + "|" + importCluster.Name
+
+				var exportPortOffset int32 = 40000
+				var importPortOffset int32 = 50000
+				if reverse {
+					exportPortOffset = 45000
+					exportPortOffset = 55000
+				}
+
 				dataPlane := NewDataPlaneController(DataPlaneControllerConfig{
 					ExportClusterName: exportCluster.Name,
 					ImportClusterName: importCluster.Name,
@@ -222,14 +267,24 @@ func (c *Controller) sync(ctx context.Context, policyName string, syncCluster st
 					Logger: c.logger.WithName("data-plane").
 						WithValues("ExportCluster", exportCluster.Name).
 						WithValues("ImportCluster", importCluster.Name),
-					SourceResourceBuilder:      router.ResourceBuilders{original.IngressBuilder{}},
-					DestinationResourceBuilder: router.ResourceBuilders{original.EgressBuilder{}, original.ServiceEgressDiscoveryBuilder{}},
+					SourceResourceBuilder:      router.ResourceBuilders{original.IngressBuilder},
+					DestinationResourceBuilder: router.ResourceBuilders{original.EgressBuilder, original.ServiceEgressDiscoveryBuilder},
 					Proxy: router.Proxy{
-						RemotePrefix: "ferry",
-						EgressIPs:    egressIPs,
-						EgressPort:   importCluster.Spec.Egress.Port,
-						IngressIPs:   ingressIPs,
-						IngressPort:  exportCluster.Spec.Ingress.Port,
+						RemotePrefix:     "ferry",
+						ExportPortOffset: exportPortOffset,
+						ImportPortOffset: importPortOffset,
+						Reverse:          reverse,
+
+						ExportClusterName: exportCluster.Name,
+						ImportClusterName: importCluster.Name,
+
+						InClusterEgressIPs: inClusterEgressIPs,
+
+						ExportIngressIPs:  exportIngressIPs,
+						ExportIngressPort: exportIngressPort,
+
+						ImportIngressIPs:  importIngressIPs,
+						ImportIngressPort: importIngressPort,
 						Labels: map[string]string{
 							"managed-by": "ferry",
 						},

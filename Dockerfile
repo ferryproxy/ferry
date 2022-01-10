@@ -1,19 +1,9 @@
-# Build the manager binary
-FROM ghcr.io/mirrorshub/docker/golang:1.17 as builder
-
-WORKDIR /workspace
-
-# Copy the go source
+FROM golang:alpine AS builder
+WORKDIR /go/src/github.com/ferry-tunnel/ferry/
 COPY . .
+ENV CGO_ENABLED=0
+RUN go install ./cmd/controller
 
-# Build
-RUN CGO_ENABLED=0 go build -a -o manager main.go
-
-# Use distroless as minimal base image to package the manager binary
-# Refer to https://github.com/GoogleContainerTools/distroless for more details
-FROM ghcr.io/mirrorshub/distroless/static:nonroot
-WORKDIR /
-COPY --from=builder /workspace/manager .
-USER 65532:65532
-
-ENTRYPOINT ["/manager"]
+FROM alpine
+COPY --from=builder /go/bin/controller /usr/local/bin/
+ENTRYPOINT [ "/usr/local/bin/controller" ]

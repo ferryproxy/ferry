@@ -4,10 +4,11 @@ import (
 	"context"
 	"sync"
 
-	"github.com/ferry-proxy/ferry/api/v1alpha1"
+	"github.com/ferry-proxy/api/apis/ferry/v1alpha1"
+	versioned "github.com/ferry-proxy/client-go/generated/clientset/versioned"
+	externalversions "github.com/ferry-proxy/client-go/generated/informers/externalversions"
 	"github.com/go-logr/logr"
 	restclient "k8s.io/client-go/rest"
-	"sigs.k8s.io/controller-runtime/pkg/cache"
 )
 
 type clusterInformationControllerConfig struct {
@@ -39,19 +40,21 @@ func newClusterInformationController(conf *clusterInformationControllerConfig) *
 func (c *clusterInformationController) Run(ctx context.Context) error {
 	c.logger.Info("ClusterInformation controller started")
 	defer c.logger.Info("ClusterInformation controller stopped")
-	cache, err := cache.New(c.config, cache.Options{
-		Namespace: c.namespace,
-	})
+
+	clientset, err := versioned.NewForConfig(c.config)
 	if err != nil {
 		return err
 	}
-	informer, err := cache.GetInformer(ctx, &v1alpha1.ClusterInformation{})
-	if err != nil {
-		return err
-	}
-	informer.AddEventHandler(c)
 	c.ctx = ctx
-	return cache.Start(ctx)
+	informerFactory := externalversions.NewSharedInformerFactoryWithOptions(clientset, 0,
+		externalversions.WithNamespace(c.namespace))
+	informer := informerFactory.Ferry().
+		V1alpha1().
+		ClusterInformations().
+		Informer()
+	informer.AddEventHandler(c)
+	informer.Run(ctx.Done())
+	return nil
 }
 
 func (c *clusterInformationController) OnAdd(obj interface{}) {

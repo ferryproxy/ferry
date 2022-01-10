@@ -1,14 +1,13 @@
-apiVersion: ferry.daocloud.io/v1alpha1
+apiVersion: ferry.zsm.io/v1alpha1
 kind: ClusterInformation
 metadata:
   name: ferry-cluster2
 spec:
   kubeconfig: #<base64-encoded-kubeconfig-data:data-plane-cluster-2>
-  domain:
-    kind: Service
   egress:
-    apiGroup: "networking.k8s.io/v1"
-    kind: "Ingress"
-    serviceName: "ingress-nginx-controller"
-    serviceNamespace: "ingress-nginx"
-    port: 80
+    serviceName: "ferry-tunnel"
+    serviceNamespace: "ferry-tunnel-system"
+    port: 31087
+  ingress:
+    ip: #<host-ip>
+    port: #<host-port:data-plane-cluster-2>
