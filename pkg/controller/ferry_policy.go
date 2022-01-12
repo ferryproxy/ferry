@@ -8,6 +8,7 @@ import (
 	"github.com/ferry-proxy/api/apis/ferry/v1alpha1"
 	versioned "github.com/ferry-proxy/client-go/generated/clientset/versioned"
 	externalversions "github.com/ferry-proxy/client-go/generated/informers/externalversions"
+	"github.com/ferry-proxy/ferry/pkg/utils"
 	"github.com/go-logr/logr"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -43,12 +44,16 @@ func newFerryPolicyController(conf *ferryPolicyControllerConfig) *ferryPolicyCon
 	}
 }
 
-func (c *ferryPolicyController) List() []string {
+func (c *ferryPolicyController) List() []*v1alpha1.FerryPolicy {
 	c.mut.RLock()
 	defer c.mut.RUnlock()
-	var list []string
+	var list []*v1alpha1.FerryPolicy
 	for _, v := range c.cache {
-		list = append(list, v.Name)
+		item := c.cache[v.Name]
+		if item == nil {
+			continue
+		}
+		list = append(list, item)
 	}
 	return list
 }
@@ -83,7 +88,7 @@ func (c *ferryPolicyController) OnAdd(obj interface{}) {
 	f := obj.(*v1alpha1.FerryPolicy)
 	f = f.DeepCopy()
 	c.logger.Info("OnAdd",
-		"FerryPolicy", uniqueKey(f.Name, f.Namespace),
+		"FerryPolicy", utils.KObj(f),
 	)
 
 	c.mut.Lock()
@@ -100,7 +105,7 @@ func (c *ferryPolicyController) OnUpdate(oldObj, newObj interface{}) {
 	f := newObj.(*v1alpha1.FerryPolicy)
 	f = f.DeepCopy()
 	c.logger.Info("OnUpdate",
-		"FerryPolicy", uniqueKey(f.Name, f.Namespace),
+		"FerryPolicy", utils.KObj(f),
 	)
 
 	c.mut.Lock()
@@ -121,7 +126,7 @@ func (c *ferryPolicyController) OnUpdate(oldObj, newObj interface{}) {
 func (c *ferryPolicyController) OnDelete(obj interface{}) {
 	f := obj.(*v1alpha1.FerryPolicy)
 	c.logger.Info("OnDelete",
-		"FerryPolicy", uniqueKey(f.Name, f.Namespace),
+		"FerryPolicy", utils.KObj(f),
 	)
 
 	c.mut.Lock()

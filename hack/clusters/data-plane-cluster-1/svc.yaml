@@ -31,7 +31,7 @@ metadata:
   namespace: test
   labels:
     app: nginx
-    ferry.daocloud.io/export: "true"
+    ferry.zsm.io/export: "true"
 spec:
   selector:
     app: nginx

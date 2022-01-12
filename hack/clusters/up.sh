@@ -12,6 +12,9 @@ ip="$(${dir}/kind/host-docker-internal.sh)"
 
 for name in $(${dir}/kind/list.sh | grep -v control-); do
   if [[ ! -f "${out}/${name}.yaml" ]] || [[ "$(cat "${out}/${name}.yaml" | grep "kind-${name}")" == "" ]]; then
+      kubeconfig="$(cat "${out}/${name}" | base64)"
+      sed -i "s/:.\+#<host-port:${name}>/: 31087 #<host-port:${name}>/g" ${dir}/control-plane-cluster/${name}.yaml
+      sed -i "s/:.\+#<base64-encoded-kubeconfig-data:${name}>/: ${kubeconfig} #<base64-encoded-kubeconfig-data:${name}>/g" ${dir}/control-plane-cluster/${name}.yaml
     continue
   fi
   kubeconfig="$(cat "${out}/${name}" | base64)"

@@ -8,10 +8,10 @@ spec:
         - clusterName: ferry-cluster1
           match:
             labels:
-              ferry.daocloud.io/export: "true"
+              ferry.zsm.io/export: "true"
 
       imports:
         - clusterName: ferry-cluster2
           match:
             labels:
-              ferry.daocloud.io/export: "true"
+              ferry.zsm.io/export: "true"

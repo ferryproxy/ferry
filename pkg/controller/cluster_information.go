@@ -7,6 +7,7 @@ import (
 	"github.com/ferry-proxy/api/apis/ferry/v1alpha1"
 	versioned "github.com/ferry-proxy/client-go/generated/clientset/versioned"
 	externalversions "github.com/ferry-proxy/client-go/generated/informers/externalversions"
+	"github.com/ferry-proxy/ferry/pkg/utils"
 	"github.com/go-logr/logr"
 	restclient "k8s.io/client-go/rest"
 )
@@ -61,7 +62,7 @@ func (c *clusterInformationController) OnAdd(obj interface{}) {
 	f := obj.(*v1alpha1.ClusterInformation)
 	f = f.DeepCopy()
 	c.logger.Info("OnAdd",
-		"ClusterInformation", uniqueKey(f.Name, f.Namespace),
+		"ClusterInformation", utils.KObj(f),
 	)
 
 	c.mut.Lock()
@@ -75,7 +76,7 @@ func (c *clusterInformationController) OnUpdate(oldObj, newObj interface{}) {
 	f := newObj.(*v1alpha1.ClusterInformation)
 	f = f.DeepCopy()
 	c.logger.Info("OnUpdate",
-		"ClusterInformation", uniqueKey(f.Name, f.Namespace),
+		"ClusterInformation", utils.KObj(f),
 	)
 
 	c.mut.Lock()
@@ -88,7 +89,7 @@ func (c *clusterInformationController) OnUpdate(oldObj, newObj interface{}) {
 func (c *clusterInformationController) OnDelete(obj interface{}) {
 	f := obj.(*v1alpha1.ClusterInformation)
 	c.logger.Info("OnDelete",
-		"ClusterInformation", uniqueKey(f.Name, f.Namespace),
+		"ClusterInformation", utils.KObj(f),
 	)
 
 	c.mut.Lock()

@@ -3,8 +3,10 @@ package controller
 import (
 	"context"
 	"sync"
+	"time"
 
 	"github.com/ferry-proxy/ferry/pkg/router"
+	"github.com/ferry-proxy/ferry/pkg/utils"
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -53,14 +55,14 @@ type DataPlaneController struct {
 	sourceResourceBuilder      router.ResourceBuilders
 	destinationResourceBuilder router.ResourceBuilders
 	cache                      map[string]*corev1.Service
+
+	lastSourceResources      []router.Resourcer
+	lastDestinationResources []router.Resourcer
 }
 
-func (c *DataPlaneController) Run(ctx context.Context) error {
+func (c *DataPlaneController) Start(ctx context.Context) error {
 	c.logger.Info("DataPlane controller started")
 	defer func() {
-		// TODO: Just clean up what is no longer needed
-		// Currently, if rules are modified, all will be cleared and re-created
-		c.cleanup(context.Background())
 		c.logger.Info("DataPlane controller stopped")
 	}()
 	c.ctx = ctx
@@ -70,11 +72,85 @@ func (c *DataPlaneController) Run(ctx context.Context) error {
 		}))
 	informer := informerFactory.Core().V1().Services().Informer()
 	informer.AddEventHandler(c)
-	informer.Run(ctx.Done())
+
+	opt := metav1.ListOptions{
+		LabelSelector: labels.SelectorFromSet(c.proxy.Labels).String(),
+	}
+
+	err := c.initLastSourceResources(ctx, opt)
+	if err != nil {
+		return err
+	}
+	err = c.initLastDestinationResources(ctx, opt)
+	if err != nil {
+		return err
+	}
+
+	err = c.initCache(ctx, metav1.ListOptions{
+		LabelSelector: c.labelSelector,
+	})
+	if err != nil {
+		return err
+	}
+
+	go informer.Run(ctx.Done())
 	return nil
 }
 
-func (c *DataPlaneController) apply(ctx context.Context, svcs []*corev1.Service) error {
+func (c *DataPlaneController) initCache(ctx context.Context, opt metav1.ListOptions) error {
+	svcList, err := c.exportClientset.CoreV1().Services("").List(ctx, opt)
+	if err != nil {
+		return err
+	}
+	for _, item := range svcList.Items {
+		svc := item.DeepCopy()
+		c.cache[uniqueKey(svc.Name, svc.Namespace)] = svc
+	}
+	return nil
+}
+
+func (c *DataPlaneController) initLastSourceResources(ctx context.Context, opt metav1.ListOptions) error {
+	cmList, err := c.exportClientset.CoreV1().ConfigMaps(c.proxy.TunnelNamespace).List(ctx, opt)
+	if err != nil {
+		return err
+	}
+	for _, item := range cmList.Items {
+		c.lastSourceResources = append(c.lastSourceResources, router.ConfigMap{item.DeepCopy()})
+	}
+	return nil
+}
+
+func (c *DataPlaneController) initLastDestinationResources(ctx context.Context, opt metav1.ListOptions) error {
+	cmList, err := c.importClientset.CoreV1().ConfigMaps(c.proxy.TunnelNamespace).List(ctx, opt)
+	if err != nil {
+		return err
+	}
+	for _, item := range cmList.Items {
+		c.lastDestinationResources = append(c.lastDestinationResources, router.ConfigMap{item.DeepCopy()})
+	}
+	svcList, err := c.importClientset.CoreV1().Services("").List(ctx, opt)
+	if err != nil {
+		return err
+	}
+	for _, item := range svcList.Items {
+		c.lastDestinationResources = append(c.lastDestinationResources, router.Service{item.DeepCopy()})
+	}
+	epList, err := c.importClientset.CoreV1().Endpoints("").List(ctx, opt)
+	if err != nil {
+		return err
+	}
+	for _, item := range epList.Items {
+		c.lastDestinationResources = append(c.lastDestinationResources, router.Endpoints{item.DeepCopy()})
+	}
+	return nil
+}
+
+func (c *DataPlaneController) Sync(ctx context.Context) error {
+	c.logger.Info("Sync")
+	svcs := []*corev1.Service{}
+	for _, svc := range c.cache {
+		svcs = append(svcs, svc)
+	}
 	ir, err := c.sourceResourceBuilder.Build(&c.proxy, svcs)
 	if err != nil {
 		c.logger.Error(err, "Server Build")
@@ -87,62 +163,61 @@ func (c *DataPlaneController) apply(ctx context.Context, svcs []*corev1.Service)
 		return err
 	}
 
-	err = ir.Apply(ctx, c.exportClientset)
-	if err != nil {
-		c.logger.Error(err, "Apply To Export")
-		return err
+	sourceUpdate, sourceDelete := router.CalculatePatchResources(c.lastSourceResources, ir)
+	destinationUpdate, destinationDelete := router.CalculatePatchResources(c.lastDestinationResources, er)
+
+	for _, r := range sourceUpdate {
+		err := r.Apply(ctx, c.exportClientset)
+		if err != nil {
+			c.logger.Error(err, "Apply Export")
+			return err
+		}
 	}
 
-	err = er.Apply(ctx, c.importClientset)
-	if err != nil {
-		c.logger.Error(err, "Apply To Import")
-		return err
-	}
-	return nil
-}
-
-func (c *DataPlaneController) delete(ctx context.Context, svcs []*corev1.Service) error {
-	ir, err := c.sourceResourceBuilder.Build(&c.proxy, svcs)
-	if err != nil {
-		c.logger.Error(err, "Server Build")
-		return err
+	for _, r := range destinationUpdate {
+		err := r.Apply(ctx, c.importClientset)
+		if err != nil {
+			c.logger.Error(err, "Apply Import")
+			return err
+		}
 	}
 
-	er, err := c.destinationResourceBuilder.Build(&c.proxy, svcs)
-	if err != nil {
-		c.logger.Error(err, "Client Build")
-		return err
+	// TODO remove this
+	time.Sleep(5 * time.Second)
+
+	for _, r := range sourceDelete {
+		err := r.Delete(ctx, c.exportClientset)
+		if err != nil {
+			c.logger.Error(err, "Delete Export")
+		}
 	}
 
-	err = ir.Delete(ctx, c.exportClientset)
-	if err != nil {
-		c.logger.Error(err, "Delete Server")
-		return err
+	for _, r := range destinationDelete {
+		err := r.Delete(ctx, c.importClientset)
+		if err != nil {
+			c.logger.Error(err, "Delete Import")
+		}
 	}
 
-	err = er.Delete(ctx, c.importClientset)
-	if err != nil {
-		c.logger.Error(err, "Delete Client")
-		return err
-	}
+	c.lastSourceResources = ir
+	c.lastDestinationResources = er
 	return nil
 }
 
 func (c *DataPlaneController) OnAdd(obj interface{}) {
 	svc := obj.(*corev1.Service)
 	c.logger.Info("OnAdd",
-		"Service", uniqueKey(svc.Name, svc.Namespace),
+		"Service", utils.KObj(svc),
 	)
 	svc = svc.DeepCopy()
 
 	c.mut.Lock()
 	defer c.mut.Unlock()
 	c.cache[uniqueKey(svc.Name, svc.Namespace)] = svc
-	svcs := []*corev1.Service{svc}
-	err := c.apply(c.ctx, svcs)
+	err := c.Sync(c.ctx)
 	if err != nil {
 		c.logger.Error(err, "OnAdd",
-			"Service", uniqueKey(svc.Name, svc.Namespace),
+			"Service", utils.KObj(svc),
 		)
 	}
 }
@@ -150,18 +225,17 @@ func (c *DataPlaneController) OnAdd(obj interface{}) {
 func (c *DataPlaneController) OnUpdate(oldObj, newObj interface{}) {
 	svc := newObj.(*corev1.Service)
 	c.logger.Info("OnUpdate",
-		"Service", uniqueKey(svc.Name, svc.Namespace),
+		"Service", utils.KObj(svc),
 	)
 	svc = svc.DeepCopy()
 
 	c.mut.Lock()
 	defer c.mut.Unlock()
 	c.cache[uniqueKey(svc.Name, svc.Namespace)] = svc
-	svcs := []*corev1.Service{svc}
-	err := c.apply(c.ctx, svcs)
+	err := c.Sync(c.ctx)
 	if err != nil {
 		c.logger.Error(err, "OnUpdate",
-			"Service", uniqueKey(svc.Name, svc.Namespace),
+			"Service", utils.KObj(svc),
 		)
 	}
 }
@@ -169,35 +243,17 @@ func (c *DataPlaneController) OnUpdate(oldObj, newObj interface{}) {
 func (c *DataPlaneController) OnDelete(obj interface{}) {
 	svc := obj.(*corev1.Service)
 	c.logger.Info("OnDelete",
-		"Service", uniqueKey(svc.Name, svc.Namespace),
+		"Service", utils.KObj(svc),
 	)
 	svc = svc.DeepCopy()
 
 	c.mut.Lock()
 	defer c.mut.Unlock()
 	delete(c.cache, uniqueKey(svc.Name, svc.Namespace))
-	svcs := []*corev1.Service{svc}
-	err := c.delete(c.ctx, svcs)
+	err := c.Sync(c.ctx)
 	if err != nil {
 		c.logger.Error(err, "OnDelete",
-			"Service", uniqueKey(svc.Name, svc.Namespace),
+			"Service", utils.KObj(svc),
 		)
-	}
-}
-
-func (c *DataPlaneController) cleanup(ctx context.Context) {
-
-	c.logger.Info("cleanup")
-
-	c.mut.Lock()
-	defer c.mut.Unlock()
-	svcs := make([]*corev1.Service, 0, len(c.cache))
-	for _, svc := range c.cache {
-		svcs = append(svcs, svc)
-	}
-
-	err := c.delete(ctx, svcs)
-	if err != nil {
-		c.logger.Error(err, "cleanup")
 	}
 }

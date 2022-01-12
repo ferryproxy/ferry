@@ -6,9 +6,8 @@ import (
 	"strconv"
 	"strings"
 
-	"k8s.io/apimachinery/pkg/util/intstr"
-
 	"github.com/ferry-proxy/ferry/pkg/router"
+	"github.com/ferry-proxy/ferry/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -40,8 +39,8 @@ type serviceEgressDiscoveryBuilder struct {
 }
 
 // Build the Egress Discovery resource, perhaps Service or DNS
-func (serviceEgressDiscoveryBuilder) Build(proxy *router.Proxy, destinationServices []*corev1.Service) (router.Resourcer, error) {
-	backends := router.Backends{}
+func (serviceEgressDiscoveryBuilder) Build(proxy *router.Proxy, destinationServices []*corev1.Service) ([]router.Resourcer, error) {
+	resources := []router.Resourcer{}
 	for _, svc := range destinationServices {
 		for _, port := range svc.Spec.Ports {
 			if port.Protocol != corev1.ProtocolTCP {
@@ -53,53 +52,54 @@ func (serviceEgressDiscoveryBuilder) Build(proxy *router.Proxy, destinationServi
 			} else {
 				svcPort += proxy.ImportPortOffset
 			}
-			backend := BuildBackend(proxy, svc.Name, svc.Namespace, proxy.InClusterEgressIPs, port.Port, svcPort)
-			backends = append(backends, backend)
+			service, endpoint := BuildBackend(proxy, svc.Name, svc.Namespace, proxy.InClusterEgressIPs, port.Port, svcPort)
+			resources = append(resources, router.Service{service})
+			resources = append(resources, router.Endpoints{endpoint})
 		}
 	}
-	return backends, nil
+	return resources, nil
 }
 
-func BuildBackend(proxy *router.Proxy, name, ns string, ips []string, srcPort, destPort int32) router.Backend {
+func BuildBackend(proxy *router.Proxy, name, ns string, ips []string, srcPort, destPort int32) (*corev1.Service, *corev1.Endpoints) {
 	meta := metav1.ObjectMeta{
 		Name:      name,
 		Namespace: ns,
 		Labels:    proxy.Labels,
 	}
 
-	return router.Backend{
-		Service: &corev1.Service{
+	portName := fmt.Sprintf("%s-%s-%s-%d", proxy.ExportClusterName, ns, name, srcPort)
+
+	return &corev1.Service{
 			ObjectMeta: meta,
 			Spec: corev1.ServiceSpec{
 				Ports: []corev1.ServicePort{
 					{
-						Port:       srcPort,
-						TargetPort: intstr.FromInt(int(destPort)),
+						Name: portName,
+						Port: srcPort,
 					},
 				},
 			},
-		},
-		Endpoints: &corev1.Endpoints{
+		}, &corev1.Endpoints{
 			ObjectMeta: meta,
 			Subsets: []corev1.EndpointSubset{
 				{
 					Addresses: router.BuildIPToEndpointAddress(ips),
 					Ports: []corev1.EndpointPort{
 						{
+							Name: portName,
 							Port: destPort,
 						},
 					},
 				},
 			},
-		},
-	}
+		}
 }
 
 var EgressBuilder = egressBuilder{}
 
 type egressBuilder struct{}
 
-func (egressBuilder) Build(proxy *router.Proxy, destinationServices []*corev1.Service) (router.Resourcer, error) {
+func (egressBuilder) Build(proxy *router.Proxy, destinationServices []*corev1.Service) ([]router.Resourcer, error) {
 	if proxy.Reverse {
 		var serverBuilder serverBuilder
 		return serverBuilder.Build(proxy, destinationServices)
@@ -112,14 +112,14 @@ func (egressBuilder) Build(proxy *router.Proxy, destinationServices []*corev1.Se
 type clientBuilder struct{}
 
 // Build the client Egress resource
-func (clientBuilder) Build(proxy *router.Proxy, destinationServices []*corev1.Service) (router.Resourcer, error) {
+func (clientBuilder) Build(proxy *router.Proxy, destinationServices []*corev1.Service) ([]router.Resourcer, error) {
 	configMap := corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      proxy.ImportClusterName + "-" + proxy.ExportClusterName + "-client-tunnel",
-			Namespace: "ferry-tunnel-system",
-			Labels: map[string]string{
+			Name:      proxy.ImportClusterName + "-" + proxy.ExportClusterName + "-tunnel-client",
+			Namespace: proxy.TunnelNamespace,
+			Labels: utils.MergeMap(proxy.Labels, map[string]string{
 				"ferry-tunnel": "true",
-			},
+			}),
 		},
 		Data: map[string]string{},
 	}
@@ -159,7 +159,7 @@ func (clientBuilder) Build(proxy *router.Proxy, destinationServices []*corev1.Se
 		}
 	}
 
-	return router.Resourcers{
+	return []router.Resourcer{
 		router.ConfigMap{&configMap},
 	}, nil
 }
@@ -168,7 +168,7 @@ var IngressBuilder = ingressBuilder{}
 
 type ingressBuilder struct{}
 
-func (ingressBuilder) Build(proxy *router.Proxy, destinationServices []*corev1.Service) (router.Resourcer, error) {
+func (ingressBuilder) Build(proxy *router.Proxy, destinationServices []*corev1.Service) ([]router.Resourcer, error) {
 	if proxy.Reverse {
 		var clientBuilder clientBuilder
 		return clientBuilder.Build(proxy, destinationServices)
@@ -181,17 +181,17 @@ func (ingressBuilder) Build(proxy *router.Proxy, destinationServices []*corev1.S
 type serverBuilder struct{}
 
 // Build the server Deployment resource
-func (serverBuilder) Build(proxy *router.Proxy, destinationServices []*corev1.Service) (router.Resourcer, error) {
+func (serverBuilder) Build(proxy *router.Proxy, destinationServices []*corev1.Service) ([]router.Resourcer, error) {
 	configMap := corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      proxy.ImportClusterName + "-" + proxy.ExportClusterName + "-server-tunnel",
-			Namespace: "ferry-tunnel-system",
-			Labels: map[string]string{
+			Name:      proxy.ImportClusterName + "-" + proxy.ExportClusterName + "-tunnel-server",
+			Namespace: proxy.TunnelNamespace,
+			Labels: utils.MergeMap(proxy.Labels, map[string]string{
 				"ferry-tunnel": "true",
-			},
+			}),
 		},
 		Data: map[string]string{
-			"ingress": `
+			"tunnel-server": `
 [
 	{
 		"bind": [
@@ -206,7 +206,7 @@ func (serverBuilder) Build(proxy *router.Proxy, destinationServices []*corev1.Se
 		},
 	}
 
-	return router.Resourcers{
+	return []router.Resourcer{
 		router.ConfigMap{&configMap},
 	}, nil
 }
