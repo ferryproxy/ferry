@@ -8,10 +8,16 @@ spec:
         - clusterName: ferry-cluster1
           match:
             labels:
-              ferry.zsm.io/export: "true"
+              app: "web-1"
 
       imports:
         - clusterName: ferry-cluster2
+
+    - exports:
+        - clusterName: ferry-cluster2
           match:
             labels:
-              ferry.zsm.io/export: "true"
+              app: "web-2"
+
+      imports:
+        - clusterName: ferry-cluster1

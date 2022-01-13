@@ -6,34 +6,37 @@ metadata:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: web
+  name: web-1
   namespace: test
 spec:
   selector:
     matchLabels:
-      app: nginx
+      app: web-1
   replicas: 2
   template:
     metadata:
       labels:
-        app: nginx
+        app: web-1
     spec:
       containers:
-        - name: nginx
-          image: ghcr.io/mirrorshub/docker/nginx:alpine
+        - name: echoserver
+          image: ghcr.io/wzshiming/echoserver/echoserver:v0.0.1
+          env:
+            - name: MESSAGE
+              value: "cluster-1"
           ports:
-            - containerPort: 80
+            - containerPort: 8080
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: web
+  name: web-1
   namespace: test
   labels:
-    app: nginx
+    app: web-1
     ferry.zsm.io/export: "true"
 spec:
   selector:
-    app: nginx
+    app: web-1
   ports:
-    - port: 80
+    - port: 8080

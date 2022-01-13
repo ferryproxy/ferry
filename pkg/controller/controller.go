@@ -226,7 +226,7 @@ func (c *Controller) sync(ctx context.Context, policies []*v1alpha1.FerryPolicy,
 						exportPortOffset = 55000
 					}
 
-					log := c.logger.WithName("data-plane").
+					log := log.WithName("data-plane").
 						WithValues(
 							"Selector", labels.SelectorFromSet(matchSet),
 							"InClusterEgressIPs", inClusterEgressIPs,
@@ -279,11 +279,6 @@ func (c *Controller) sync(ctx context.Context, policies []*v1alpha1.FerryPolicy,
 					err = dataPlane.Start(ctx)
 					if err != nil {
 						c.logger.Error(err, "Start Data Plane")
-					}
-
-					err = dataPlane.Sync(ctx)
-					if err != nil {
-						c.logger.Error(err, "Sync Data Plane")
 					}
 				}
 			}
