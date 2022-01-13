@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
-	"strings"
 
 	"github.com/ferry-proxy/ferry/pkg/router"
 	"github.com/ferry-proxy/ferry/pkg/utils"
@@ -113,18 +112,22 @@ type clientBuilder struct{}
 
 // Build the client Egress resource
 func (clientBuilder) Build(proxy *router.Proxy, destinationServices []*corev1.Service) ([]router.Resourcer, error) {
-	configMap := corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      proxy.ImportClusterName + "-" + proxy.ExportClusterName + "-tunnel-client",
-			Namespace: proxy.TunnelNamespace,
-			Labels: utils.MergeMap(proxy.Labels, map[string]string{
-				"ferry-tunnel": "true",
-			}),
-		},
-		Data: map[string]string{},
-	}
+	labels := utils.MergeMap(proxy.Labels, map[string]string{
+		"ferry-tunnel": "true",
+	})
+
+	resourcers := []router.Resourcer{}
 
 	for _, svc := range destinationServices {
+		name := fmt.Sprintf("%s-%s-%s-%s-tunnel-client", proxy.ImportClusterName, proxy.ExportClusterName, svc.Namespace, svc.Name)
+		configMap := corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      name,
+				Namespace: proxy.TunnelNamespace,
+				Labels:    labels,
+			},
+			Data: map[string]string{},
+		}
 		for _, port := range svc.Spec.Ports {
 			if port.Protocol != corev1.ProtocolTCP {
 				continue
@@ -154,14 +157,12 @@ func (clientBuilder) Build(proxy *router.Proxy, destinationServices []*corev1.Se
 			if err != nil {
 				return nil, err
 			}
-			name := strings.Replace(fmt.Sprintf("%s-%s-%d", svc.Namespace, svc.Name, port.Port), ".", "-", -1)
-			configMap.Data[name] = string(data)
+			configMap.Data[strconv.FormatInt(int64(port.Port), 10)] = string(data)
 		}
+		resourcers = append(resourcers, router.ConfigMap{&configMap})
 	}
 
-	return []router.Resourcer{
-		router.ConfigMap{&configMap},
-	}, nil
+	return resourcers, nil
 }
 
 var IngressBuilder = ingressBuilder{}
@@ -182,16 +183,23 @@ type serverBuilder struct{}
 
 // Build the server Deployment resource
 func (serverBuilder) Build(proxy *router.Proxy, destinationServices []*corev1.Service) ([]router.Resourcer, error) {
-	configMap := corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      proxy.ImportClusterName + "-" + proxy.ExportClusterName + "-tunnel-server",
-			Namespace: proxy.TunnelNamespace,
-			Labels: utils.MergeMap(proxy.Labels, map[string]string{
-				"ferry-tunnel": "true",
-			}),
-		},
-		Data: map[string]string{
-			"tunnel-server": `
+	labels := utils.MergeMap(proxy.Labels, map[string]string{
+		"ferry-tunnel": "true",
+	})
+
+	resourcers := []router.Resourcer{}
+
+	for _, svc := range destinationServices {
+		name := fmt.Sprintf("%s-%s-%s-%s-tunnel-server", proxy.ImportClusterName, proxy.ExportClusterName, svc.Namespace, svc.Name)
+
+		configMap := corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      name,
+				Namespace: proxy.TunnelNamespace,
+				Labels:    labels,
+			},
+			Data: map[string]string{
+				"tunnel-server": `
 [
 	{
 		"bind": [
@@ -203,10 +211,10 @@ func (serverBuilder) Build(proxy *router.Proxy, destinationServices []*corev1.Se
 	}
 ]
 `,
-		},
+			},
+		}
+		resourcers = append(resourcers, router.ConfigMap{&configMap})
 	}
 
-	return []router.Resourcer{
-		router.ConfigMap{&configMap},
-	}, nil
+	return resourcers, nil
 }
