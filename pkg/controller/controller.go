@@ -46,15 +46,32 @@ func NewController(ctx context.Context, config *restclient.Config, namespace str
 }
 
 func (c *Controller) Run(ctx context.Context) error {
+	updateCh := make(chan struct{}, 1)
+
+	go func() {
+		for range updateCh {
+		next:
+			for {
+				select {
+				case <-updateCh:
+					continue
+				case <-time.After(time.Second):
+					break next
+				case <-ctx.Done():
+					return
+				}
+			}
+			list := c.ferryPolicyController.List()
+			c.sync(ctx, list, "")
+		}
+	}()
+
 	clusterInformation := newClusterInformationController(&clusterInformationControllerConfig{
 		Config:    c.config,
 		Namespace: c.namespace,
 		Logger:    c.logger.WithName("cluster-information"),
 		SyncFunc: func(ctx context.Context, s string) {
-			go func() {
-				list := c.ferryPolicyController.List()
-				c.sync(ctx, list, s)
-			}()
+			updateCh <- struct{}{}
 		},
 	})
 	c.clusterInformationController = clusterInformation
@@ -63,10 +80,7 @@ func (c *Controller) Run(ctx context.Context) error {
 		Namespace: c.namespace,
 		Logger:    c.logger.WithName("ferry-policy"),
 		SyncFunc: func(ctx context.Context, policy *v1alpha1.FerryPolicy) {
-			go func() {
-				list := c.ferryPolicyController.List()
-				c.sync(ctx, list, "")
-			}()
+			updateCh <- struct{}{}
 		},
 	})
 	c.ferryPolicyController = ferryPolicy
@@ -98,6 +112,8 @@ func (c *Controller) Run(ctx context.Context) error {
 func (c *Controller) sync(ctx context.Context, policies []*v1alpha1.FerryPolicy, syncCluster string) {
 	c.mut.Lock()
 	defer c.mut.Unlock()
+
+	updated := map[string]struct{}{}
 
 	for _, policy := range policies {
 		for _, rule := range policy.Spec.Rules {
@@ -217,7 +233,7 @@ func (c *Controller) sync(ctx context.Context, policies []*v1alpha1.FerryPolicy,
 						}
 					}
 
-					key := exportCluster.Name + "|" + importCluster.Name
+					key := fmt.Sprintf("%s-%#v|%s-%#v", export.ClusterName, export.Match, impor.ClusterName, impor.Match)
 
 					var exportPortOffset int32 = 40000
 					var importPortOffset int32 = 50000
@@ -280,8 +296,18 @@ func (c *Controller) sync(ctx context.Context, policies []*v1alpha1.FerryPolicy,
 					if err != nil {
 						c.logger.Error(err, "Start Data Plane")
 					}
+
+					updated[key] = struct{}{}
 				}
 			}
+		}
+	}
+
+	for key := range c.cacheDataPlaneCancel {
+		_, ok := updated[key]
+		if !ok {
+			c.cacheDataPlaneController[key].Cleanup(ctx)
+			delete(c.cacheDataPlaneController, key)
 		}
 	}
 	return
