@@ -8,11 +8,13 @@ kind: Deployment
 metadata:
   name: web-2
   namespace: test
+  labels:
+    app: web-2
 spec:
   selector:
     matchLabels:
       app: web-2
-  replicas: 2
+  replicas: 1
   template:
     metadata:
       labels:
