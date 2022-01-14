@@ -25,7 +25,7 @@ spec:
           image: ghcr.io/wzshiming/echoserver/echoserver:v0.0.1
           env:
             - name: MESSAGE
-              value: "cluster-1"
+              value: "cluster-0"
           ports:
             - containerPort: 8080
 ---
@@ -41,4 +41,8 @@ spec:
   selector:
     app: web-0
   ports:
-    - port: 8080
+    - name: http-8080
+      port: 8080
+    - name: http-80
+      port: 80
+      targetPort: 8080
