@@ -40,7 +40,24 @@ type serviceEgressDiscoveryBuilder struct {
 // Build the Egress Discovery resource, perhaps Service or DNS
 func (serviceEgressDiscoveryBuilder) Build(proxy *router.Proxy, destinationServices []*corev1.Service) ([]router.Resourcer, error) {
 	resources := []router.Resourcer{}
+	addresses := router.BuildIPToEndpointAddress(proxy.InClusterEgressIPs)
 	for _, svc := range destinationServices {
+		meta := metav1.ObjectMeta{
+			Name:      svc.Name,
+			Namespace: svc.Namespace,
+			Labels:    proxy.Labels,
+		}
+		service := &corev1.Service{
+			ObjectMeta: meta,
+			Spec: corev1.ServiceSpec{
+				Ports: []corev1.ServicePort{},
+			},
+		}
+		endpoints := &corev1.Endpoints{
+			ObjectMeta: meta,
+			Subsets:    []corev1.EndpointSubset{},
+		}
+
 		for _, port := range svc.Spec.Ports {
 			if port.Protocol != corev1.ProtocolTCP {
 				continue
@@ -51,47 +68,28 @@ func (serviceEgressDiscoveryBuilder) Build(proxy *router.Proxy, destinationServi
 			} else {
 				svcPort += proxy.ImportPortOffset
 			}
-			service, endpoint := BuildBackend(proxy, svc.Name, svc.Namespace, proxy.InClusterEgressIPs, port.Port, svcPort)
-			resources = append(resources, router.Service{service})
-			resources = append(resources, router.Endpoints{endpoint})
+			portName := fmt.Sprintf("%s-%s-%d-%d", svc.Name, svc.Namespace, port.Port, svcPort)
+			service.Spec.Ports = append(service.Spec.Ports, corev1.ServicePort{
+				Name:     portName,
+				Port:     port.Port,
+				Protocol: port.Protocol,
+			})
+			endpoints.Subsets = append(endpoints.Subsets, corev1.EndpointSubset{
+				Addresses: addresses,
+				Ports: []corev1.EndpointPort{
+					{
+						Name:     portName,
+						Port:     svcPort,
+						Protocol: port.Protocol,
+					},
+				},
+			})
 		}
+
+		resources = append(resources, router.Service{service})
+		resources = append(resources, router.Endpoints{endpoints})
 	}
 	return resources, nil
-}
-
-func BuildBackend(proxy *router.Proxy, name, ns string, ips []string, srcPort, destPort int32) (*corev1.Service, *corev1.Endpoints) {
-	meta := metav1.ObjectMeta{
-		Name:      name,
-		Namespace: ns,
-		Labels:    proxy.Labels,
-	}
-
-	portName := fmt.Sprintf("%s-%s-%s-%d", proxy.ExportClusterName, ns, name, srcPort)
-
-	return &corev1.Service{
-			ObjectMeta: meta,
-			Spec: corev1.ServiceSpec{
-				Ports: []corev1.ServicePort{
-					{
-						Name: portName,
-						Port: srcPort,
-					},
-				},
-			},
-		}, &corev1.Endpoints{
-			ObjectMeta: meta,
-			Subsets: []corev1.EndpointSubset{
-				{
-					Addresses: router.BuildIPToEndpointAddress(ips),
-					Ports: []corev1.EndpointPort{
-						{
-							Name: portName,
-							Port: destPort,
-						},
-					},
-				},
-			},
-		}
 }
 
 var EgressBuilder = egressBuilder{}

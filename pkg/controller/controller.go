@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/ferry-proxy/api/apis/ferry/v1alpha1"
-	"github.com/ferry-proxy/ferry/pkg/client"
 	"github.com/ferry-proxy/ferry/pkg/router"
 	original "github.com/ferry-proxy/ferry/pkg/router/tunnel"
 	"github.com/ferry-proxy/ferry/pkg/utils"
@@ -26,6 +25,7 @@ type Controller struct {
 	cacheDataPlaneController     map[string]*DataPlaneController
 	cacheDataPlaneCancel         map[string]func()
 	labels                       map[string]string
+	updateAllCh                  chan struct{}
 }
 
 func NewController(ctx context.Context, config *restclient.Config, namespace string) (*Controller, error) {
@@ -42,20 +42,19 @@ func NewController(ctx context.Context, config *restclient.Config, namespace str
 		labels: map[string]string{
 			"ferry.zsm.io/managed-by": "ferry-controller",
 		},
+		updateAllCh: make(chan struct{}, 1),
 	}, nil
 }
 
 func (c *Controller) Run(ctx context.Context) error {
-	updateCh := make(chan struct{}, 1)
-
 	go func() {
-		for range updateCh {
+		for range c.updateAllCh {
 		next:
 			for {
 				select {
-				case <-updateCh:
+				case <-c.updateAllCh:
 					continue
-				case <-time.After(time.Second):
+				case <-time.After(2 * time.Second):
 					break next
 				case <-ctx.Done():
 					return
@@ -71,7 +70,7 @@ func (c *Controller) Run(ctx context.Context) error {
 		Namespace: c.namespace,
 		Logger:    c.logger.WithName("cluster-information"),
 		SyncFunc: func(ctx context.Context, s string) {
-			updateCh <- struct{}{}
+			c.updateAllCh <- struct{}{}
 		},
 	})
 	c.clusterInformationController = clusterInformation
@@ -80,7 +79,7 @@ func (c *Controller) Run(ctx context.Context) error {
 		Namespace: c.namespace,
 		Logger:    c.logger.WithName("ferry-policy"),
 		SyncFunc: func(ctx context.Context, policy *v1alpha1.FerryPolicy) {
-			updateCh <- struct{}{}
+			c.updateAllCh <- struct{}{}
 		},
 	})
 	c.ferryPolicyController = ferryPolicy
@@ -183,14 +182,14 @@ func (c *Controller) sync(ctx context.Context, policies []*v1alpha1.FerryPolicy,
 						matchSet = impor.Match.Labels
 					}
 
-					exportClientset, err := client.NewClientsetFromKubeconfig(exportCluster.Spec.Kubeconfig)
-					if err != nil {
-						c.logger.Error(err, "Get Clientset")
+					exportClientset := c.clusterInformationController.Clientset(exportCluster.Name)
+					if exportClientset == nil {
+						c.logger.Error(fmt.Errorf("not found %q", exportCluster.Name), "Get Clientset")
 						continue
 					}
-					importClientset, err := client.NewClientsetFromKubeconfig(importCluster.Spec.Kubeconfig)
-					if err != nil {
-						c.logger.Error(err, "Get Clientset")
+					importClientset := c.clusterInformationController.Clientset(importCluster.Name)
+					if importClientset == nil {
+						c.logger.Error(fmt.Errorf("not found %q", importCluster.Name), "Get Clientset")
 						continue
 					}
 
@@ -253,37 +252,38 @@ func (c *Controller) sync(ctx context.Context, policies []*v1alpha1.FerryPolicy,
 							"Reverse", reverse,
 						)
 					log.Info("Run DataPlaneController")
+					proxy := router.Proxy{
+						Labels: utils.MergeMap(c.labels, map[string]string{
+							"exported-from": exportCluster.Name,
+							"imported-to":   importCluster.Name,
+						}),
+						RemotePrefix:     "ferry",
+						TunnelNamespace:  "ferry-tunnel-system",
+						ExportPortOffset: exportPortOffset,
+						ImportPortOffset: importPortOffset,
+						Reverse:          reverse,
+
+						ExportClusterName: exportCluster.Name,
+						ImportClusterName: importCluster.Name,
+
+						InClusterEgressIPs: inClusterEgressIPs,
+
+						ExportIngressIPs:  exportIngressIPs,
+						ExportIngressPort: exportIngressPort,
+
+						ImportIngressIPs:  importIngressIPs,
+						ImportIngressPort: importIngressPort,
+					}
 					dataPlane := NewDataPlaneController(DataPlaneControllerConfig{
-						ExportClusterName:          exportCluster.Name,
-						ImportClusterName:          importCluster.Name,
+						ExportCluster:              exportCluster,
+						ImportCluster:              importCluster,
 						Selector:                   labels.SelectorFromSet(matchSet),
 						ExportClientset:            exportClientset,
 						ImportClientset:            importClientset,
 						Logger:                     log,
 						SourceResourceBuilder:      router.ResourceBuilders{original.IngressBuilder},
 						DestinationResourceBuilder: router.ResourceBuilders{original.EgressBuilder, original.ServiceEgressDiscoveryBuilder},
-						Proxy: router.Proxy{
-							Labels: utils.MergeMap(c.labels, map[string]string{
-								"exported-from": exportCluster.Name,
-								"imported-to":   importCluster.Name,
-							}),
-							RemotePrefix:     "ferry",
-							TunnelNamespace:  "ferry-tunnel-system",
-							ExportPortOffset: exportPortOffset,
-							ImportPortOffset: importPortOffset,
-							Reverse:          reverse,
-
-							ExportClusterName: exportCluster.Name,
-							ImportClusterName: importCluster.Name,
-
-							InClusterEgressIPs: inClusterEgressIPs,
-
-							ExportIngressIPs:  exportIngressIPs,
-							ExportIngressPort: exportIngressPort,
-
-							ImportIngressIPs:  importIngressIPs,
-							ImportIngressPort: importIngressPort,
-						},
+						Proxy:                      proxy,
 					})
 					if cancel, ok := c.cacheDataPlaneCancel[key]; ok {
 						cancel()

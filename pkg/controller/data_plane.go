@@ -5,6 +5,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ferry-proxy/api/apis/ferry/v1alpha1"
 	"github.com/ferry-proxy/ferry/pkg/router"
 	"github.com/ferry-proxy/ferry/pkg/utils"
 	"github.com/go-logr/logr"
@@ -16,8 +17,8 @@ import (
 )
 
 type DataPlaneControllerConfig struct {
-	ImportClusterName          string
-	ExportClusterName          string
+	ExportCluster              *v1alpha1.ClusterInformation
+	ImportCluster              *v1alpha1.ClusterInformation
 	Selector                   labels.Selector
 	ExportClientset            *kubernetes.Clientset
 	ImportClientset            *kubernetes.Clientset
@@ -29,8 +30,8 @@ type DataPlaneControllerConfig struct {
 
 func NewDataPlaneController(conf DataPlaneControllerConfig) *DataPlaneController {
 	return &DataPlaneController{
-		importClusterName:          conf.ImportClusterName,
-		exportClusterName:          conf.ExportClusterName,
+		exportCluster:              conf.ExportCluster,
+		importCluster:              conf.ImportCluster,
 		exportClientset:            conf.ExportClientset,
 		importClientset:            conf.ImportClientset,
 		logger:                     conf.Logger,
@@ -46,8 +47,8 @@ func NewDataPlaneController(conf DataPlaneControllerConfig) *DataPlaneController
 type DataPlaneController struct {
 	mut                        sync.Mutex
 	ctx                        context.Context
-	importClusterName          string
-	exportClusterName          string
+	exportCluster              *v1alpha1.ClusterInformation
+	importCluster              *v1alpha1.ClusterInformation
 	logger                     logr.Logger
 	labelSelector              string
 	exportClientset            *kubernetes.Clientset
@@ -56,10 +57,9 @@ type DataPlaneController struct {
 	sourceResourceBuilder      router.ResourceBuilders
 	destinationResourceBuilder router.ResourceBuilders
 	cache                      map[string]*corev1.Service
-
-	lastSourceResources      []router.Resourcer
-	lastDestinationResources []router.Resourcer
-	chSync                   chan struct{}
+	lastSourceResources        []router.Resourcer
+	lastDestinationResources   []router.Resourcer
+	chSync                     chan struct{}
 }
 
 func (d *DataPlaneController) Start(ctx context.Context) error {
