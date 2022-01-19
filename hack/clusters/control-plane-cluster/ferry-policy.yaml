@@ -2,6 +2,7 @@ apiVersion: ferry.zsm.io/v1alpha1
 kind: FerryPolicy
 metadata:
   name: ferry-test
+  namespace: ferry-system
 spec:
   rules:
     - exports:

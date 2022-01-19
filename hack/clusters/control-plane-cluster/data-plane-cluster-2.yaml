@@ -2,6 +2,7 @@ apiVersion: ferry.zsm.io/v1alpha1
 kind: ClusterInformation
 metadata:
   name: ferry-cluster2
+  namespace: ferry-system
 spec:
   kubeconfig: #<base64-encoded-kubeconfig-data:data-plane-cluster-2>
   egress:
