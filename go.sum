@@ -118,8 +118,8 @@ github.com/evanphx/json-patch v4.9.0+incompatible/go.mod h1:50XU6AFN0ol/bzJsmQLi
 github.com/evanphx/json-patch v4.12.0+incompatible/go.mod h1:50XU6AFN0ol/bzJsmQLiYLvXMP4fmwYFNcr97nuDLSk=
 github.com/fatih/color v1.7.0/go.mod h1:Zm6kSWBoL9eyXnKyktHP6abPY2pDugNf5KwzbycvMj4=
 github.com/ferry-proxy/api v0.0.0-20220107112736-02f79417f64f/go.mod h1:EUHzYhjkDOvlO+0XGtNPOmsLRKq1CPU1G3gpKhjVS+Q=
-github.com/ferry-proxy/api v0.0.0-20220107164026-9b32903261ea h1:goDmXA69nscUFzSlPKPN0HAPT9LUFI+7FHghPaMSEhw=
-github.com/ferry-proxy/api v0.0.0-20220107164026-9b32903261ea/go.mod h1:EUHzYhjkDOvlO+0XGtNPOmsLRKq1CPU1G3gpKhjVS+Q=
+github.com/ferry-proxy/api v0.0.0-20220119055001-eb135282cb64 h1:iWMzFtRAULfQ+GcTH7b5+tWaftBgTBdZAuO5UNFDUWw=
+github.com/ferry-proxy/api v0.0.0-20220119055001-eb135282cb64/go.mod h1:EUHzYhjkDOvlO+0XGtNPOmsLRKq1CPU1G3gpKhjVS+Q=
 github.com/ferry-proxy/client-go v0.0.0-20220107164508-e4b5c6bf911c h1:LyWHLLYbNG4TYtxLIOBxL10KIxUkqLIde8KtZhxC1DE=
 github.com/ferry-proxy/client-go v0.0.0-20220107164508-e4b5c6bf911c/go.mod h1:q1hXmCA3PBRWXzT5WW8o49GG5xYSjhLV9P38sLgHCfg=
 github.com/form3tech-oss/jwt-go v3.2.2+incompatible/go.mod h1:pbq4aXjuKjdthFRnoDwaVPLA+WlJuPGy+QneDUgJi2k=
