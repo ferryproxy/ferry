@@ -150,13 +150,13 @@ func getPort(ctx context.Context, clientset *kubernetes.Clientset, route *v1alph
 		return route.Port, nil
 	}
 
-	if route.ServiceNamespace == nil {
+	if route.ServiceNamespace == "" {
 		return 0, fmt.Errorf("ServiceNamespace is empty")
 	}
-	if route.ServiceName == nil {
+	if route.ServiceName == "" {
 		return 0, fmt.Errorf("ServiceName is empty")
 	}
-	ep, err := clientset.CoreV1().Endpoints(*route.ServiceNamespace).Get(ctx, *route.ServiceName, metav1.GetOptions{})
+	ep, err := clientset.CoreV1().Endpoints(route.ServiceNamespace).Get(ctx, route.ServiceName, metav1.GetOptions{})
 	if err != nil {
 		return 0, err
 	}
@@ -180,16 +180,16 @@ func getIPs(ctx context.Context, clientset *kubernetes.Clientset, route *v1alpha
 	if route == nil {
 		return nil, nil
 	}
-	if route.IP != nil {
-		return []string{*route.IP}, nil
+	if route.IP != "" {
+		return []string{route.IP}, nil
 	}
-	if route.ServiceNamespace == nil {
+	if route.ServiceNamespace == "" {
 		return nil, fmt.Errorf("ServiceNamespace is empty")
 	}
-	if route.ServiceName == nil {
+	if route.ServiceName == "" {
 		return nil, fmt.Errorf("ServiceName is empty")
 	}
-	ep, err := clientset.CoreV1().Endpoints(*route.ServiceNamespace).Get(ctx, *route.ServiceName, metav1.GetOptions{})
+	ep, err := clientset.CoreV1().Endpoints(route.ServiceNamespace).Get(ctx, route.ServiceName, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}

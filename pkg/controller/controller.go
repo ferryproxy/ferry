@@ -157,12 +157,6 @@ func (c *Controller) sync(ctx context.Context, policies []*v1alpha1.FerryPolicy,
 						continue
 					}
 
-					if export.Match == nil {
-						export.Match = &v1alpha1.Match{}
-					}
-					if impor.Match == nil {
-						impor.Match = &v1alpha1.Match{}
-					}
 					if export.Match.Namespace != "" && export.Match.Namespace != impor.Match.Namespace {
 						continue
 					}

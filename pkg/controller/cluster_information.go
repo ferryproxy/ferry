@@ -102,8 +102,8 @@ func (c *clusterInformationController) setupWatchEgress(ctx context.Context, ci 
 	}
 	ctx, cancel := context.WithCancel(ctx)
 	log := c.logger.WithName("watch-egress")
-	fieldSelector := fmt.Sprintf("metadata.name=%s", *egress.ServiceName)
-	watch, err := clientset.CoreV1().Endpoints(*egress.ServiceNamespace).Watch(ctx, metav1.ListOptions{
+	fieldSelector := fmt.Sprintf("metadata.name=%s", egress.ServiceName)
+	watch, err := clientset.CoreV1().Endpoints(egress.ServiceNamespace).Watch(ctx, metav1.ListOptions{
 		FieldSelector: fieldSelector,
 	})
 	var lastIPs []string
@@ -232,13 +232,13 @@ func needWatchEgress(route *v1alpha1.ClusterInformationSpecRoute) bool {
 	if route == nil {
 		return false
 	}
-	if route.IP != nil {
+	if route.IP != "" {
 		return false
 	}
-	if route.ServiceNamespace == nil || *route.ServiceNamespace == "" {
+	if route.ServiceNamespace == "" {
 		return false
 	}
-	if route.ServiceName == nil || *route.ServiceName == "" {
+	if route.ServiceName == "" {
 		return false
 	}
 	return true
