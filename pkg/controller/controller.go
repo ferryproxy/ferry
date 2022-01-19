@@ -153,7 +153,7 @@ func (c *Controller) sync(ctx context.Context, policies []*v1alpha1.FerryPolicy,
 						continue
 					}
 					if importCluster.Spec.Egress == nil {
-						c.logger.Info("Tried to export Service but Egress is empty")
+						c.logger.Info("Tried to import Service but Egress is empty")
 						continue
 					}
 
