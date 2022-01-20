@@ -6,19 +6,19 @@ metadata:
 spec:
   rules:
     - exports:
+        - clusterName: ferry-cluster0
+          match:
+            labels:
+              app: "web-0"
+
+      imports:
+        - clusterName: ferry-cluster1
+
+    - exports:
         - clusterName: ferry-cluster1
           match:
             labels:
               app: "web-1"
 
       imports:
-        - clusterName: ferry-cluster2
-
-    - exports:
-        - clusterName: ferry-cluster2
-          match:
-            labels:
-              app: "web-2"
-
-      imports:
-        - clusterName: ferry-cluster1
+        - clusterName: ferry-cluster0

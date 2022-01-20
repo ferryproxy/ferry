@@ -1,4 +1,0 @@
-
-resources:
-- svc.yaml
-- https://github.com/ferry-proxy/ferry-tunnel/raw/main/deploy.yml
