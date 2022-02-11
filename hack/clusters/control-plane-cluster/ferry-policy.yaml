@@ -13,12 +13,58 @@ spec:
 
       imports:
         - clusterName: ferry-cluster1
+        - clusterName: ferry-cluster2
 
     - exports:
         - clusterName: ferry-cluster1
           match:
             labels:
               app: "web-1"
+        - clusterName: ferry-cluster2
+          match:
+            labels:
+              app: "web-2"
 
       imports:
         - clusterName: ferry-cluster0
+
+
+    - exports:
+        - clusterName: ferry-cluster0
+          match:
+            namespace: test
+            name: web-0
+
+      imports:
+        - clusterName: ferry-cluster1
+          match:
+            namespace: test
+            name: web-0-0
+        - clusterName: ferry-cluster2
+          match:
+            namespace: test
+            name: web-0-0
+
+    - exports:
+        - clusterName: ferry-cluster1
+          match:
+            namespace: test
+            name: web-1
+
+      imports:
+        - clusterName: ferry-cluster0
+          match:
+            namespace: test
+            name: web-1-1
+
+    - exports:
+        - clusterName: ferry-cluster2
+          match:
+            namespace: test
+            name: web-2
+
+      imports:
+        - clusterName: ferry-cluster0
+          match:
+            namespace: test
+            name: web-2-2

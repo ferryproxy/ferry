@@ -1,10 +1,10 @@
 apiVersion: ferry.zsm.io/v1alpha1
 kind: ClusterInformation
 metadata:
-  name: ferry-cluster1
+  name: ferry-cluster2
   namespace: ferry-system
 spec:
-  kubeconfig: #<base64-encoded-kubeconfig-data:data-plane-cluster-1>
+  kubeconfig: #<base64-encoded-kubeconfig-data:data-plane-cluster-2>
   egress:
     serviceName: "ferry-tunnel"
     serviceNamespace: "ferry-tunnel-system"

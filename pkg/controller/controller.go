@@ -2,6 +2,7 @@ package controller
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"sync"
 	"time"
@@ -22,9 +23,8 @@ type Controller struct {
 	namespace                    string
 	clusterInformationController *clusterInformationController
 	ferryPolicyController        *ferryPolicyController
-	cacheDataPlaneController     map[string]*DataPlaneController
-	cacheDataPlaneCancel         map[string]func()
-	labels                       map[string]string
+	cacheDataPlaneController     map[ClusterPair]*DataPlaneController
+	cacheMatchRule               map[string]map[string][]MatchRule
 	updateAllCh                  chan struct{}
 }
 
@@ -37,12 +37,9 @@ func NewController(ctx context.Context, config *restclient.Config, namespace str
 		logger:                   log,
 		config:                   config,
 		namespace:                namespace,
-		cacheDataPlaneController: map[string]*DataPlaneController{},
-		cacheDataPlaneCancel:     map[string]func(){},
-		labels: map[string]string{
-			"ferry.zsm.io/managed-by": "ferry-controller",
-		},
-		updateAllCh: make(chan struct{}, 1),
+		cacheDataPlaneController: map[ClusterPair]*DataPlaneController{},
+		cacheMatchRule:           map[string]map[string][]MatchRule{},
+		updateAllCh:              make(chan struct{}, 1),
 	}, nil
 }
 
@@ -108,11 +105,71 @@ func (c *Controller) Run(ctx context.Context) error {
 	return nil
 }
 
-func (c *Controller) sync(ctx context.Context, policies []*v1alpha1.FerryPolicy, syncCluster string) {
-	c.mut.Lock()
-	defer c.mut.Unlock()
+type MatchRule struct {
+	Export v1alpha1.Match
+	Import v1alpha1.Match
+}
 
-	updated := map[string]struct{}{}
+func CalculateMatchRulePatch(older, newer []MatchRule) (updated, deleted []MatchRule) {
+	if len(older) == 0 {
+		return newer, nil
+	}
+
+	exist := map[string]MatchRule{}
+
+	for _, r := range older {
+		data, _ := json.Marshal(r)
+		exist[string(data)] = r
+	}
+
+	for _, r := range newer {
+		data, _ := json.Marshal(r)
+		updated = append(updated, r)
+		delete(exist, string(data))
+	}
+	for _, r := range exist {
+		deleted = append(deleted, r)
+	}
+	return updated, deleted
+}
+
+type ClusterPair struct {
+	Export string
+	Import string
+}
+
+func CalculateClusterPatch(older, newer map[string]map[string][]MatchRule) (updated, deleted []ClusterPair) {
+	exist := map[ClusterPair]struct{}{}
+
+	for exportName, other := range older {
+		for importName := range other {
+			r := ClusterPair{
+				Export: exportName,
+				Import: importName,
+			}
+			exist[r] = struct{}{}
+		}
+	}
+
+	for exportName, other := range newer {
+		for importName := range other {
+			r := ClusterPair{
+				Export: exportName,
+				Import: importName,
+			}
+			updated = append(updated, r)
+			delete(exist, r)
+		}
+	}
+
+	for r := range exist {
+		deleted = append(deleted, r)
+	}
+	return updated, deleted
+}
+
+func (c *Controller) getMatchRules(policies []*v1alpha1.FerryPolicy) map[string]map[string][]MatchRule {
+	mapping := map[string]map[string][]MatchRule{}
 
 	for _, policy := range policies {
 		for _, rule := range policy.Spec.Rules {
@@ -120,207 +177,168 @@ func (c *Controller) sync(ctx context.Context, policies []*v1alpha1.FerryPolicy,
 				if export.ClusterName == "" {
 					continue
 				}
-
-				log := c.logger.WithValues(
-					"FerryPolicy", utils.KObj(policy),
-				)
-
-				log = log.WithValues(
-					"ExportClusterName", export.ClusterName,
-				)
-				exportCluster := c.clusterInformationController.Get(export.ClusterName)
-				if exportCluster == nil {
-					log.Info("Not found ClusterInformation")
-					continue
+				if _, ok := mapping[export.ClusterName]; !ok {
+					mapping[export.ClusterName] = map[string][]MatchRule{}
 				}
-
 				for _, impor := range rule.Imports {
 					if impor.ClusterName == "" || impor.ClusterName == export.ClusterName {
 						continue
 					}
-
-					if syncCluster != "" &&
-						impor.ClusterName != syncCluster && export.ClusterName != syncCluster {
-						continue
+					if _, ok := mapping[export.ClusterName][impor.ClusterName]; !ok {
+						mapping[export.ClusterName][impor.ClusterName] = []MatchRule{}
 					}
 
-					log = log.WithValues(
-						"ImportClusterName", impor.ClusterName,
-					)
-					importCluster := c.clusterInformationController.Get(impor.ClusterName)
-					if importCluster == nil {
-						c.logger.Info("Not found ClusterInformation")
-						continue
+					matchRule := MatchRule{
+						Export: export.Match,
+						Import: impor.Match,
 					}
-					if importCluster.Spec.Egress == nil {
-						c.logger.Info("Tried to import Service but Egress is empty")
-						continue
-					}
-
-					if export.Match.Namespace != "" && export.Match.Namespace != impor.Match.Namespace {
-						continue
-					}
-
-					var matchSet labels.Set
-					var err error
-					switch {
-					case len(export.Match.Labels) != 0 && len(impor.Match.Labels) != 0:
-						matchSet, err = mergeMaps(export.Match.Labels, impor.Match.Labels)
-						if err != nil {
-							c.logger.Error(err, "")
-							continue
-						}
-					case len(export.Match.Labels) != 0 && len(impor.Match.Labels) == 0:
-						matchSet = export.Match.Labels
-					case len(export.Match.Labels) == 0 && len(impor.Match.Labels) != 0:
-						matchSet = impor.Match.Labels
-					}
-
-					exportClientset := c.clusterInformationController.Clientset(exportCluster.Name)
-					if exportClientset == nil {
-						c.logger.Error(fmt.Errorf("not found %q", exportCluster.Name), "Get Clientset")
-						continue
-					}
-					importClientset := c.clusterInformationController.Clientset(importCluster.Name)
-					if importClientset == nil {
-						c.logger.Error(fmt.Errorf("not found %q", importCluster.Name), "Get Clientset")
-						continue
-					}
-
-					inClusterEgressIPs, err := getIPs(ctx, importClientset, importCluster.Spec.Egress)
-					if err != nil {
-						c.logger.Error(err, "Get IPs for inClusterEgressIPs")
-						continue
-					}
-
-					exportIngressIPs, err := getIPs(ctx, exportClientset, exportCluster.Spec.Ingress)
-					if err != nil {
-						c.logger.Error(err, "Get IPs for exportIngressIPs")
-						continue
-					}
-					exportIngressPort, err := getPort(ctx, exportClientset, exportCluster.Spec.Ingress)
-					if err != nil {
-						c.logger.Error(err, "Get port for exportIngressPort")
-						continue
-					}
-
-					importIngressIPs, err := getIPs(ctx, importClientset, importCluster.Spec.Ingress)
-					if err != nil {
-						c.logger.Error(err, "Get IPs for importIngressIPs")
-						continue
-					}
-					importIngressPort, err := getPort(ctx, importClientset, importCluster.Spec.Ingress)
-					if err != nil {
-						c.logger.Error(err, "Get port for importIngressPort")
-						continue
-					}
-
-					reverse := false
-
-					if len(exportIngressIPs) == 0 {
-						if len(importIngressIPs) == 0 {
-							c.logger.Info("Tried to export Service but Ingress is empty")
-							continue
-						} else {
-							reverse = true
-						}
-					}
-
-					key := fmt.Sprintf("%s-%#v|%s-%#v", export.ClusterName, export.Match, impor.ClusterName, impor.Match)
-
-					var exportPortOffset int32 = 40000
-					var importPortOffset int32 = 50000
-					if reverse {
-						exportPortOffset = 45000
-						exportPortOffset = 55000
-					}
-
-					log := log.WithName("data-plane").
-						WithValues(
-							"Selector", labels.SelectorFromSet(matchSet),
-							"InClusterEgressIPs", inClusterEgressIPs,
-							"ExportIngressIPs", exportIngressIPs,
-							"ExportIngressPort", exportIngressPort,
-							"ImportIngressIPs", importIngressIPs,
-							"ImportIngressPort", importIngressPort,
-							"Reverse", reverse,
-						)
-					log.Info("Run DataPlaneController")
-					proxy := router.Proxy{
-						Labels: utils.MergeMap(c.labels, map[string]string{
-							"exported-from": exportCluster.Name,
-							"imported-to":   importCluster.Name,
-						}),
-						RemotePrefix:     "ferry",
-						TunnelNamespace:  "ferry-tunnel-system",
-						ExportPortOffset: exportPortOffset,
-						ImportPortOffset: importPortOffset,
-						Reverse:          reverse,
-
-						ExportClusterName: exportCluster.Name,
-						ImportClusterName: importCluster.Name,
-
-						InClusterEgressIPs: inClusterEgressIPs,
-
-						ExportIngressIPs:  exportIngressIPs,
-						ExportIngressPort: exportIngressPort,
-
-						ImportIngressIPs:  importIngressIPs,
-						ImportIngressPort: importIngressPort,
-					}
-					dataPlane := NewDataPlaneController(DataPlaneControllerConfig{
-						ExportCluster:              exportCluster,
-						ImportCluster:              importCluster,
-						Selector:                   labels.SelectorFromSet(matchSet),
-						ExportClientset:            exportClientset,
-						ImportClientset:            importClientset,
-						Logger:                     log,
-						SourceResourceBuilder:      router.ResourceBuilders{original.IngressBuilder},
-						DestinationResourceBuilder: router.ResourceBuilders{original.EgressBuilder, original.ServiceEgressDiscoveryBuilder},
-						Proxy:                      proxy,
-					})
-					if cancel, ok := c.cacheDataPlaneCancel[key]; ok {
-						cancel()
-					}
-					c.cacheDataPlaneController[key] = dataPlane
-					ctx, cancel := context.WithCancel(ctx)
-					c.cacheDataPlaneCancel[key] = cancel
-
-					err = dataPlane.Start(ctx)
-					if err != nil {
-						c.logger.Error(err, "Start Data Plane")
-					}
-
-					updated[key] = struct{}{}
+					mapping[export.ClusterName][impor.ClusterName] = append(mapping[export.ClusterName][impor.ClusterName], matchRule)
 				}
 			}
 		}
 	}
+	return mapping
+}
 
-	for key := range c.cacheDataPlaneCancel {
-		_, ok := updated[key]
-		if !ok {
-			c.cacheDataPlaneController[key].Cleanup(ctx)
-			delete(c.cacheDataPlaneController, key)
+func (c *Controller) sync(ctx context.Context, policies []*v1alpha1.FerryPolicy, syncCluster string) {
+	c.mut.Lock()
+	defer c.mut.Unlock()
+
+	newerMatchRules := c.getMatchRules(policies)
+	defer func() {
+		c.cacheMatchRule = newerMatchRules
+	}()
+
+	updated, deleted := CalculateClusterPatch(c.cacheMatchRule, newerMatchRules)
+
+	for _, r := range deleted {
+		logger := c.logger.WithValues("export", r.Export, "import", r.Import)
+		logger.Info("Delete data plane")
+		c.cleanupDataPlane(r.Export, r.Import)
+	}
+
+	for _, r := range updated {
+		logger := c.logger.WithValues("export", r.Export, "import", r.Import)
+		logger.Info("Update data plane")
+		dataPlane, err := c.startDataPlane(logr.NewContext(ctx, logger), r.Export, r.Import)
+		if err != nil {
+			logger.Error(err, "start data plane")
+			continue
+		}
+		if newerMatchRules[r.Export] != nil && newerMatchRules[r.Export][r.Import] != nil {
+			older := c.cacheMatchRule[r.Export][r.Import]
+			newer := newerMatchRules[r.Export][r.Import]
+			updated, deleted := CalculateMatchRulePatch(older, newer)
+			for _, rule := range updated {
+				logger.Info("Update rule", "rule", rule)
+				switch {
+				case (rule.Import.Name != "" || rule.Export.Name != "") &&
+					(len(rule.Export.Labels) == 0 && len(rule.Import.Labels) == 0):
+					dataPlane.RegistryObj(
+						utils.ObjectRef{Name: rule.Export.Name, Namespace: rule.Export.Namespace},
+						utils.ObjectRef{Name: rule.Import.Name, Namespace: rule.Import.Namespace},
+					)
+
+				case (len(rule.Export.Labels) != 0 || len(rule.Import.Labels) != 0) &&
+					(rule.Import.Name == "" && rule.Export.Name == ""):
+					if (rule.Export.Namespace != "" || rule.Import.Namespace != "") &&
+						rule.Export.Namespace != rule.Import.Namespace {
+						logger.Info("Tried to import Service but Namespace is not matched")
+						continue
+					}
+
+					matchSet := utils.MergeMap(rule.Export.Labels, rule.Import.Labels)
+					dataPlane.RegistrySelector(labels.Set(matchSet).AsSelector())
+				}
+			}
+
+			for _, rule := range deleted {
+				logger.Info("Delete rule", "rule", rule)
+				switch {
+				case (rule.Import.Name != "" || rule.Export.Name != "") &&
+					(len(rule.Export.Labels) == 0 && len(rule.Import.Labels) == 0):
+					dataPlane.UnregistryObj(
+						utils.ObjectRef{Name: rule.Export.Name, Namespace: rule.Export.Namespace},
+						utils.ObjectRef{Name: rule.Import.Name, Namespace: rule.Import.Namespace},
+					)
+
+				case (len(rule.Export.Labels) != 0 || len(rule.Import.Labels) != 0) &&
+					(rule.Import.Name == "" && rule.Export.Name == ""):
+					if (rule.Export.Namespace != "" || rule.Import.Namespace != "") &&
+						rule.Export.Namespace != rule.Import.Namespace {
+						logger.Info("Tried to import Service but Namespace is not matched")
+						continue
+					}
+
+					matchSet := utils.MergeMap(rule.Export.Labels, rule.Import.Labels)
+					dataPlane.UnregistrySelector(labels.Set(matchSet).AsSelector())
+				}
+			}
+
 		}
 	}
+
 	return
 }
 
-func uniqueKey(name, ns string) string {
-	return name + "." + ns
+func (c *Controller) cleanupDataPlane(exportClusterName, importClusterName string) {
+	key := ClusterPair{
+		Export: exportClusterName,
+		Import: importClusterName,
+	}
+	dataPlane := c.cacheDataPlaneController[key]
+	if dataPlane != nil {
+		dataPlane.Cleanup(context.TODO())
+		delete(c.cacheDataPlaneController, key)
+	}
 }
 
-func mergeMaps(ms ...map[string]string) (map[string]string, error) {
-	n := map[string]string{}
-	for _, m := range ms {
-		for k, v := range m {
-			o, ok := n[k]
-			if ok && o != v {
-				return nil, fmt.Errorf("import and export have different matching values with the same key value %s", k)
-			}
-			n[k] = v
-		}
+func (c *Controller) startDataPlane(ctx context.Context, exportClusterName, importClusterName string) (*DataPlaneController, error) {
+	key := ClusterPair{
+		Export: exportClusterName,
+		Import: importClusterName,
 	}
-	return n, nil
+	dataPlane := c.cacheDataPlaneController[key]
+	if dataPlane != nil {
+		return dataPlane, nil
+	}
+
+	exportClientset := c.clusterInformationController.Clientset(exportClusterName)
+	if exportClientset == nil {
+		return nil, fmt.Errorf("not found clientset %q", exportClusterName)
+	}
+	importClientset := c.clusterInformationController.Clientset(importClusterName)
+	if importClientset == nil {
+		return nil, fmt.Errorf("not found clientset %q", importClusterName)
+	}
+
+	exportCluster := c.clusterInformationController.Get(exportClusterName)
+	if exportCluster == nil {
+		return nil, fmt.Errorf("not found cluster information %q", exportCluster)
+	}
+
+	importCluster := c.clusterInformationController.Get(importClusterName)
+	if importCluster == nil {
+		return nil, fmt.Errorf("not found cluster information %q", importClusterName)
+	}
+
+	dataPlane = NewDataPlaneController(DataPlaneControllerConfig{
+		ClusterInformationController: c.clusterInformationController,
+		ImportClusterName:            importClusterName,
+		ExportClusterName:            exportClusterName,
+		ExportCluster:                exportCluster,
+		ImportCluster:                importCluster,
+		ExportClientset:              exportClientset,
+		ImportClientset:              importClientset,
+		Logger:                       logr.FromContextOrDiscard(ctx),
+		SourceResourceBuilder:        router.ResourceBuilders{original.IngressBuilder},
+		DestinationResourceBuilder:   router.ResourceBuilders{original.EgressBuilder, original.ServiceEgressDiscoveryBuilder},
+	})
+	c.cacheDataPlaneController[key] = dataPlane
+
+	err := dataPlane.Start(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return dataPlane, nil
 }

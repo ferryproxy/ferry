@@ -2,6 +2,8 @@ package controller
 
 import (
 	"context"
+	"fmt"
+	"k8s.io/apimachinery/pkg/selection"
 	"sync"
 	"time"
 
@@ -17,49 +19,63 @@ import (
 )
 
 type DataPlaneControllerConfig struct {
-	ExportCluster              *v1alpha1.ClusterInformation
-	ImportCluster              *v1alpha1.ClusterInformation
-	Selector                   labels.Selector
-	ExportClientset            *kubernetes.Clientset
-	ImportClientset            *kubernetes.Clientset
-	Logger                     logr.Logger
-	Proxy                      router.Proxy
-	SourceResourceBuilder      router.ResourceBuilders
-	DestinationResourceBuilder router.ResourceBuilders
+	ExportClusterName            string
+	ImportClusterName            string
+	ClusterInformationController *clusterInformationController
+	ExportCluster                *v1alpha1.ClusterInformation
+	ImportCluster                *v1alpha1.ClusterInformation
+	ExportClientset              *kubernetes.Clientset
+	ImportClientset              *kubernetes.Clientset
+	Logger                       logr.Logger
+	SourceResourceBuilder        router.ResourceBuilders
+	DestinationResourceBuilder   router.ResourceBuilders
 }
 
 func NewDataPlaneController(conf DataPlaneControllerConfig) *DataPlaneController {
 	return &DataPlaneController{
-		exportCluster:              conf.ExportCluster,
-		importCluster:              conf.ImportCluster,
-		exportClientset:            conf.ExportClientset,
-		importClientset:            conf.ImportClientset,
-		logger:                     conf.Logger,
-		labelSelector:              conf.Selector.String(),
-		proxy:                      conf.Proxy,
-		sourceResourceBuilder:      conf.SourceResourceBuilder,
-		destinationResourceBuilder: conf.DestinationResourceBuilder,
-		cache:                      map[string]*corev1.Service{},
-		chSync:                     make(chan struct{}, 1),
+		importClusterName:            conf.ImportClusterName,
+		exportClusterName:            conf.ExportClusterName,
+		exportCluster:                conf.ExportCluster,
+		importCluster:                conf.ImportCluster,
+		exportClientset:              conf.ExportClientset,
+		importClientset:              conf.ImportClientset,
+		logger:                       conf.Logger,
+		clusterInformationController: conf.ClusterInformationController,
+		sourceResourceBuilder:        conf.SourceResourceBuilder,
+		destinationResourceBuilder:   conf.DestinationResourceBuilder,
+		mappings:                     map[utils.ObjectRef][]utils.ObjectRef{},
+		labels:                       map[string]labels.Selector{},
+		cache:                        map[utils.ObjectRef]*corev1.Service{},
+		chSync:                       make(chan struct{}, 1),
 	}
 }
 
 type DataPlaneController struct {
-	mut                        sync.Mutex
-	ctx                        context.Context
-	exportCluster              *v1alpha1.ClusterInformation
-	importCluster              *v1alpha1.ClusterInformation
-	logger                     logr.Logger
-	labelSelector              string
+	mut sync.Mutex
+	ctx context.Context
+
+	exportClusterName string
+	importClusterName string
+
+	exportCluster *v1alpha1.ClusterInformation
+	importCluster *v1alpha1.ClusterInformation
+
+	mappings map[utils.ObjectRef][]utils.ObjectRef
+	labels   map[string]labels.Selector
+	cache    map[utils.ObjectRef]*corev1.Service
+
+	clusterInformationController *clusterInformationController
+
 	exportClientset            *kubernetes.Clientset
 	importClientset            *kubernetes.Clientset
-	proxy                      router.Proxy
 	sourceResourceBuilder      router.ResourceBuilders
 	destinationResourceBuilder router.ResourceBuilders
-	cache                      map[string]*corev1.Service
 	lastSourceResources        []router.Resourcer
 	lastDestinationResources   []router.Resourcer
 	chSync                     chan struct{}
+	logger                     logr.Logger
+
+	isClose bool
 }
 
 func (d *DataPlaneController) Start(ctx context.Context) error {
@@ -68,29 +84,29 @@ func (d *DataPlaneController) Start(ctx context.Context) error {
 		d.logger.Info("DataPlane controller stopped")
 	}()
 	d.ctx = ctx
+
 	informerFactory := informers.NewSharedInformerFactoryWithOptions(d.exportClientset, 0,
 		informers.WithTweakListOptions(func(options *metav1.ListOptions) {
-			options.LabelSelector = d.labelSelector
+			expected, _ := labels.NewRequirement(LabelFerryManagedByKey, selection.NotEquals, []string{LabelFerryManagedByValue})
+			options.LabelSelector = expected.String()
 		}))
 	informer := informerFactory.Core().V1().Services().Informer()
 	informer.AddEventHandler(d)
 
+	proxy, err := d.getProxyInfo(ctx)
+	if err != nil {
+		return err
+	}
+	// Mark managed by ferry
 	opt := metav1.ListOptions{
-		LabelSelector: labels.SelectorFromSet(d.proxy.Labels).String(),
+		LabelSelector: labels.SelectorFromSet(proxy.Labels).String(),
 	}
 
-	err := d.initLastSourceResources(ctx, opt)
+	err = d.initLastSourceResources(ctx, proxy, opt)
 	if err != nil {
 		return err
 	}
-	err = d.initLastDestinationResources(ctx, opt)
-	if err != nil {
-		return err
-	}
-
-	err = d.initCache(ctx, metav1.ListOptions{
-		LabelSelector: d.labelSelector,
-	})
+	err = d.initLastDestinationResources(ctx, proxy, opt)
 	if err != nil {
 		return err
 	}
@@ -104,7 +120,7 @@ func (d *DataPlaneController) Start(ctx context.Context) error {
 				for {
 					select {
 					case <-d.chSync:
-					case <-time.After(time.Second):
+					case <-time.After(2 * time.Second):
 						break next
 					case <-ctx.Done():
 						return
@@ -123,20 +139,48 @@ func (d *DataPlaneController) Start(ctx context.Context) error {
 	return nil
 }
 
-func (d *DataPlaneController) initCache(ctx context.Context, opt metav1.ListOptions) error {
-	svcList, err := d.exportClientset.CoreV1().Services("").List(ctx, opt)
-	if err != nil {
-		return err
-	}
-	for _, item := range svcList.Items {
-		svc := item.DeepCopy()
-		d.cache[uniqueKey(svc.Name, svc.Namespace)] = svc
-	}
-	return nil
+func (d *DataPlaneController) RegistrySelector(sel labels.Selector) {
+	d.mut.Lock()
+	defer d.mut.Unlock()
+	d.labels[sel.String()] = sel
+	d.trySync()
 }
 
-func (d *DataPlaneController) initLastSourceResources(ctx context.Context, opt metav1.ListOptions) error {
-	cmList, err := d.exportClientset.CoreV1().ConfigMaps(d.proxy.TunnelNamespace).List(ctx, opt)
+func (d *DataPlaneController) UnregistrySelector(sel labels.Selector) {
+	d.mut.Lock()
+	defer d.mut.Unlock()
+	delete(d.labels, sel.String())
+	d.trySync()
+}
+
+func (d *DataPlaneController) RegistryObj(export, impor utils.ObjectRef) {
+	d.mut.Lock()
+	defer d.mut.Unlock()
+
+	for _, v := range d.mappings[export] {
+		if v == impor {
+			return
+		}
+	}
+	d.mappings[export] = append(d.mappings[export], impor)
+	d.trySync()
+}
+
+func (d *DataPlaneController) UnregistryObj(export, impor utils.ObjectRef) {
+	d.mut.Lock()
+	defer d.mut.Unlock()
+
+	for i, v := range d.mappings[export] {
+		if v == impor {
+			d.mappings[export] = append(d.mappings[export][:i], d.mappings[export][i+1:]...)
+			return
+		}
+	}
+	d.trySync()
+}
+
+func (d *DataPlaneController) initLastSourceResources(ctx context.Context, proxy *router.Proxy, opt metav1.ListOptions) error {
+	cmList, err := d.exportClientset.CoreV1().ConfigMaps(proxy.TunnelNamespace).List(ctx, opt)
 	if err != nil {
 		return err
 	}
@@ -146,8 +190,8 @@ func (d *DataPlaneController) initLastSourceResources(ctx context.Context, opt m
 	return nil
 }
 
-func (d *DataPlaneController) initLastDestinationResources(ctx context.Context, opt metav1.ListOptions) error {
-	cmList, err := d.importClientset.CoreV1().ConfigMaps(d.proxy.TunnelNamespace).List(ctx, opt)
+func (d *DataPlaneController) initLastDestinationResources(ctx context.Context, proxy *router.Proxy, opt metav1.ListOptions) error {
+	cmList, err := d.importClientset.CoreV1().ConfigMaps(proxy.TunnelNamespace).List(ctx, opt)
 	if err != nil {
 		return err
 	}
@@ -178,32 +222,185 @@ func (d *DataPlaneController) trySync() {
 	}
 }
 
-func (d *DataPlaneController) sync(ctx context.Context) error {
-	svcs := []*corev1.Service{}
-	for _, svc := range d.cache {
-		svcs = append(svcs, svc)
+func (d *DataPlaneController) getProxyInfo(ctx context.Context) (*router.Proxy, error) {
+	exportClusterName := d.exportClusterName
+	importClusterName := d.importClusterName
+
+	exportClientset := d.clusterInformationController.Clientset(exportClusterName)
+	if exportClientset == nil {
+		return nil, fmt.Errorf("not found clientset %q", exportClusterName)
 	}
-	d.logger.Info("Sync", "ServicesCount", len(svcs))
-	ir, err := d.sourceResourceBuilder.Build(&d.proxy, svcs)
+	importClientset := d.clusterInformationController.Clientset(importClusterName)
+	if importClientset == nil {
+		return nil, fmt.Errorf("not found clientset %q", importClusterName)
+	}
+
+	exportCluster := d.clusterInformationController.Get(exportClusterName)
+	if exportCluster == nil {
+		return nil, fmt.Errorf("not found cluster information %q", exportCluster)
+	}
+
+	importCluster := d.clusterInformationController.Get(importClusterName)
+	if importCluster == nil {
+		return nil, fmt.Errorf("not found cluster information %q", importClusterName)
+	}
+
+	exportIngressIPs, err := getIPs(ctx, exportClientset, exportCluster.Spec.Ingress)
 	if err != nil {
-		d.logger.Error(err, "Server Build")
+		return nil, err
+	}
+
+	inClusterEgressIPs, err := getIPs(ctx, importClientset, importCluster.Spec.Egress)
+	if err != nil {
+		return nil, err
+	}
+
+	exportIngressPort, err := getPort(ctx, exportClientset, exportCluster.Spec.Ingress)
+	if err != nil {
+		return nil, err
+	}
+
+	importIngressIPs, err := getIPs(ctx, importClientset, importCluster.Spec.Ingress)
+	if err != nil {
+		return nil, err
+	}
+	importIngressPort, err := getPort(ctx, importClientset, importCluster.Spec.Ingress)
+	if err != nil {
+		return nil, err
+	}
+
+	reverse := false
+
+	if len(exportIngressIPs) == 0 {
+		if len(importIngressIPs) == 0 {
+			return nil, fmt.Errorf("not found ingress ip")
+		} else {
+			reverse = true
+		}
+	}
+
+	var exportPortOffset int32 = 40000
+	var importPortOffset int32 = 50000
+	if reverse {
+		exportPortOffset = 45000
+		exportPortOffset = 55000
+	}
+
+	return &router.Proxy{
+		Labels: map[string]string{
+			LabelFerryManagedByKey: LabelFerryManagedByValue,
+			LabelFerryExportedFrom: exportCluster.Name,
+			LabelFerryImportedTo:   importCluster.Name,
+		},
+		RemotePrefix:     "ferry",
+		TunnelNamespace:  "ferry-tunnel-system",
+		ExportPortOffset: exportPortOffset,
+		ImportPortOffset: importPortOffset,
+		Reverse:          reverse,
+
+		ExportClusterName: exportCluster.Name,
+		ImportClusterName: importCluster.Name,
+
+		InClusterEgressIPs: inClusterEgressIPs,
+
+		ExportIngressIPs:  exportIngressIPs,
+		ExportIngressPort: exportIngressPort,
+
+		ImportIngressIPs:  importIngressIPs,
+		ImportIngressPort: importIngressPort,
+	}, nil
+}
+
+func (d *DataPlaneController) sync(ctx context.Context) error {
+	d.mut.Lock()
+	defer d.mut.Unlock()
+
+	if d.isClose {
+		return nil
+	}
+
+	if len(d.labels) == 0 && len(d.mappings) == 0 {
+		d.logger.Info("No need to sync")
+		return nil
+	}
+	d.logger.Info("Sync", "ServicesCount", len(d.cache))
+
+	var ir []router.Resourcer
+	var er []router.Resourcer
+
+	proxy, err := d.getProxyInfo(ctx)
+	if err != nil {
 		return err
 	}
 
-	er, err := d.destinationResourceBuilder.Build(&d.proxy, svcs)
-	if err != nil {
-		d.logger.Error(err, "Client Build")
-		return err
+	for _, svc := range d.cache {
+		origin := utils.KObj(svc)
+
+		for _, label := range d.labels {
+			if label.Matches(labels.Set(svc.Labels)) {
+				i, err := d.sourceResourceBuilder.Build(proxy, origin, origin, &svc.Spec)
+				if err != nil {
+					d.logger.Error(err, "sourceResourceBuilder", "origin", origin, "destination", origin)
+					return err
+				}
+				ir = append(ir, i...)
+
+				e, err := d.destinationResourceBuilder.Build(proxy, origin, origin, &svc.Spec)
+				if err != nil {
+					d.logger.Error(err, "destinationResourceBuilder", "origin", origin, "destination", origin)
+				}
+				er = append(er, e...)
+				break
+			}
+		}
+
+		for _, destination := range d.mappings[origin] {
+			i, err := d.sourceResourceBuilder.Build(proxy, origin, destination, &svc.Spec)
+			if err != nil {
+				d.logger.Error(err, "sourceResourceBuilder", "origin", origin, "destination", destination)
+				return err
+			}
+			ir = append(ir, i...)
+
+			e, err := d.destinationResourceBuilder.Build(proxy, origin, destination, &svc.Spec)
+			if err != nil {
+				d.logger.Error(err, "destinationResourceBuilder", "origin", origin, "destination", destination)
+			}
+			er = append(er, e...)
+		}
 	}
+
+	if len(ir) == 0 && len(er) == 0 {
+		d.logger.Info("No need to sync")
+		return nil
+	}
+
+	d.logger.Info("CalculatePatchResources",
+		"lastSourceResources", len(d.lastSourceResources),
+		"lastDestinationResources", len(d.lastDestinationResources),
+		"ImportResources", len(ir),
+		"ExportResources", len(er),
+	)
 
 	sourceUpdate, sourceDelete := router.CalculatePatchResources(d.lastSourceResources, ir)
 	destinationUpdate, destinationDelete := router.CalculatePatchResources(d.lastDestinationResources, er)
+
+	if len(sourceUpdate) == 0 && len(sourceDelete) == 0 && len(destinationUpdate) == 0 && len(destinationDelete) == 0 {
+		d.logger.Info("No need to sync")
+		return nil
+	}
+
+	d.logger.Info("Sync",
+		"SourceUpdate", len(sourceUpdate),
+		"SourceDelete", len(sourceDelete),
+		"DestinationUpdate", len(destinationUpdate),
+		"DestinationDelete", len(destinationDelete),
+	)
 
 	for _, r := range sourceUpdate {
 		err := r.Apply(ctx, d.exportClientset)
 		if err != nil {
 			d.logger.Error(err, "Apply Export")
-			return err
 		}
 	}
 
@@ -211,12 +408,8 @@ func (d *DataPlaneController) sync(ctx context.Context) error {
 		err := r.Apply(ctx, d.importClientset)
 		if err != nil {
 			d.logger.Error(err, "Apply Import")
-			return err
 		}
 	}
-
-	// TODO remove this
-	time.Sleep(5 * time.Second)
 
 	for _, r := range sourceDelete {
 		err := r.Delete(ctx, d.exportClientset)
@@ -246,7 +439,7 @@ func (d *DataPlaneController) OnAdd(obj interface{}) {
 
 	d.mut.Lock()
 	defer d.mut.Unlock()
-	d.cache[uniqueKey(svc.Name, svc.Namespace)] = svc
+	d.cache[utils.KObj(svc)] = svc
 	d.trySync()
 
 }
@@ -260,7 +453,7 @@ func (d *DataPlaneController) OnUpdate(oldObj, newObj interface{}) {
 
 	d.mut.Lock()
 	defer d.mut.Unlock()
-	d.cache[uniqueKey(svc.Name, svc.Namespace)] = svc
+	d.cache[utils.KObj(svc)] = svc
 	d.trySync()
 }
 
@@ -273,11 +466,14 @@ func (d *DataPlaneController) OnDelete(obj interface{}) {
 
 	d.mut.Lock()
 	defer d.mut.Unlock()
-	delete(d.cache, uniqueKey(svc.Name, svc.Namespace))
+	delete(d.cache, utils.KObj(svc))
 	d.trySync()
 }
 
 func (d *DataPlaneController) Cleanup(ctx context.Context) {
+	d.mut.Lock()
+	defer d.mut.Unlock()
+	d.isClose = true
 	for _, r := range d.lastSourceResources {
 		err := r.Delete(ctx, d.exportClientset)
 		if err != nil {

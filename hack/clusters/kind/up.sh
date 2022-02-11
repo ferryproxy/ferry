@@ -5,8 +5,10 @@ out=$(realpath "${dir}/../../../kubeconfig")
 
 images=(
   "ghcr.io/wzshiming/echoserver/echoserver:v0.0.1"
-  "ghcr.io/ferry-proxy/ferry-tunnel:v0.0.3"
+  "ghcr.io/ferry-proxy/ferry-tunnel:v0.0.8"
 )
+
+unset http_proxy https_proxy no_proxy HTTP_PROXY HTTPS_PROXY NO_PROXY
 
 for image in "${images[@]}"; do
   docker inspect "${image}" >/dev/null 2>&1 || docker pull "${image}"

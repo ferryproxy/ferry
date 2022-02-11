@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"reflect"
 
+	"github.com/ferry-proxy/ferry/pkg/utils"
 	"github.com/go-logr/logr"
+	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -17,15 +19,15 @@ const (
 )
 
 type ResourceBuilder interface {
-	Build(proxy *Proxy, destinationServices []*corev1.Service) ([]Resourcer, error)
+	Build(proxy *Proxy, origin, destination utils.ObjectRef, spec *corev1.ServiceSpec) ([]Resourcer, error)
 }
 
 type ResourceBuilders []ResourceBuilder
 
-func (r ResourceBuilders) Build(proxy *Proxy, destinationServices []*corev1.Service) ([]Resourcer, error) {
+func (r ResourceBuilders) Build(proxy *Proxy, origin, destination utils.ObjectRef, spec *corev1.ServiceSpec) ([]Resourcer, error) {
 	var resourcers []Resourcer
 	for _, i := range r {
-		resourcer, err := i.Build(proxy, destinationServices)
+		resourcer, err := i.Build(proxy, origin, destination, spec)
 		if err != nil {
 			return nil, err
 		}
@@ -62,98 +64,57 @@ type Resourcer interface {
 	Delete(ctx context.Context, clientset *kubernetes.Clientset) (err error)
 }
 
-type ConfigMap struct {
-	*corev1.ConfigMap
-}
-
-func (i ConfigMap) Apply(ctx context.Context, clientset *kubernetes.Clientset) (err error) {
-
-	logr.FromContextOrDiscard(ctx).Info("Creating ConfigMap", "ConfigMap", i.ConfigMap)
-
-	_, err = clientset.CoreV1().
-		ConfigMaps(i.ConfigMap.Namespace).
-		Create(ctx, i.ConfigMap, metav1.CreateOptions{
-			FieldManager: ferry,
-		})
-	if err != nil {
-		if errors.IsAlreadyExists(err) {
-			i.ConfigMap.ResourceVersion = "0"
-			_, err = clientset.CoreV1().
-				ConfigMaps(i.ConfigMap.Namespace).
-				Update(ctx, i.ConfigMap, metav1.UpdateOptions{
-					FieldManager: ferry,
-				})
-			if err != nil {
-				return fmt.Errorf("update ConfigMap %s.%s: %w", i.ConfigMap.Name, i.ConfigMap.Namespace, err)
-			}
-		} else {
-			return fmt.Errorf("create ConfigMap %s.%s: %w", i.ConfigMap.Name, i.ConfigMap.Namespace, err)
-		}
-	}
-	return nil
-}
-
-func (i ConfigMap) Delete(ctx context.Context, clientset *kubernetes.Clientset) (err error) {
-
-	logr.FromContextOrDiscard(ctx).Info("Deleting ConfigMap", "ConfigMap", i.ConfigMap)
-
-	err = clientset.CoreV1().
-		ConfigMaps(i.ConfigMap.Namespace).
-		Delete(ctx, i.ConfigMap.Name, metav1.DeleteOptions{})
-	if err != nil && !errors.IsNotFound(err) {
-		return fmt.Errorf("delete ConfigMap %s.%s: %w", i.ConfigMap.Name, i.ConfigMap.Namespace, err)
-	}
-	return nil
-}
-
 type Service struct {
 	*corev1.Service
 }
 
 func (s Service) Apply(ctx context.Context, clientset *kubernetes.Clientset) (err error) {
-
-	logr.FromContextOrDiscard(ctx).Info("Creating Service", "Service", s.Service)
-
+	logger := logr.FromContextOrDiscard(ctx)
 	ori, err := clientset.CoreV1().
-		Services(s.Service.Namespace).
-		Get(ctx, s.Service.Name, metav1.GetOptions{})
+		Services(s.Namespace).
+		Get(ctx, s.Name, metav1.GetOptions{})
 	if err != nil {
-		if errors.IsNotFound(err) {
-			_, err = clientset.CoreV1().
-				Services(s.Service.Namespace).
-				Create(ctx, s.Service, metav1.CreateOptions{
-					FieldManager: ferry,
-				})
-			if err != nil {
-				return fmt.Errorf("create service %s.%s: %w", s.Service.Name, s.Service.Namespace, err)
-			}
-		} else {
-			return fmt.Errorf("get service %s.%s: %w", s.Service.Name, s.Service.Namespace, err)
+		if !errors.IsNotFound(err) {
+			return fmt.Errorf("get service %s: %w", utils.KObj(s), err)
+		}
+		logger.Info("Creating Service", "Service", utils.KObj(s))
+		_, err = clientset.CoreV1().
+			Services(s.Namespace).
+			Create(ctx, s.Service, metav1.CreateOptions{
+				FieldManager: ferry,
+			})
+		if err != nil {
+			return fmt.Errorf("create service %s: %w", utils.KObj(s), err)
 		}
 	} else {
-		ori.Spec.Ports = s.Service.Spec.Ports
-		ori.Labels = s.Service.Labels
-		ori.Annotations = s.Service.Annotations
+		if reflect.DeepEqual(ori.Spec.Ports, s.Spec.Ports) {
+			return nil
+		}
+
+		logger.Info("Update Service", "Service", utils.KObj(s))
+		logger.Info(cmp.Diff(ori.Spec.Ports, s.Spec.Ports), "Service", utils.KObj(s))
+		ori.Spec.Ports = s.Spec.Ports
 		_, err = clientset.CoreV1().
-			Services(s.Service.Namespace).
+			Services(s.Namespace).
 			Update(ctx, ori, metav1.UpdateOptions{
 				FieldManager: ferry,
 			})
 		if err != nil {
-			return fmt.Errorf("update service %s.%s: %w", s.Service.Name, s.Service.Namespace, err)
+			return fmt.Errorf("update service %s: %w", utils.KObj(s), err)
 		}
 	}
 	return nil
 }
 
 func (s Service) Delete(ctx context.Context, clientset *kubernetes.Clientset) (err error) {
-	logr.FromContextOrDiscard(ctx).Info("Deleting Service", "Service", s.Service)
+	logger := logr.FromContextOrDiscard(ctx)
+	logger.Info("Deleting Service", "Service", utils.KObj(s))
 
 	err = clientset.CoreV1().
-		Services(s.Service.Namespace).
-		Delete(ctx, s.Service.Name, metav1.DeleteOptions{})
+		Services(s.Namespace).
+		Delete(ctx, s.Name, metav1.DeleteOptions{})
 	if err != nil && !errors.IsNotFound(err) {
-		return fmt.Errorf("delete service %s.%s: %w", s.Service.Name, s.Service.Namespace, err)
+		return fmt.Errorf("delete service %s: %w", utils.KObj(s), err)
 	}
 	return nil
 }
@@ -162,51 +123,114 @@ type Endpoints struct {
 	*corev1.Endpoints
 }
 
-func (e Endpoints) Apply(ctx context.Context, clientset *kubernetes.Clientset) (err error) {
+func (s Endpoints) Apply(ctx context.Context, clientset *kubernetes.Clientset) (err error) {
+	logger := logr.FromContextOrDiscard(ctx)
 
-	logr.FromContextOrDiscard(ctx).Info("Creating Endpoints", "Endpoints", e.Endpoints)
-
-	_, err = clientset.CoreV1().
-		Endpoints(e.Endpoints.Namespace).
-		Create(ctx, e.Endpoints, metav1.CreateOptions{
-			FieldManager: ferry,
-		})
+	ori, err := clientset.CoreV1().
+		Endpoints(s.Namespace).
+		Get(ctx, s.Name, metav1.GetOptions{})
 	if err != nil {
-		if errors.IsAlreadyExists(err) {
-			e.Endpoints.ResourceVersion = "0"
-			_, err = clientset.CoreV1().
-				Endpoints(e.Endpoints.Namespace).
-				Update(ctx, e.Endpoints, metav1.UpdateOptions{
-					FieldManager: ferry,
-				})
-			if err != nil {
-				return fmt.Errorf("update endpoints %s.%s: %w", e.Endpoints.Name, e.Endpoints.Namespace, err)
-			}
-		} else {
-			return fmt.Errorf("create endpoints %s.%s: %w", e.Endpoints.Name, e.Endpoints.Namespace, err)
+		if !errors.IsNotFound(err) {
+			return fmt.Errorf("get Endpoints %s: %w", utils.KObj(s), err)
+		}
+		logger.Info("Creating Endpoints", "Endpoints", utils.KObj(s))
+		_, err = clientset.CoreV1().
+			Endpoints(s.Namespace).
+			Create(ctx, s.Endpoints, metav1.CreateOptions{
+				FieldManager: ferry,
+			})
+		if err != nil {
+			return fmt.Errorf("create Endpoints %s: %w", utils.KObj(s), err)
+		}
+	} else {
+		if reflect.DeepEqual(ori.Subsets, s.Subsets) {
+			return nil
+		}
+
+		logger.Info("Update Endpoints", "Endpoints", utils.KObj(s))
+		logger.Info(cmp.Diff(ori.Subsets, s.Subsets), "Endpoints", utils.KObj(s))
+
+		ori.Subsets = s.Subsets
+		_, err = clientset.CoreV1().
+			Endpoints(s.Namespace).
+			Update(ctx, ori, metav1.UpdateOptions{
+				FieldManager: ferry,
+			})
+		if err != nil {
+			return fmt.Errorf("update Endpoints %s: %w", utils.KObj(s), err)
 		}
 	}
 	return nil
 }
 
-func (e Endpoints) Delete(ctx context.Context, clientset *kubernetes.Clientset) (err error) {
-
-	logr.FromContextOrDiscard(ctx).Info("Deleting Endpoints", "Endpoints", e.Endpoints)
+func (s Endpoints) Delete(ctx context.Context, clientset *kubernetes.Clientset) (err error) {
+	logger := logr.FromContextOrDiscard(ctx)
+	logger.Info("Deleting Endpoints", "Endpoints", utils.KObj(s))
 
 	err = clientset.CoreV1().
-		Services(e.Endpoints.Namespace).
-		Delete(ctx, e.Endpoints.Name, metav1.DeleteOptions{})
+		Endpoints(s.Namespace).
+		Delete(ctx, s.Name, metav1.DeleteOptions{})
 	if err != nil && !errors.IsNotFound(err) {
-		return fmt.Errorf("delete service %s.%s: %w", e.Endpoints.Name, e.Endpoints.Namespace, err)
+		return fmt.Errorf("delete Endpoints %s: %w", utils.KObj(s), err)
 	}
-	if e.Endpoints != nil {
-		err = clientset.CoreV1().
-			Endpoints(e.Endpoints.Namespace).
-			Delete(ctx, e.Endpoints.Name, metav1.DeleteOptions{})
-		if err != nil && !errors.IsNotFound(err) {
-			return fmt.Errorf("delete endpoints %s.%s: %w", e.Endpoints.Name, e.Endpoints.Namespace, err)
+	return nil
+}
+
+type ConfigMap struct {
+	*corev1.ConfigMap
+}
+
+func (s ConfigMap) Apply(ctx context.Context, clientset *kubernetes.Clientset) (err error) {
+	logger := logr.FromContextOrDiscard(ctx)
+
+	ori, err := clientset.CoreV1().
+		ConfigMaps(s.Namespace).
+		Get(ctx, s.Name, metav1.GetOptions{})
+	if err != nil {
+		if !errors.IsNotFound(err) {
+			return fmt.Errorf("get ConfigMap %s: %w", utils.KObj(s), err)
+		}
+		logger.Info("Creating ConfigMap", "ConfigMap", utils.KObj(s))
+		_, err = clientset.CoreV1().
+			ConfigMaps(s.Namespace).
+			Create(ctx, s.ConfigMap, metav1.CreateOptions{
+				FieldManager: ferry,
+			})
+		if err != nil {
+			return fmt.Errorf("create ConfigMap %s: %w", utils.KObj(s), err)
+		}
+	} else {
+		if reflect.DeepEqual(ori.Data, s.Data) {
+			return nil
+		}
+
+		logger.Info("Update ConfigMap", "ConfigMap", utils.KObj(s))
+		logger.Info(cmp.Diff(ori.Data, s.Data), "ConfigMap", utils.KObj(s))
+
+		ori.Data = s.Data
+		_, err = clientset.CoreV1().
+			ConfigMaps(s.Namespace).
+			Update(ctx, ori, metav1.UpdateOptions{
+				FieldManager: ferry,
+			})
+		if err != nil {
+			return fmt.Errorf("update ConfigMap %s: %w", utils.KObj(s), err)
 		}
 	}
+	return nil
+}
+
+func (s ConfigMap) Delete(ctx context.Context, clientset *kubernetes.Clientset) (err error) {
+	logger := logr.FromContextOrDiscard(ctx)
+	logger.Info("Deleting ConfigMap", "ConfigMap", utils.KObj(s))
+
+	err = clientset.CoreV1().
+		ConfigMaps(s.Namespace).
+		Delete(ctx, s.Name, metav1.DeleteOptions{})
+	if err != nil && !errors.IsNotFound(err) {
+		return fmt.Errorf("delete ConfigMap %s: %w", utils.KObj(s), err)
+	}
+
 	return nil
 }
 

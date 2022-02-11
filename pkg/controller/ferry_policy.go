@@ -140,6 +140,7 @@ func (c *ferryPolicyController) OnDelete(obj interface{}) {
 	}
 
 	delete(c.mapCancel, f.Name)
+	c.syncFunc(context.Background(), f)
 }
 
 func getPort(ctx context.Context, clientset *kubernetes.Clientset, route *v1alpha1.ClusterInformationSpecRoute) (int32, error) {
@@ -149,7 +150,9 @@ func getPort(ctx context.Context, clientset *kubernetes.Clientset, route *v1alph
 	if route.Port != 0 {
 		return route.Port, nil
 	}
-
+	if route.ServiceNamespace == "" && route.ServiceName == "" {
+		return 31087, nil
+	}
 	if route.ServiceNamespace == "" {
 		return 0, fmt.Errorf("ServiceNamespace is empty")
 	}
@@ -182,6 +185,9 @@ func getIPs(ctx context.Context, clientset *kubernetes.Clientset, route *v1alpha
 	}
 	if route.IP != "" {
 		return []string{route.IP}, nil
+	}
+	if route.ServiceNamespace == "" && route.ServiceName == "" {
+		return nil, nil
 	}
 	if route.ServiceNamespace == "" {
 		return nil, fmt.Errorf("ServiceNamespace is empty")
