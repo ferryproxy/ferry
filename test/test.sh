@@ -5,7 +5,7 @@ failed=()
 function fetch-tunnel-config() {
   local cluster=$1
   echo "==== Fetch ${cluster} config ===="
-  kubectl --kubeconfig=kubeconfig/${cluster} exec deploy/ferry-tunnel -n ferry-tunnel-system -it -- cat bridge.conf
+  kubectl --kubeconfig=kubeconfig/${cluster} exec deploy/ferry-tunnel -n ferry-tunnel-system -- cat bridge.conf
   echo
 }
 
@@ -14,7 +14,7 @@ function check(){
   local deploy=$2
   local target=$3
   local wanted=$4
-  local got=$(kubectl --kubeconfig=kubeconfig/${cluster} exec deploy/${deploy} -n test -it -- wget -T 1 -S -O- ${target})
+  local got=$(kubectl --kubeconfig=kubeconfig/${cluster} exec deploy/${deploy} -n test -- wget -T 1 -S -O- ${target} 2>&1)
   if [[ "${got}" =~ "${wanted}" ]]; then
     echo "check passed for ${cluster} ${deploy} ${target}"
   else
