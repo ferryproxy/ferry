@@ -137,8 +137,8 @@ func (c *clusterInformationController) setupWatchEgress(ctx context.Context, ci 
 								break
 							}
 							backoff <<= 1
-							if backoff < 10*time.Second {
-								backoff = 10 * time.Second
+							if backoff > 16*time.Second {
+								backoff = 16 * time.Second
 							}
 							log.Error(err, "Get IPs for egressIPs")
 						}
