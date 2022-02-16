@@ -9,3 +9,6 @@ spec:
     serviceName: "ferry-tunnel"
     serviceNamespace: "ferry-tunnel-system"
     port: 31087
+  ingress:
+    defaultProxies:
+      - clusterName: ferry-cluster0

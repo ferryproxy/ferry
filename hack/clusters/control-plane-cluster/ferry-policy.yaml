@@ -68,3 +68,27 @@ spec:
           match:
             namespace: test
             name: web-2-2
+
+    - exports:
+        - clusterName: ferry-cluster2
+          match:
+            namespace: test
+            name: web-2
+
+      imports:
+        - clusterName: ferry-cluster1
+          match:
+            namespace: test
+            name: web-2
+
+    - exports:
+        - clusterName: ferry-cluster1
+          match:
+            namespace: test
+            name: web-1
+
+      imports:
+        - clusterName: ferry-cluster2
+          match:
+            namespace: test
+            name: web-1

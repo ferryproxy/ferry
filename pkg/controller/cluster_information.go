@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"net"
 	"reflect"
+	"strconv"
 	"sync"
 	"time"
 
@@ -242,4 +244,45 @@ func needWatchEgress(route *v1alpha1.ClusterInformationSpecRoute) bool {
 		return false
 	}
 	return true
+}
+
+func (c *clusterInformationController) proxy(ctx context.Context, proxy v1alpha1.Proxy) (string, error) {
+	if proxy.Proxy != "" {
+		return proxy.Proxy, nil
+	}
+	ci := c.Get(proxy.ClusterName)
+	if ci == nil {
+		return "", fmt.Errorf("not found cluster %s", proxy.ClusterName)
+	}
+	if ci.Spec.Ingress == nil {
+		return "", fmt.Errorf("not ingress int cluster %s", proxy.ClusterName)
+	}
+
+	cli := c.Clientset(proxy.ClusterName)
+	if cli == nil {
+		return "", fmt.Errorf("not found clientset on cluster %s", proxy.ClusterName)
+	}
+	ip, err := getIPs(ctx, cli, ci.Spec.Ingress)
+	if err != nil {
+		return "", err
+	}
+
+	port, err := getPort(ctx, cli, ci.Spec.Ingress)
+	if err != nil {
+		return "", err
+	}
+
+	return "ssh://" + net.JoinHostPort(ip[0], strconv.FormatInt(int64(port), 10)), nil
+}
+
+func (c *clusterInformationController) proxies(ctx context.Context, proxies []v1alpha1.Proxy) ([]string, error) {
+	out := make([]string, 0, len(proxies))
+	for _, proxy := range proxies {
+		p, err := c.proxy(ctx, proxy)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, p)
+	}
+	return out, nil
 }

@@ -45,9 +45,6 @@ type Proxy struct {
 	ImportClusterName string
 	ExportClusterName string
 
-	ImportPortOffset int32
-	ExportPortOffset int32
-
 	Labels map[string]string
 
 	InClusterEgressIPs []string
@@ -57,6 +54,9 @@ type Proxy struct {
 
 	ImportIngressIPs  []string
 	ImportIngressPort int32
+
+	ExportProxy []string
+	ImportProxy []string
 }
 
 type Resourcer interface {

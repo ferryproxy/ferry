@@ -5,7 +5,7 @@ out=$(realpath "${dir}/../../../kubeconfig")
 
 images=(
   "ghcr.io/wzshiming/echoserver/echoserver:v0.0.1"
-  "ghcr.io/ferry-proxy/ferry-tunnel:v0.0.8"
+  "ghcr.io/ferry-proxy/ferry-tunnel:v0.0.9"
 )
 
 unset http_proxy https_proxy no_proxy HTTP_PROXY HTTPS_PROXY NO_PROXY
