@@ -1,0 +1,4 @@
+
+resources:
+- https://github.com/ferry-proxy/api/config/crd
+- deploy.yaml

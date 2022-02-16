@@ -1,6 +1,6 @@
 
 resources:
-- ../ferry-tunnel
+- https://github.com/ferry-proxy/ferry-tunnel/config/default
 - ns.yaml
 - svc.yaml
 - ferry-policy.yaml

@@ -1,4 +1,4 @@
 
 resources:
 - svc.yaml
-- ../ferry-tunnel
+- https://github.com/ferry-proxy/ferry-tunnel/config/default
