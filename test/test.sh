@@ -9,6 +9,12 @@ function fetch-tunnel-config() {
   echo
 }
 
+function fetch-tunnel-log() {
+  local cluster=$1
+  echo "==== Fetch ${cluster} log ===="
+  kubectl --kubeconfig=kubeconfig/${cluster} logs deploy/ferry-tunnel -n ferry-tunnel-system
+}
+
 function check(){
   local cluster=$1
   local deploy=$2
@@ -16,10 +22,10 @@ function check(){
   local wanted=$4
   local got=$(kubectl --kubeconfig=kubeconfig/${cluster} exec deploy/${deploy} -n test -- wget -T 1 -S -O- ${target} 2>&1)
   if [[ "${got}" =~ "${wanted}" ]]; then
-    echo "check passed for ${cluster} ${deploy} ${target}"
+    echo "check passed for ${cluster} ${deploy} ${target} : ${NAME:-}"
   else
-    failed=("${failed[@]}" "check failed for ${cluster} ${deploy} ${target}")
-    echo "check failed for ${cluster} ${deploy} ${target}"
+    failed=("${failed[@]}" "check failed for ${cluster} ${deploy} ${target} : ${NAME:-}")
+    echo "check failed for ${cluster} ${deploy} ${target} : ${NAME:-}"
     echo "wanted: ${wanted}"
     echo "got: ${got}"
     return 1
@@ -50,6 +56,14 @@ function check-consistency() {
   check control-plane-cluster web-0 web-2.test.svc:8080 "MESSAGE: cluster-2"
   check control-plane-cluster web-0 web-2-2.test.svc:80 "MESSAGE: cluster-2"
   check control-plane-cluster web-0 web-2-2.test.svc:8080 "MESSAGE: cluster-2"
+
+  echo "==== Test data-plane-cluster-1 to data-plane-cluster-2 ===="
+  check data-plane-cluster-1 web-1 web-2.test.svc:80 "MESSAGE: cluster-2"
+  check data-plane-cluster-1 web-1 web-2.test.svc:8080 "MESSAGE: cluster-2"
+
+  echo "==== Test data-plane-cluster-2 to data-plane-cluster-1 ===="
+  check data-plane-cluster-2 web-2 web-1.test.svc:80 "MESSAGE: cluster-1"
+  check data-plane-cluster-2 web-2 web-1.test.svc:8080 "MESSAGE: cluster-1"
 }
 
 function recreate-tunnel() {
@@ -71,25 +85,28 @@ wait-tunnel-ready data-plane-cluster-2
 wait-tunnel-ready data-plane-cluster-1
 wait-tunnel-ready control-plane-cluster
 
-
+sleep 20
 fetch-tunnel-config control-plane-cluster
 fetch-tunnel-config data-plane-cluster-1
 fetch-tunnel-config data-plane-cluster-2
 
-
-check-consistency
+NAME=base check-consistency
 
 recreate-tunnel data-plane-cluster-1
 wait-tunnel-ready data-plane-cluster-1
 
 sleep 20
-check-consistency
+NAME="recreate tunnel of cluster-1" check-consistency
 
 recreate-tunnel control-plane-cluster
 wait-tunnel-ready control-plane-cluster
 
 sleep 20
-check-consistency
+NAME="recreate tunnel of plane-cluster" check-consistency
+
+fetch-tunnel-log control-plane-cluster
+fetch-tunnel-log data-plane-cluster-1
+fetch-tunnel-log data-plane-cluster-2
 
 if [[ ${#failed[@]} -eq 0 ]]; then
   echo "All checks passed"

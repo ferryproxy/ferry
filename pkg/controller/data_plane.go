@@ -3,7 +3,7 @@ package controller
 import (
 	"context"
 	"fmt"
-	"k8s.io/apimachinery/pkg/selection"
+	"sort"
 	"sync"
 	"time"
 
@@ -14,6 +14,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 )
@@ -143,14 +144,12 @@ func (d *DataPlaneController) RegistrySelector(sel labels.Selector) {
 	d.mut.Lock()
 	defer d.mut.Unlock()
 	d.labels[sel.String()] = sel
-	d.trySync()
 }
 
 func (d *DataPlaneController) UnregistrySelector(sel labels.Selector) {
 	d.mut.Lock()
 	defer d.mut.Unlock()
 	delete(d.labels, sel.String())
-	d.trySync()
 }
 
 func (d *DataPlaneController) RegistryObj(export, impor utils.ObjectRef) {
@@ -163,7 +162,6 @@ func (d *DataPlaneController) RegistryObj(export, impor utils.ObjectRef) {
 		}
 	}
 	d.mappings[export] = append(d.mappings[export], impor)
-	d.trySync()
 }
 
 func (d *DataPlaneController) UnregistryObj(export, impor utils.ObjectRef) {
@@ -176,7 +174,6 @@ func (d *DataPlaneController) UnregistryObj(export, impor utils.ObjectRef) {
 			return
 		}
 	}
-	d.trySync()
 }
 
 func (d *DataPlaneController) initLastSourceResources(ctx context.Context, proxy *router.Proxy, opt metav1.ListOptions) error {
@@ -222,6 +219,22 @@ func (d *DataPlaneController) trySync() {
 	}
 }
 
+func CalculateProxy(exportProxy, importProxy []string) ([]string, []string) {
+	if len(exportProxy) == 0 && len(importProxy) == 0 {
+		return nil, nil
+	}
+	if len(exportProxy) == 0 {
+		return []string{importProxy[0]}, importProxy
+	}
+	if len(importProxy) == 0 {
+		return exportProxy, []string{exportProxy[0]}
+	}
+	if exportProxy[0] == importProxy[0] {
+		return exportProxy, importProxy
+	}
+	return exportProxy, append([]string{exportProxy[0]}, importProxy...)
+}
+
 func (d *DataPlaneController) getProxyInfo(ctx context.Context) (*router.Proxy, error) {
 	exportClusterName := d.exportClusterName
 	importClusterName := d.importClusterName
@@ -245,12 +258,12 @@ func (d *DataPlaneController) getProxyInfo(ctx context.Context) (*router.Proxy, 
 		return nil, fmt.Errorf("not found cluster information %q", importClusterName)
 	}
 
-	exportIngressIPs, err := getIPs(ctx, exportClientset, exportCluster.Spec.Ingress)
+	inClusterEgressIPs, err := getIPs(ctx, importClientset, importCluster.Spec.Egress)
 	if err != nil {
 		return nil, err
 	}
 
-	inClusterEgressIPs, err := getIPs(ctx, importClientset, importCluster.Spec.Egress)
+	exportIngressIPs, err := getIPs(ctx, exportClientset, exportCluster.Spec.Ingress)
 	if err != nil {
 		return nil, err
 	}
@@ -271,32 +284,63 @@ func (d *DataPlaneController) getProxyInfo(ctx context.Context) (*router.Proxy, 
 
 	reverse := false
 
+	var exportProxy = []string{}
+	var importProxy = []string{}
+
+	var exportProxies v1alpha1.Proxies
+	var importProxies v1alpha1.Proxies
+	var ok bool
+
+	if exportCluster.Spec.Ingress != nil {
+		if len(exportCluster.Spec.Ingress.Proxies) != 0 {
+			exportProxies, ok = exportCluster.Spec.Ingress.Proxies[importClusterName]
+			if !ok {
+				exportProxies = exportCluster.Spec.Ingress.DefaultProxies
+			}
+		} else {
+			exportProxies = exportCluster.Spec.Ingress.DefaultProxies
+		}
+	}
+
+	if importCluster.Spec.Egress != nil {
+		if len(importCluster.Spec.Egress.Proxies) != 0 {
+			importProxies, ok = importCluster.Spec.Egress.Proxies[exportClusterName]
+			if !ok {
+				importProxies = importCluster.Spec.Egress.DefaultProxies
+			}
+		} else {
+			importProxies = importCluster.Spec.Egress.DefaultProxies
+		}
+	}
+
 	if len(exportIngressIPs) == 0 {
 		if len(importIngressIPs) == 0 {
-			return nil, fmt.Errorf("not found ingress ip")
+			if len(importProxies) == 0 && len(exportProxies) == 0 {
+				return nil, fmt.Errorf("not found ingress ip or proxy")
+			} else {
+				exportProxy, err = d.clusterInformationController.proxies(ctx, exportProxies)
+				if err != nil {
+					return nil, err
+				}
+				importProxy, err = d.clusterInformationController.proxies(ctx, importProxies)
+				if err != nil {
+					return nil, err
+				}
+				exportProxy, importProxy = CalculateProxy(exportProxy, importProxy)
+			}
 		} else {
 			reverse = true
 		}
 	}
-
-	var exportPortOffset int32 = 40000
-	var importPortOffset int32 = 50000
-	if reverse {
-		exportPortOffset = 45000
-		exportPortOffset = 55000
-	}
-
 	return &router.Proxy{
 		Labels: map[string]string{
-			LabelFerryManagedByKey: LabelFerryManagedByValue,
-			LabelFerryExportedFrom: exportCluster.Name,
-			LabelFerryImportedTo:   importCluster.Name,
+			LabelFerryManagedByKey:    LabelFerryManagedByValue,
+			LabelFerryExportedFromKey: exportCluster.Name,
+			LabelFerryImportedToKey:   importCluster.Name,
 		},
-		RemotePrefix:     "ferry",
-		TunnelNamespace:  "ferry-tunnel-system",
-		ExportPortOffset: exportPortOffset,
-		ImportPortOffset: importPortOffset,
-		Reverse:          reverse,
+		RemotePrefix:    "ferry",
+		TunnelNamespace: "ferry-tunnel-system",
+		Reverse:         reverse,
 
 		ExportClusterName: exportCluster.Name,
 		ImportClusterName: importCluster.Name,
@@ -308,6 +352,9 @@ func (d *DataPlaneController) getProxyInfo(ctx context.Context) (*router.Proxy, 
 
 		ImportIngressIPs:  importIngressIPs,
 		ImportIngressPort: importIngressPort,
+
+		ExportProxy: exportProxy,
+		ImportProxy: importProxy,
 	}, nil
 }
 
@@ -333,7 +380,15 @@ func (d *DataPlaneController) sync(ctx context.Context) error {
 		return err
 	}
 
+	svcs := []*corev1.Service{}
 	for _, svc := range d.cache {
+		svcs = append(svcs, svc)
+	}
+	sort.Slice(svcs, func(i, j int) bool {
+		return svcs[i].CreationTimestamp.Before(&svcs[j].CreationTimestamp)
+	})
+
+	for _, svc := range svcs {
 		origin := utils.KObj(svc)
 
 		for _, label := range d.labels {

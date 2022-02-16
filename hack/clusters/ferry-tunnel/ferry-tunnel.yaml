@@ -57,7 +57,7 @@ data:
   tunnel.json: |
     [
       {
-        "bind": ["http://:11088"],
+        "bind": ["ssh://0.0.0.0:31087"],
         "proxy": ["-"]
       }
     ]
@@ -113,7 +113,7 @@ spec:
       restartPolicy: Always
       containers:
         - name: tunnel
-          image: ghcr.io/ferry-proxy/ferry-tunnel:v0.0.8
+          image: ghcr.io/ferry-proxy/ferry-tunnel:v0.0.9
           imagePullPolicy: IfNotPresent
           ports:
             - name: tunnel
