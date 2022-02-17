@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/ferry-proxy/api/apis/ferry/v1alpha1"
+	"github.com/ferry-proxy/ferry/pkg/consts"
 	"github.com/ferry-proxy/ferry/pkg/router"
 	"github.com/ferry-proxy/ferry/pkg/utils"
 	"github.com/go-logr/logr"
@@ -88,7 +89,7 @@ func (d *DataPlaneController) Start(ctx context.Context) error {
 
 	informerFactory := informers.NewSharedInformerFactoryWithOptions(d.exportClientset, 0,
 		informers.WithTweakListOptions(func(options *metav1.ListOptions) {
-			expected, _ := labels.NewRequirement(LabelFerryManagedByKey, selection.NotEquals, []string{LabelFerryManagedByValue})
+			expected, _ := labels.NewRequirement(consts.LabelFerryManagedByKey, selection.NotEquals, []string{consts.LabelFerryManagedByValue})
 			options.LabelSelector = expected.String()
 		}))
 	informer := informerFactory.Core().V1().Services().Informer()
@@ -334,9 +335,9 @@ func (d *DataPlaneController) getProxyInfo(ctx context.Context) (*router.Proxy, 
 	}
 	return &router.Proxy{
 		Labels: map[string]string{
-			LabelFerryManagedByKey:    LabelFerryManagedByValue,
-			LabelFerryExportedFromKey: exportCluster.Name,
-			LabelFerryImportedToKey:   importCluster.Name,
+			consts.LabelFerryManagedByKey:    consts.LabelFerryManagedByValue,
+			consts.LabelFerryExportedFromKey: exportCluster.Name,
+			consts.LabelFerryImportedToKey:   importCluster.Name,
 		},
 		RemotePrefix:    "ferry",
 		TunnelNamespace: "ferry-tunnel-system",

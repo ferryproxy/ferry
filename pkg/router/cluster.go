@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"reflect"
 
+	"github.com/ferry-proxy/ferry/pkg/consts"
 	"github.com/ferry-proxy/ferry/pkg/utils"
 	"github.com/go-logr/logr"
 	"github.com/google/go-cmp/cmp"
@@ -87,6 +88,9 @@ func (s Service) Apply(ctx context.Context, clientset *kubernetes.Clientset) (er
 			return fmt.Errorf("create service %s: %w", utils.KObj(s), err)
 		}
 	} else {
+		if ori.Labels[consts.LabelFerryManagedByKey] != consts.LabelFerryManagedByValue {
+			return fmt.Errorf("service %s is not managed by ferry", utils.KObj(s))
+		}
 		if reflect.DeepEqual(ori.Spec.Ports, s.Spec.Ports) {
 			return nil
 		}
@@ -143,6 +147,9 @@ func (s Endpoints) Apply(ctx context.Context, clientset *kubernetes.Clientset) (
 			return fmt.Errorf("create Endpoints %s: %w", utils.KObj(s), err)
 		}
 	} else {
+		if ori.Labels[consts.LabelFerryManagedByKey] != consts.LabelFerryManagedByValue {
+			return fmt.Errorf("endpoints %s is not managed by ferry", utils.KObj(s))
+		}
 		if reflect.DeepEqual(ori.Subsets, s.Subsets) {
 			return nil
 		}
@@ -200,6 +207,10 @@ func (s ConfigMap) Apply(ctx context.Context, clientset *kubernetes.Clientset) (
 			return fmt.Errorf("create ConfigMap %s: %w", utils.KObj(s), err)
 		}
 	} else {
+		if ori.Labels[consts.LabelFerryManagedByKey] != consts.LabelFerryManagedByValue {
+			return fmt.Errorf("configmap %s is not managed by ferry", utils.KObj(s))
+		}
+
 		if reflect.DeepEqual(ori.Data, s.Data) {
 			return nil
 		}

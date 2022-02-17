@@ -1,4 +1,4 @@
-package controller
+package consts
 
 const (
 	LabelPrefix               = "ferry.zsm.io/"
