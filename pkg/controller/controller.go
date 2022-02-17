@@ -229,29 +229,6 @@ func (c *Controller) sync(ctx context.Context, policies []*v1alpha1.FerryPolicy,
 			older := c.cacheMatchRule[r.Export][r.Import]
 			newer := newerMatchRules[r.Export][r.Import]
 			updated, deleted := CalculateMatchRulePatch(older, newer)
-			for _, rule := range updated {
-				logger.Info("Update rule", "rule", rule)
-				switch {
-				case (rule.Import.Name != "" || rule.Export.Name != "") &&
-					(len(rule.Export.Labels) == 0 && len(rule.Import.Labels) == 0):
-					dataPlane.RegistryObj(
-						utils.ObjectRef{Name: rule.Export.Name, Namespace: rule.Export.Namespace},
-						utils.ObjectRef{Name: rule.Import.Name, Namespace: rule.Import.Namespace},
-					)
-
-				case (len(rule.Export.Labels) != 0 || len(rule.Import.Labels) != 0) &&
-					(rule.Import.Name == "" && rule.Export.Name == ""):
-					if (rule.Export.Namespace != "" || rule.Import.Namespace != "") &&
-						rule.Export.Namespace != rule.Import.Namespace {
-						logger.Info("Tried to import Service but Namespace is not matched")
-						continue
-					}
-
-					matchSet := utils.MergeMap(rule.Export.Labels, rule.Import.Labels)
-					dataPlane.RegistrySelector(labels.Set(matchSet).AsSelector())
-				}
-			}
-
 			for _, rule := range deleted {
 				logger.Info("Delete rule", "rule", rule)
 				switch {
@@ -272,6 +249,29 @@ func (c *Controller) sync(ctx context.Context, policies []*v1alpha1.FerryPolicy,
 
 					matchSet := utils.MergeMap(rule.Export.Labels, rule.Import.Labels)
 					dataPlane.UnregistrySelector(labels.Set(matchSet).AsSelector())
+				}
+			}
+
+			for _, rule := range updated {
+				logger.Info("Update rule", "rule", rule)
+				switch {
+				case (rule.Import.Name != "" || rule.Export.Name != "") &&
+					(len(rule.Export.Labels) == 0 && len(rule.Import.Labels) == 0):
+					dataPlane.RegistryObj(
+						utils.ObjectRef{Name: rule.Export.Name, Namespace: rule.Export.Namespace},
+						utils.ObjectRef{Name: rule.Import.Name, Namespace: rule.Import.Namespace},
+					)
+
+				case (len(rule.Export.Labels) != 0 || len(rule.Import.Labels) != 0) &&
+					(rule.Import.Name == "" && rule.Export.Name == ""):
+					if (rule.Export.Namespace != "" || rule.Import.Namespace != "") &&
+						rule.Export.Namespace != rule.Import.Namespace {
+						logger.Info("Tried to import Service but Namespace is not matched")
+						continue
+					}
+
+					matchSet := utils.MergeMap(rule.Export.Labels, rule.Import.Labels)
+					dataPlane.RegistrySelector(labels.Set(matchSet).AsSelector())
 				}
 			}
 
