@@ -81,6 +81,21 @@ function wait-tunnel-ready() {
   echo "cluster ${cluster} tunnel is ready"
 }
 
+function recreate-controller() {
+  local cluster=$1
+  kubectl --kubeconfig=kubeconfig/${cluster} delete pod -n ferry-system  --all
+}
+
+function wait-controller-ready() {
+  local cluster=$1
+
+  while [[ $(kubectl --kubeconfig=kubeconfig/${cluster} get pod -n ferry-system | grep "Running") == "" ]]; do
+    echo "waiting for cluster ${cluster} to be ready"
+    sleep 5
+  done
+  echo "cluster ${cluster} controller is ready"
+}
+
 wait-tunnel-ready data-plane-cluster-2
 wait-tunnel-ready data-plane-cluster-1
 wait-tunnel-ready control-plane-cluster
@@ -91,6 +106,12 @@ fetch-tunnel-config data-plane-cluster-1
 fetch-tunnel-config data-plane-cluster-2
 
 NAME=base check-consistency
+
+recreate-controller control-plane-cluster
+wait-tunnel-ready control-plane-cluster
+
+sleep 20
+NAME="recreate controller" check-consistency
 
 recreate-tunnel data-plane-cluster-1
 wait-tunnel-ready data-plane-cluster-1
