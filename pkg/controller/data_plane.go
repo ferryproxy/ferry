@@ -177,6 +177,12 @@ func (d *DataPlaneController) initLastDestinationResources(ctx context.Context, 
 	for _, item := range svcList.Items {
 		d.lastDestinationResources = append(d.lastDestinationResources, router.Service{item.DeepCopy()})
 	}
+	err = d.clusterInformationController.
+		TunnelPorts(d.importClusterName).
+		loadPortPeer(svcList)
+	if err != nil {
+		return err
+	}
 	epList, err := d.importClientset.CoreV1().Endpoints("").List(ctx, opt)
 	if err != nil {
 		return err
@@ -300,6 +306,8 @@ func (d *DataPlaneController) getProxyInfo(ctx context.Context) (*router.Proxy, 
 			reverse = true
 		}
 	}
+
+	ports := d.clusterInformationController.TunnelPorts(importClusterName)
 	return &router.Proxy{
 		Labels: map[string]string{
 			consts.LabelFerryManagedByKey:    consts.LabelFerryManagedByValue,
@@ -323,6 +331,9 @@ func (d *DataPlaneController) getProxyInfo(ctx context.Context) (*router.Proxy, 
 
 		ExportProxy: exportProxy,
 		ImportProxy: importProxy,
+		GetPortFunc: func(namespace, name string, port int32) int32 {
+			return ports.getPort(exportCluster.Name, namespace, name, port)
+		},
 	}, nil
 }
 
