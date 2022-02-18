@@ -274,7 +274,7 @@ func (c *Controller) cleanupDataPlane(exportClusterName, importClusterName strin
 	}
 	dataPlane := c.cacheDataPlaneController[key]
 	if dataPlane != nil {
-		dataPlane.Cleanup(context.TODO())
+		dataPlane.Close()
 		delete(c.cacheDataPlaneController, key)
 	}
 }

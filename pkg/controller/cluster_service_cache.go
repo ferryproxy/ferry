@@ -53,7 +53,11 @@ func (c *clusterServiceCache) ResetClientset(clientset *kubernetes.Clientset) er
 	c.ctx, c.cancel = context.WithCancel(c.parentCtx)
 	c.clientset = clientset
 	informerFactory := informers.NewSharedInformerFactoryWithOptions(c.clientset, 0)
-	informer := informerFactory.Core().V1().Services().Informer()
+	informer := informerFactory.
+		Core().
+		V1().
+		Services().
+		Informer()
 	informer.AddEventHandler(c)
 	go informer.Run(c.ctx.Done())
 	return nil

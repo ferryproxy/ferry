@@ -67,7 +67,8 @@ func (c *clusterInformationController) Run(ctx context.Context) error {
 	c.ctx = ctx
 	informerFactory := externalversions.NewSharedInformerFactoryWithOptions(clientset, 0,
 		externalversions.WithNamespace(c.namespace))
-	informer := informerFactory.Ferry().
+	informer := informerFactory.
+		Ferry().
 		V1alpha1().
 		ClusterInformations().
 		Informer()
@@ -121,9 +122,12 @@ func (c *clusterInformationController) setupWatchEgress(ctx context.Context, ci 
 	ctx, cancel := context.WithCancel(ctx)
 	log := c.logger.WithName("watch-egress")
 	fieldSelector := fmt.Sprintf("metadata.name=%s", egress.ServiceName)
-	watch, err := clientset.CoreV1().Endpoints(egress.ServiceNamespace).Watch(ctx, metav1.ListOptions{
-		FieldSelector: fieldSelector,
-	})
+	watch, err := clientset.
+		CoreV1().
+		Endpoints(egress.ServiceNamespace).
+		Watch(ctx, metav1.ListOptions{
+			FieldSelector: fieldSelector,
+		})
 	var lastIPs []string
 	var lastPort int32
 	if err != nil {
