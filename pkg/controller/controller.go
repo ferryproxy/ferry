@@ -276,7 +276,7 @@ func (c *Controller) sync(ctx context.Context, policies []*v1alpha1.FerryPolicy,
 			}
 
 		}
-		dataPlane.trySync()
+		dataPlane.try.Try()
 	}
 
 	return

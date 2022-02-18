@@ -35,6 +35,7 @@ type clusterInformationController struct {
 	config                  *restclient.Config
 	cacheClusterInformation map[string]*v1alpha1.ClusterInformation
 	cacheClientset          map[string]*kubernetes.Clientset
+	cacheService            map[string]*clusterServiceCache
 	cacheEgressWatchCancel  map[string]func()
 	syncFunc                func(context.Context, string)
 	namespace               string
@@ -48,6 +49,7 @@ func newClusterInformationController(conf *clusterInformationControllerConfig) *
 		syncFunc:                conf.SyncFunc,
 		cacheClusterInformation: map[string]*v1alpha1.ClusterInformation{},
 		cacheClientset:          map[string]*kubernetes.Clientset{},
+		cacheService:            map[string]*clusterServiceCache{},
 		cacheEgressWatchCancel:  map[string]func(){},
 	}
 }
@@ -76,6 +78,12 @@ func (c *clusterInformationController) Clientset(name string) *kubernetes.Client
 	c.mut.RLock()
 	defer c.mut.RUnlock()
 	return c.cacheClientset[name]
+}
+
+func (c *clusterInformationController) ServiceCache(name string) *clusterServiceCache {
+	c.mut.RLock()
+	defer c.mut.RUnlock()
+	return c.cacheService[name]
 }
 
 func (c *clusterInformationController) setupWatchEgress(ctx context.Context, ci *v1alpha1.ClusterInformation) {
@@ -182,6 +190,17 @@ func (c *clusterInformationController) OnAdd(obj interface{}) {
 	c.setupWatchEgress(c.ctx, f)
 	c.cacheClusterInformation[f.Name] = f
 
+	clusterService := newClusterServiceCache(clusterServiceCacheConfig{
+		Clientset: clientset,
+		Logger:    c.logger.WithName("service"),
+	})
+	c.cacheService[f.Name] = clusterService
+
+	err = clusterService.Start(c.ctx)
+	if err != nil {
+		c.logger.Error(err, "failed start cluster service cache")
+	}
+
 	c.syncFunc(c.ctx, f.Name)
 }
 
@@ -201,6 +220,10 @@ func (c *clusterInformationController) OnUpdate(oldObj, newObj interface{}) {
 			c.logger.Error(err, "NewClientsetFromKubeconfig")
 		} else {
 			c.cacheClientset[f.Name] = clientset
+			err := c.cacheService[f.Name].ResetClientset(clientset)
+			if err != nil {
+				c.logger.Error(err, "Reset clientset")
+			}
 		}
 	}
 
@@ -221,6 +244,12 @@ func (c *clusterInformationController) OnDelete(obj interface{}) {
 
 	delete(c.cacheClientset, f.Name)
 	delete(c.cacheClusterInformation, f.Name)
+
+	if c.cacheService[f.Name] != nil {
+		c.cacheService[f.Name].Close()
+	}
+	delete(c.cacheService, f.Name)
+
 	c.syncFunc(c.ctx, f.Name)
 }
 
