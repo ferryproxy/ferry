@@ -75,7 +75,8 @@ func (c *ferryPolicyController) Run(ctx context.Context) error {
 	c.ctx = ctx
 	informerFactory := externalversions.NewSharedInformerFactoryWithOptions(clientset, 0,
 		externalversions.WithNamespace(c.namespace))
-	informer := informerFactory.Ferry().
+	informer := informerFactory.
+		Ferry().
 		V1alpha1().
 		FerryPolicies().
 		Informer()
@@ -159,7 +160,10 @@ func getPort(ctx context.Context, clientset *kubernetes.Clientset, route *v1alph
 	if route.ServiceName == "" {
 		return 0, fmt.Errorf("ServiceName is empty")
 	}
-	ep, err := clientset.CoreV1().Endpoints(route.ServiceNamespace).Get(ctx, route.ServiceName, metav1.GetOptions{})
+	ep, err := clientset.
+		CoreV1().
+		Endpoints(route.ServiceNamespace).
+		Get(ctx, route.ServiceName, metav1.GetOptions{})
 	if err != nil {
 		return 0, err
 	}
@@ -195,7 +199,10 @@ func getIPs(ctx context.Context, clientset *kubernetes.Clientset, route *v1alpha
 	if route.ServiceName == "" {
 		return nil, fmt.Errorf("ServiceName is empty")
 	}
-	ep, err := clientset.CoreV1().Endpoints(route.ServiceNamespace).Get(ctx, route.ServiceName, metav1.GetOptions{})
+	ep, err := clientset.
+		CoreV1().
+		Endpoints(route.ServiceNamespace).
+		Get(ctx, route.ServiceName, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}

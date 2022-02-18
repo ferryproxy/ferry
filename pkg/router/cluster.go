@@ -15,10 +15,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
-const (
-	ferry = "ferry-controller"
-)
-
 type ResourceBuilder interface {
 	Build(proxy *Proxy, origin, destination utils.ObjectRef, spec *corev1.ServiceSpec) ([]Resourcer, error)
 }
@@ -73,7 +69,8 @@ type Service struct {
 
 func (s Service) Apply(ctx context.Context, clientset *kubernetes.Clientset) (err error) {
 	logger := logr.FromContextOrDiscard(ctx)
-	ori, err := clientset.CoreV1().
+	ori, err := clientset.
+		CoreV1().
 		Services(s.Namespace).
 		Get(ctx, s.Name, metav1.GetOptions{})
 	if err != nil {
@@ -81,10 +78,11 @@ func (s Service) Apply(ctx context.Context, clientset *kubernetes.Clientset) (er
 			return fmt.Errorf("get service %s: %w", utils.KObj(s), err)
 		}
 		logger.Info("Creating Service", "Service", utils.KObj(s))
-		_, err = clientset.CoreV1().
+		_, err = clientset.
+			CoreV1().
 			Services(s.Namespace).
 			Create(ctx, s.Service, metav1.CreateOptions{
-				FieldManager: ferry,
+				FieldManager: consts.LabelFerryManagedByValue,
 			})
 		if err != nil {
 			return fmt.Errorf("create service %s: %w", utils.KObj(s), err)
@@ -102,10 +100,11 @@ func (s Service) Apply(ctx context.Context, clientset *kubernetes.Clientset) (er
 		logger.Info("Update Service", "Service", utils.KObj(s))
 		logger.Info(cmp.Diff(ori.Spec.Ports, s.Spec.Ports), "Service", utils.KObj(s))
 		ori.Spec.Ports = s.Spec.Ports
-		_, err = clientset.CoreV1().
+		_, err = clientset.
+			CoreV1().
 			Services(s.Namespace).
 			Update(ctx, ori, metav1.UpdateOptions{
-				FieldManager: ferry,
+				FieldManager: consts.LabelFerryManagedByValue,
 			})
 		if err != nil {
 			return fmt.Errorf("update service %s: %w", utils.KObj(s), err)
@@ -118,7 +117,8 @@ func (s Service) Delete(ctx context.Context, clientset *kubernetes.Clientset) (e
 	logger := logr.FromContextOrDiscard(ctx)
 	logger.Info("Deleting Service", "Service", utils.KObj(s))
 
-	err = clientset.CoreV1().
+	err = clientset.
+		CoreV1().
 		Services(s.Namespace).
 		Delete(ctx, s.Name, metav1.DeleteOptions{})
 	if err != nil && !errors.IsNotFound(err) {
@@ -134,7 +134,8 @@ type Endpoints struct {
 func (s Endpoints) Apply(ctx context.Context, clientset *kubernetes.Clientset) (err error) {
 	logger := logr.FromContextOrDiscard(ctx)
 
-	ori, err := clientset.CoreV1().
+	ori, err := clientset.
+		CoreV1().
 		Endpoints(s.Namespace).
 		Get(ctx, s.Name, metav1.GetOptions{})
 	if err != nil {
@@ -142,10 +143,11 @@ func (s Endpoints) Apply(ctx context.Context, clientset *kubernetes.Clientset) (
 			return fmt.Errorf("get Endpoints %s: %w", utils.KObj(s), err)
 		}
 		logger.Info("Creating Endpoints", "Endpoints", utils.KObj(s))
-		_, err = clientset.CoreV1().
+		_, err = clientset.
+			CoreV1().
 			Endpoints(s.Namespace).
 			Create(ctx, s.Endpoints, metav1.CreateOptions{
-				FieldManager: ferry,
+				FieldManager: consts.LabelFerryManagedByValue,
 			})
 		if err != nil {
 			return fmt.Errorf("create Endpoints %s: %w", utils.KObj(s), err)
@@ -164,10 +166,11 @@ func (s Endpoints) Apply(ctx context.Context, clientset *kubernetes.Clientset) (
 		logger.Info(cmp.Diff(ori.Subsets, s.Subsets), "Endpoints", utils.KObj(s))
 
 		ori.Subsets = s.Subsets
-		_, err = clientset.CoreV1().
+		_, err = clientset.
+			CoreV1().
 			Endpoints(s.Namespace).
 			Update(ctx, ori, metav1.UpdateOptions{
-				FieldManager: ferry,
+				FieldManager: consts.LabelFerryManagedByValue,
 			})
 		if err != nil {
 			return fmt.Errorf("update Endpoints %s: %w", utils.KObj(s), err)
@@ -180,7 +183,8 @@ func (s Endpoints) Delete(ctx context.Context, clientset *kubernetes.Clientset) 
 	logger := logr.FromContextOrDiscard(ctx)
 	logger.Info("Deleting Endpoints", "Endpoints", utils.KObj(s))
 
-	err = clientset.CoreV1().
+	err = clientset.
+		CoreV1().
 		Endpoints(s.Namespace).
 		Delete(ctx, s.Name, metav1.DeleteOptions{})
 	if err != nil && !errors.IsNotFound(err) {
@@ -196,7 +200,8 @@ type ConfigMap struct {
 func (s ConfigMap) Apply(ctx context.Context, clientset *kubernetes.Clientset) (err error) {
 	logger := logr.FromContextOrDiscard(ctx)
 
-	ori, err := clientset.CoreV1().
+	ori, err := clientset.
+		CoreV1().
 		ConfigMaps(s.Namespace).
 		Get(ctx, s.Name, metav1.GetOptions{})
 	if err != nil {
@@ -204,10 +209,11 @@ func (s ConfigMap) Apply(ctx context.Context, clientset *kubernetes.Clientset) (
 			return fmt.Errorf("get ConfigMap %s: %w", utils.KObj(s), err)
 		}
 		logger.Info("Creating ConfigMap", "ConfigMap", utils.KObj(s))
-		_, err = clientset.CoreV1().
+		_, err = clientset.
+			CoreV1().
 			ConfigMaps(s.Namespace).
 			Create(ctx, s.ConfigMap, metav1.CreateOptions{
-				FieldManager: ferry,
+				FieldManager: consts.LabelFerryManagedByValue,
 			})
 		if err != nil {
 			return fmt.Errorf("create ConfigMap %s: %w", utils.KObj(s), err)
@@ -227,10 +233,11 @@ func (s ConfigMap) Apply(ctx context.Context, clientset *kubernetes.Clientset) (
 		logger.Info(cmp.Diff(ori.Data, s.Data), "ConfigMap", utils.KObj(s))
 
 		ori.Data = s.Data
-		_, err = clientset.CoreV1().
+		_, err = clientset.
+			CoreV1().
 			ConfigMaps(s.Namespace).
 			Update(ctx, ori, metav1.UpdateOptions{
-				FieldManager: ferry,
+				FieldManager: consts.LabelFerryManagedByValue,
 			})
 		if err != nil {
 			return fmt.Errorf("update ConfigMap %s: %w", utils.KObj(s), err)
@@ -243,7 +250,8 @@ func (s ConfigMap) Delete(ctx context.Context, clientset *kubernetes.Clientset) 
 	logger := logr.FromContextOrDiscard(ctx)
 	logger.Info("Deleting ConfigMap", "ConfigMap", utils.KObj(s))
 
-	err = clientset.CoreV1().
+	err = clientset.
+		CoreV1().
 		ConfigMaps(s.Namespace).
 		Delete(ctx, s.Name, metav1.DeleteOptions{})
 	if err != nil && !errors.IsNotFound(err) {

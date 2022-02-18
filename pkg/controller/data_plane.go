@@ -152,7 +152,10 @@ func (d *DataPlaneController) UnregistryObj(export, impor utils.ObjectRef) {
 }
 
 func (d *DataPlaneController) initLastSourceResources(ctx context.Context, proxy *router.Proxy, opt metav1.ListOptions) error {
-	cmList, err := d.exportClientset.CoreV1().ConfigMaps(proxy.TunnelNamespace).List(ctx, opt)
+	cmList, err := d.exportClientset.
+		CoreV1().
+		ConfigMaps(proxy.TunnelNamespace).
+		List(ctx, opt)
 	if err != nil {
 		return err
 	}
@@ -163,14 +166,20 @@ func (d *DataPlaneController) initLastSourceResources(ctx context.Context, proxy
 }
 
 func (d *DataPlaneController) initLastDestinationResources(ctx context.Context, proxy *router.Proxy, opt metav1.ListOptions) error {
-	cmList, err := d.importClientset.CoreV1().ConfigMaps(proxy.TunnelNamespace).List(ctx, opt)
+	cmList, err := d.importClientset.
+		CoreV1().
+		ConfigMaps(proxy.TunnelNamespace).
+		List(ctx, opt)
 	if err != nil {
 		return err
 	}
 	for _, item := range cmList.Items {
 		d.lastDestinationResources = append(d.lastDestinationResources, router.ConfigMap{item.DeepCopy()})
 	}
-	svcList, err := d.importClientset.CoreV1().Services("").List(ctx, opt)
+	svcList, err := d.importClientset.
+		CoreV1().
+		Services("").
+		List(ctx, opt)
 	if err != nil {
 		return err
 	}
@@ -183,7 +192,10 @@ func (d *DataPlaneController) initLastDestinationResources(ctx context.Context, 
 	if err != nil {
 		return err
 	}
-	epList, err := d.importClientset.CoreV1().Endpoints("").List(ctx, opt)
+	epList, err := d.importClientset.
+		CoreV1().
+		Endpoints("").
+		List(ctx, opt)
 	if err != nil {
 		return err
 	}
@@ -468,14 +480,17 @@ func (d *DataPlaneController) sync(ctx context.Context) error {
 	return nil
 }
 
-func (d *DataPlaneController) Cleanup(ctx context.Context) {
+func (d *DataPlaneController) Close() {
 	d.mut.Lock()
 	defer d.mut.Unlock()
 	d.isClose = true
+	d.try.Close()
 
 	d.clusterInformationController.
 		ServiceCache(d.exportClusterName).
 		UnregistryCallback(d.importClusterName)
+
+	ctx := context.Background()
 
 	for _, r := range d.lastSourceResources {
 		err := r.Delete(ctx, d.exportClientset)
