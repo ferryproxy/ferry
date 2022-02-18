@@ -100,7 +100,6 @@ wait-tunnel-ready data-plane-cluster-2
 wait-tunnel-ready data-plane-cluster-1
 wait-tunnel-ready control-plane-cluster
 
-sleep 20
 fetch-tunnel-config control-plane-cluster
 fetch-tunnel-config data-plane-cluster-1
 fetch-tunnel-config data-plane-cluster-2
@@ -110,19 +109,16 @@ NAME=base check-consistency
 recreate-controller control-plane-cluster
 wait-tunnel-ready control-plane-cluster
 
-sleep 20
 NAME="recreate controller" check-consistency
 
 recreate-tunnel data-plane-cluster-1
 wait-tunnel-ready data-plane-cluster-1
 
-sleep 20
 NAME="recreate tunnel of cluster-1" check-consistency
 
 recreate-tunnel control-plane-cluster
 wait-tunnel-ready control-plane-cluster
 
-sleep 20
 NAME="recreate tunnel of plane-cluster" check-consistency
 
 fetch-tunnel-log control-plane-cluster
