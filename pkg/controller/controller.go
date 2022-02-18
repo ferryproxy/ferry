@@ -25,7 +25,7 @@ type Controller struct {
 	ferryPolicyController        *ferryPolicyController
 	cacheDataPlaneController     map[ClusterPair]*DataPlaneController
 	cacheMatchRule               map[string]map[string][]MatchRule
-	updateAllCh                  chan struct{}
+	try                          *utils.TryBuffer
 }
 
 func NewController(ctx context.Context, config *restclient.Config, namespace string) (*Controller, error) {
@@ -39,35 +39,21 @@ func NewController(ctx context.Context, config *restclient.Config, namespace str
 		namespace:                namespace,
 		cacheDataPlaneController: map[ClusterPair]*DataPlaneController{},
 		cacheMatchRule:           map[string]map[string][]MatchRule{},
-		updateAllCh:              make(chan struct{}, 1),
 	}, nil
 }
 
 func (c *Controller) Run(ctx context.Context) error {
-	go func() {
-		for range c.updateAllCh {
-		next:
-			for {
-				select {
-				case <-c.updateAllCh:
-					continue
-				case <-time.After(2 * time.Second):
-					break next
-				case <-ctx.Done():
-					return
-				}
-			}
-			list := c.ferryPolicyController.List()
-			c.sync(ctx, list, "")
-		}
-	}()
+	c.try = utils.NewTryBuffer(func() {
+		list := c.ferryPolicyController.List()
+		c.sync(ctx, list)
+	}, time.Second)
 
 	clusterInformation := newClusterInformationController(&clusterInformationControllerConfig{
 		Config:    c.config,
 		Namespace: c.namespace,
 		Logger:    c.logger.WithName("cluster-information"),
 		SyncFunc: func(ctx context.Context, s string) {
-			c.updateAllCh <- struct{}{}
+			c.try.Try()
 		},
 	})
 	c.clusterInformationController = clusterInformation
@@ -76,7 +62,7 @@ func (c *Controller) Run(ctx context.Context) error {
 		Namespace: c.namespace,
 		Logger:    c.logger.WithName("ferry-policy"),
 		SyncFunc: func(ctx context.Context, policy *v1alpha1.FerryPolicy) {
-			c.updateAllCh <- struct{}{}
+			c.try.Try()
 		},
 	})
 	c.ferryPolicyController = ferryPolicy
@@ -90,9 +76,6 @@ func (c *Controller) Run(ctx context.Context) error {
 		cancel()
 	}()
 
-	// TODO remove this
-	time.Sleep(time.Second * 2)
-
 	go func() {
 		err := ferryPolicy.Run(ctx)
 		if err != nil {
@@ -102,6 +85,8 @@ func (c *Controller) Run(ctx context.Context) error {
 	}()
 
 	<-ctx.Done()
+
+	c.try.Close()
 	return nil
 }
 
@@ -200,7 +185,7 @@ func (c *Controller) getMatchRules(policies []*v1alpha1.FerryPolicy) map[string]
 	return mapping
 }
 
-func (c *Controller) sync(ctx context.Context, policies []*v1alpha1.FerryPolicy, syncCluster string) {
+func (c *Controller) sync(ctx context.Context, policies []*v1alpha1.FerryPolicy) {
 	c.mut.Lock()
 	defer c.mut.Unlock()
 
