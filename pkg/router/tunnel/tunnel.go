@@ -298,7 +298,6 @@ func (serverBuilder) Build(proxy *router.Proxy, origin, destination utils.Object
 			Namespace: proxy.TunnelNamespace,
 			Labels:    labels,
 		},
-		Data: map[string]string{},
 	}
 
 	resourcers = append(resourcers, router.ConfigMap{&configMap})
