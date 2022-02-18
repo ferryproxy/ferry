@@ -46,7 +46,7 @@ func (c *Controller) Run(ctx context.Context) error {
 	c.try = utils.NewTryBuffer(func() {
 		list := c.ferryPolicyController.List()
 		c.sync(ctx, list)
-	}, time.Second)
+	}, time.Second/2)
 
 	clusterInformation := newClusterInformationController(&clusterInformationControllerConfig{
 		Config:    c.config,
