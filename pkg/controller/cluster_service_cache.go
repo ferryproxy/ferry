@@ -69,7 +69,7 @@ func (c *clusterServiceCache) Start(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	c.try = utils.NewTryBuffer(c.sync, 1*time.Second)
+	c.try = utils.NewTryBuffer(c.sync, time.Second/2)
 	return nil
 }
 

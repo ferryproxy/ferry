@@ -106,7 +106,7 @@ func (d *DataPlaneController) Start(ctx context.Context) error {
 		if err != nil {
 			d.logger.Error(err, "sync failed")
 		}
-	}, 1*time.Second)
+	}, time.Second/2)
 
 	d.clusterInformationController.
 		ServiceCache(d.exportClusterName).
