@@ -1,7 +1,7 @@
 apiVersion: ferry.zsm.io/v1alpha1
 kind: ClusterInformation
 metadata:
-  name: ferry-cluster0
+  name: cluster-0
   namespace: ferry-system
 spec:
   kubeconfig: #<base64-encoded-kubeconfig-data:control-plane-cluster>

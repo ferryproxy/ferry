@@ -6,89 +6,89 @@ metadata:
 spec:
   rules:
     - exports:
-        - clusterName: ferry-cluster0
+        - clusterName: cluster-0
           match:
             labels:
               app: "web-0"
 
       imports:
-        - clusterName: ferry-cluster1
-        - clusterName: ferry-cluster2
+        - clusterName: cluster-1
+        - clusterName: cluster-2
 
     - exports:
-        - clusterName: ferry-cluster1
+        - clusterName: cluster-1
           match:
             labels:
               app: "web-1"
-        - clusterName: ferry-cluster2
+        - clusterName: cluster-2
           match:
             labels:
               app: "web-2"
 
       imports:
-        - clusterName: ferry-cluster0
+        - clusterName: cluster-0
 
 
     - exports:
-        - clusterName: ferry-cluster0
+        - clusterName: cluster-0
           match:
             namespace: test
             name: web-0
 
       imports:
-        - clusterName: ferry-cluster1
+        - clusterName: cluster-1
           match:
             namespace: test
             name: web-0-0
-        - clusterName: ferry-cluster2
+        - clusterName: cluster-2
           match:
             namespace: test
             name: web-0-0
 
     - exports:
-        - clusterName: ferry-cluster1
+        - clusterName: cluster-1
           match:
             namespace: test
             name: web-1
 
       imports:
-        - clusterName: ferry-cluster0
+        - clusterName: cluster-0
           match:
             namespace: test
             name: web-1-1
 
     - exports:
-        - clusterName: ferry-cluster2
+        - clusterName: cluster-2
           match:
             namespace: test
             name: web-2
 
       imports:
-        - clusterName: ferry-cluster0
+        - clusterName: cluster-0
           match:
             namespace: test
             name: web-2-2
 
     - exports:
-        - clusterName: ferry-cluster2
+        - clusterName: cluster-2
           match:
             namespace: test
             name: web-2
 
       imports:
-        - clusterName: ferry-cluster1
+        - clusterName: cluster-1
           match:
             namespace: test
             name: web-2
 
     - exports:
-        - clusterName: ferry-cluster1
+        - clusterName: cluster-1
           match:
             namespace: test
             name: web-1
 
       imports:
-        - clusterName: ferry-cluster2
+        - clusterName: cluster-2
           match:
             namespace: test
             name: web-1
