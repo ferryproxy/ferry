@@ -1,0 +1,6 @@
+
+resources:
+- ../../config/default
+
+patches:
+- ./patch.yaml

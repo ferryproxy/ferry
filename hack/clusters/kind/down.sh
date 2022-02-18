@@ -9,5 +9,5 @@ for name in $(${dir}/list.sh); do
     continue
   fi
   kind delete clusters "${name}"
-  rm -f ${out}/"${name}.yaml" ${out}/"${name}" || :
+  rm -f ${out}/"${name}-in-cluster.yaml" ${out}/"${name}" || :
 done

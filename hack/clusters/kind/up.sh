@@ -28,15 +28,13 @@ for name in $(${dir}/list.sh); do
   for image in "${images[@]}"; do
     kind load docker-image --name "${name}" "${image}"
   done
-  kubectl --context="kind-${name}" config view --minify --raw=true > ${out}/"${name}.yaml"
+  kubectl --context="kind-${name}" config view --minify --raw=true > ${out}/"${name}"
 
   ip="$(${dir}/host-docker-internal.sh)"
   echo "Host: ${ip}"
   if [[ "${IN_CLUSTER:-}" == "true" ]]; then
-    kubeconfig=$(cat ${out}/"${name}.yaml" | sed "s/127.0.0.1/${ip//[[:space:]]/}/g" | sed 's/certificate-authority-data: .\+/insecure-skip-tls-verify: true/g')
-    echo "${kubeconfig}" > ${out}/"${name}"
-  else
-    cp ${out}/"${name}.yaml" ${out}/"${name}"
+    kubeconfig=$(cat ${out}/"${name}" | sed "s/0.0.0.0/${ip//[[:space:]]/}/g" | sed 's/certificate-authority-data: .\+/insecure-skip-tls-verify: true/g')
+    echo "${kubeconfig}" > ${out}/"${name}-in-cluster.yaml"
   fi
 done
 
