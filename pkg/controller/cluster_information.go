@@ -36,6 +36,7 @@ type clusterInformationController struct {
 	cacheClusterInformation map[string]*v1alpha1.ClusterInformation
 	cacheClientset          map[string]*kubernetes.Clientset
 	cacheService            map[string]*clusterServiceCache
+	cacheTunnelPorts        map[string]*tunnelPorts
 	cacheEgressWatchCancel  map[string]func()
 	syncFunc                func(context.Context, string)
 	namespace               string
@@ -50,6 +51,7 @@ func newClusterInformationController(conf *clusterInformationControllerConfig) *
 		cacheClusterInformation: map[string]*v1alpha1.ClusterInformation{},
 		cacheClientset:          map[string]*kubernetes.Clientset{},
 		cacheService:            map[string]*clusterServiceCache{},
+		cacheTunnelPorts:        map[string]*tunnelPorts{},
 		cacheEgressWatchCancel:  map[string]func(){},
 	}
 }
@@ -84,6 +86,12 @@ func (c *clusterInformationController) ServiceCache(name string) *clusterService
 	c.mut.RLock()
 	defer c.mut.RUnlock()
 	return c.cacheService[name]
+}
+
+func (c *clusterInformationController) TunnelPorts(name string) *tunnelPorts {
+	c.mut.RLock()
+	defer c.mut.RUnlock()
+	return c.cacheTunnelPorts[name]
 }
 
 func (c *clusterInformationController) setupWatchEgress(ctx context.Context, ci *v1alpha1.ClusterInformation) {
@@ -189,6 +197,7 @@ func (c *clusterInformationController) OnAdd(obj interface{}) {
 
 	c.setupWatchEgress(c.ctx, f)
 	c.cacheClusterInformation[f.Name] = f
+	c.cacheTunnelPorts[f.Name] = newTunnelPorts()
 
 	clusterService := newClusterServiceCache(clusterServiceCacheConfig{
 		Clientset: clientset,
@@ -244,6 +253,7 @@ func (c *clusterInformationController) OnDelete(obj interface{}) {
 
 	delete(c.cacheClientset, f.Name)
 	delete(c.cacheClusterInformation, f.Name)
+	delete(c.cacheTunnelPorts, f.Name)
 
 	if c.cacheService[f.Name] != nil {
 		c.cacheService[f.Name].Close()

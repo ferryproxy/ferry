@@ -3,7 +3,9 @@ package tunnel
 import (
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strconv"
+	"strings"
 
 	"github.com/ferry-proxy/ferry/pkg/consts"
 	"github.com/ferry-proxy/ferry/pkg/router"
@@ -12,28 +14,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
-
-var clusterPort = map[string]uint16{}
-var cache = map[string]uint16{}
-
-// TODO Calculate port based on cluster, namespace, name, and other parameters
-func getPort(proxy *router.Proxy, importCluster, exportCluster string, origin, destination utils.ObjectRef, port int32) int32 {
-	i := getPortBase(importCluster, importCluster, exportCluster, origin, destination, port)
-	return i + 50000
-}
-
-func getPortBase(key string, importCluster, exportCluster string, origin, destination utils.ObjectRef, port int32) int32 {
-	k := fmt.Sprintf("%s-%s-%s-%s-%s-%s-%d", importCluster, exportCluster, origin.Namespace, origin.Name, destination.Namespace, destination.Name, port)
-	if p, ok := cache[k]; ok {
-		return int32(p)
-	}
-	i := clusterPort[key]
-	i = i + 1
-	clusterPort[key] = i
-	cache[k] = i
-
-	return int32(i)
-}
 
 type Chain struct {
 	Bind  []string `json:"bind"`
@@ -47,13 +27,19 @@ type serviceEgressDiscoveryBuilder struct {
 
 // Build the Egress Discovery resource, perhaps Service or DNS
 func (serviceEgressDiscoveryBuilder) Build(proxy *router.Proxy, origin, destination utils.ObjectRef, spec *corev1.ServiceSpec) ([]router.Resourcer, error) {
+	labels := utils.MergeMap(proxy.Labels, map[string]string{
+		consts.LabelFerryExportedFromNamespaceKey: origin.Namespace,
+		consts.LabelFerryExportedFromNameKey:      origin.Name,
+	})
+
+	ports := []string{}
 	resources := []router.Resourcer{}
 	addresses := router.BuildIPToEndpointAddress(proxy.InClusterEgressIPs)
 
 	meta := metav1.ObjectMeta{
 		Name:      destination.Name,
 		Namespace: destination.Namespace,
-		Labels:    proxy.Labels,
+		Labels:    labels,
 	}
 	service := &corev1.Service{
 		ObjectMeta: meta,
@@ -70,7 +56,10 @@ func (serviceEgressDiscoveryBuilder) Build(proxy *router.Proxy, origin, destinat
 		if port.Protocol != corev1.ProtocolTCP {
 			continue
 		}
-		svcPort := getPort(proxy, proxy.ImportClusterName, proxy.ExportClusterName, origin, destination, port.Port)
+
+		svcPort := proxy.GetPortFunc(origin.Namespace, origin.Name, port.Port)
+		ports = append(ports, strconv.Itoa(int(svcPort)))
+
 		portName := fmt.Sprintf("%s-%s-%d-%d", origin.Name, origin.Namespace, port.Port, svcPort)
 		service.Spec.Ports = append(service.Spec.Ports, corev1.ServicePort{
 			Name:     portName,
@@ -92,6 +81,8 @@ func (serviceEgressDiscoveryBuilder) Build(proxy *router.Proxy, origin, destinat
 			},
 		})
 	}
+	sort.Strings(ports)
+	labels[consts.LabelFerryExportedFromPortsKey] = strings.Join(ports, "-")
 
 	resources = append(resources, router.Service{service}, router.Endpoints{endpoints})
 	return resources, nil
@@ -121,7 +112,9 @@ type clientProxyBuilder struct{}
 // Build the client proxy resource
 func (clientProxyBuilder) Build(proxy *router.Proxy, origin, destination utils.ObjectRef, spec *corev1.ServiceSpec) ([]router.Resourcer, error) {
 	labels := utils.MergeMap(proxy.Labels, map[string]string{
-		consts.LabelFerryTunnelKey: consts.LabelFerryTunnelValue,
+		consts.LabelFerryExportedFromNamespaceKey: origin.Namespace,
+		consts.LabelFerryExportedFromNameKey:      origin.Name,
+		consts.LabelFerryTunnelKey:                consts.LabelFerryTunnelValue,
 	})
 
 	resourcers := []router.Resourcer{}
@@ -140,7 +133,7 @@ func (clientProxyBuilder) Build(proxy *router.Proxy, origin, destination utils.O
 		if port.Protocol != corev1.ProtocolTCP {
 			continue
 		}
-		svcPort := getPort(proxy, proxy.ImportClusterName, proxy.ExportClusterName, origin, destination, port.Port)
+		svcPort := proxy.GetPortFunc(origin.Namespace, origin.Name, port.Port)
 		virtualName := fmt.Sprintf("unix:/dev/shm/%s-%s-%s-%s-%s-%s-%d-%d-tunnel.socks", proxy.ImportClusterName, destination.Namespace, destination.Name, proxy.ExportClusterName, origin.Namespace, origin.Name, port.Port, svcPort)
 
 		chain := Chain{
@@ -167,7 +160,9 @@ type clientBuilder struct{}
 // Build the client resource
 func (clientBuilder) Build(proxy *router.Proxy, origin, destination utils.ObjectRef, spec *corev1.ServiceSpec) ([]router.Resourcer, error) {
 	labels := utils.MergeMap(proxy.Labels, map[string]string{
-		consts.LabelFerryTunnelKey: consts.LabelFerryTunnelValue,
+		consts.LabelFerryExportedFromNamespaceKey: origin.Namespace,
+		consts.LabelFerryExportedFromNameKey:      origin.Name,
+		consts.LabelFerryTunnelKey:                consts.LabelFerryTunnelValue,
 	})
 
 	resourcers := []router.Resourcer{}
@@ -186,7 +181,7 @@ func (clientBuilder) Build(proxy *router.Proxy, origin, destination utils.Object
 		if port.Protocol != corev1.ProtocolTCP {
 			continue
 		}
-		svcPort := getPort(proxy, proxy.ImportClusterName, proxy.ExportClusterName, origin, destination, port.Port)
+		svcPort := proxy.GetPortFunc(origin.Namespace, origin.Name, port.Port)
 		chain := Chain{
 			Bind: []string{
 				"0.0.0.0:" + strconv.FormatInt(int64(svcPort), 10),
@@ -238,7 +233,9 @@ type serverProxyBuilder struct{}
 // Build the server proxy resource
 func (serverProxyBuilder) Build(proxy *router.Proxy, origin, destination utils.ObjectRef, spec *corev1.ServiceSpec) ([]router.Resourcer, error) {
 	labels := utils.MergeMap(proxy.Labels, map[string]string{
-		consts.LabelFerryTunnelKey: consts.LabelFerryTunnelValue,
+		consts.LabelFerryExportedFromNamespaceKey: origin.Namespace,
+		consts.LabelFerryExportedFromNameKey:      origin.Name,
+		consts.LabelFerryTunnelKey:                consts.LabelFerryTunnelValue,
 	})
 
 	resourcers := []router.Resourcer{}
@@ -259,7 +256,7 @@ func (serverProxyBuilder) Build(proxy *router.Proxy, origin, destination utils.O
 			continue
 		}
 
-		svcPort := getPort(proxy, proxy.ImportClusterName, proxy.ExportClusterName, origin, destination, port.Port)
+		svcPort := proxy.GetPortFunc(origin.Namespace, origin.Name, port.Port)
 		virtualName := fmt.Sprintf("unix:/dev/shm/%s-%s-%s-%s-%s-%s-%d-%d-tunnel.socks", proxy.ImportClusterName, destination.Namespace, destination.Name, proxy.ExportClusterName, origin.Namespace, origin.Name, port.Port, svcPort)
 
 		chain := Chain{
@@ -286,7 +283,9 @@ type serverBuilder struct{}
 // Build the server resource
 func (serverBuilder) Build(proxy *router.Proxy, origin, destination utils.ObjectRef, spec *corev1.ServiceSpec) ([]router.Resourcer, error) {
 	labels := utils.MergeMap(proxy.Labels, map[string]string{
-		consts.LabelFerryTunnelKey: consts.LabelFerryTunnelValue,
+		consts.LabelFerryExportedFromNamespaceKey: origin.Namespace,
+		consts.LabelFerryExportedFromNameKey:      origin.Name,
+		consts.LabelFerryTunnelKey:                consts.LabelFerryTunnelValue,
 	})
 
 	resourcers := []router.Resourcer{}

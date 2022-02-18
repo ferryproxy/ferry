@@ -58,6 +58,8 @@ type Proxy struct {
 
 	ExportProxy []string
 	ImportProxy []string
+
+	GetPortFunc func(namespace, name string, port int32) int32
 }
 
 type Resourcer interface {
@@ -94,6 +96,8 @@ func (s Service) Apply(ctx context.Context, clientset *kubernetes.Clientset) (er
 		if reflect.DeepEqual(ori.Spec.Ports, s.Spec.Ports) {
 			return nil
 		}
+
+		copyLabel(ori.Labels, s.Labels)
 
 		logger.Info("Update Service", "Service", utils.KObj(s))
 		logger.Info(cmp.Diff(ori.Spec.Ports, s.Spec.Ports), "Service", utils.KObj(s))
@@ -153,6 +157,8 @@ func (s Endpoints) Apply(ctx context.Context, clientset *kubernetes.Clientset) (
 		if reflect.DeepEqual(ori.Subsets, s.Subsets) {
 			return nil
 		}
+
+		copyLabel(ori.Labels, s.Labels)
 
 		logger.Info("Update Endpoints", "Endpoints", utils.KObj(s))
 		logger.Info(cmp.Diff(ori.Subsets, s.Subsets), "Endpoints", utils.KObj(s))
@@ -214,6 +220,8 @@ func (s ConfigMap) Apply(ctx context.Context, clientset *kubernetes.Clientset) (
 		if reflect.DeepEqual(ori.Data, s.Data) {
 			return nil
 		}
+
+		copyLabel(ori.Labels, s.Labels)
 
 		logger.Info("Update ConfigMap", "ConfigMap", utils.KObj(s))
 		logger.Info(cmp.Diff(ori.Data, s.Data), "ConfigMap", utils.KObj(s))
@@ -289,4 +297,23 @@ func CalculatePatchResources(older, newer []Resourcer) (updated, deleted []Resou
 		deleted = append(deleted, r)
 	}
 	return newer, deleted
+}
+
+func copyLabel(old, new map[string]string) {
+	keys := []string{
+		consts.LabelFerryExportedFromKey,
+		consts.LabelFerryExportedFromNamespaceKey,
+		consts.LabelFerryExportedFromNameKey,
+		consts.LabelFerryExportedFromPortsKey,
+		consts.LabelFerryImportedToKey,
+	}
+	for _, key := range keys {
+		if v, ok := new[key]; ok {
+			old[key] = v
+		} else {
+			if _, ok := old[key]; ok {
+				delete(old, key)
+			}
+		}
+	}
 }
