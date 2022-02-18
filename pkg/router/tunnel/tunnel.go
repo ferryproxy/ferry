@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/ferry-proxy/ferry/pkg/consts"
 	"github.com/ferry-proxy/ferry/pkg/router"
 	"github.com/ferry-proxy/ferry/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
@@ -120,7 +121,7 @@ type clientProxyBuilder struct{}
 // Build the client proxy resource
 func (clientProxyBuilder) Build(proxy *router.Proxy, origin, destination utils.ObjectRef, spec *corev1.ServiceSpec) ([]router.Resourcer, error) {
 	labels := utils.MergeMap(proxy.Labels, map[string]string{
-		"ferry-tunnel": "true",
+		consts.LabelFerryTunnelKey: consts.LabelFerryTunnelValue,
 	})
 
 	resourcers := []router.Resourcer{}
@@ -166,7 +167,7 @@ type clientBuilder struct{}
 // Build the client resource
 func (clientBuilder) Build(proxy *router.Proxy, origin, destination utils.ObjectRef, spec *corev1.ServiceSpec) ([]router.Resourcer, error) {
 	labels := utils.MergeMap(proxy.Labels, map[string]string{
-		"ferry-tunnel": "true",
+		consts.LabelFerryTunnelKey: consts.LabelFerryTunnelValue,
 	})
 
 	resourcers := []router.Resourcer{}
@@ -237,7 +238,7 @@ type serverProxyBuilder struct{}
 // Build the server proxy resource
 func (serverProxyBuilder) Build(proxy *router.Proxy, origin, destination utils.ObjectRef, spec *corev1.ServiceSpec) ([]router.Resourcer, error) {
 	labels := utils.MergeMap(proxy.Labels, map[string]string{
-		"ferry-tunnel": "true",
+		consts.LabelFerryTunnelKey: consts.LabelFerryTunnelValue,
 	})
 
 	resourcers := []router.Resourcer{}
@@ -285,7 +286,7 @@ type serverBuilder struct{}
 // Build the server resource
 func (serverBuilder) Build(proxy *router.Proxy, origin, destination utils.ObjectRef, spec *corev1.ServiceSpec) ([]router.Resourcer, error) {
 	labels := utils.MergeMap(proxy.Labels, map[string]string{
-		"ferry-tunnel": "true",
+		consts.LabelFerryTunnelKey: consts.LabelFerryTunnelValue,
 	})
 
 	resourcers := []router.Resourcer{}
