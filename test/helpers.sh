@@ -19,13 +19,13 @@ function fetch-tunnel-config() {
 function fetch-tunnel-log() {
   local cluster=$1
   echo "==== Fetch ${cluster} tunnel log ===="
-  kubectl --kubeconfig="${ROOT}/kubeconfig/${cluster}" logs deploy/ferry-tunnel -n ferry-tunnel-system
+  kubectl --kubeconfig="${ROOT}/kubeconfig/${cluster}" logs --prefix -f deploy/ferry-tunnel -n ferry-tunnel-system
 }
 
 function fetch-controller-log() {
   local cluster=$1
   echo "==== Fetch ${cluster} controller log ===="
-  kubectl --kubeconfig="${ROOT}/kubeconfig/${cluster}" logs deploy/ferry -n ferry-system
+  kubectl --kubeconfig="${ROOT}/kubeconfig/${cluster}" logs --prefix -f deploy/ferry -n ferry-system
 }
 
 function check(){
@@ -48,6 +48,7 @@ function check(){
 function recreate-tunnel() {
   local cluster=$1
   kubectl --kubeconfig="${ROOT}/kubeconfig/${cluster}" delete pod -n ferry-tunnel-system  --all
+  wait-tunnel-ready "${cluster}"
 }
 
 function wait-tunnel-ready() {
