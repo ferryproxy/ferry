@@ -154,7 +154,7 @@ NAME=base check-consistency
 stats
 
 recreate-controller control-plane-cluster
-wait-tunnel-ready control-plane-cluster
+wait-controller-ready control-plane-cluster
 
 NAME="recreate controller" check-consistency
 
