@@ -1,7 +1,7 @@
 apiVersion: ferry.zsm.io/v1alpha1
 kind: ClusterInformation
 metadata:
-  name: ferry-cluster2
+  name: cluster-2
   namespace: ferry-system
 spec:
   kubeconfig: #<base64-encoded-kubeconfig-data:data-plane-cluster-2>
@@ -11,4 +11,4 @@ spec:
     port: 31087
   ingress:
     defaultProxies:
-      - clusterName: ferry-cluster0
+      - clusterName: cluster-0
