@@ -11,6 +11,7 @@ ip="$(${dir}/kind/host-docker-internal.sh)"
 
 for name in $(${dir}/kind/list.sh); do
   echo "Update cluster information for ${name}"
+  cp "${dir}/control-plane-cluster/${name}.bak.yaml" "${dir}/control-plane-cluster/${name}.yaml"
   if [[ -f "${out}/${name}-in-cluster.yaml" ]]; then
     kubeconfig="$(cat "${out}/${name}-in-cluster.yaml" | base64 | tr -d '\n')"
     port=$(cat "hack/clusters/kind/${name}.yaml" | yq '.nodes[0].extraPortMappings[0].hostPort')
