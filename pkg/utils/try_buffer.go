@@ -44,5 +44,8 @@ func (t *TryBuffer) Try() {
 }
 
 func (t *TryBuffer) Close() {
+	if t == nil || t.buffer == nil {
+		return
+	}
 	close(t.buffer)
 }
