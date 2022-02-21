@@ -17,9 +17,12 @@ type clusterServiceCache struct {
 	ctx       context.Context
 	cancel    context.CancelFunc
 
-	clientset *kubernetes.Clientset
-	cache     map[utils.ObjectRef]*corev1.Service
-	callback  map[string]func()
+	clientset        *kubernetes.Clientset
+	cache            map[utils.ObjectRef]*corev1.Service
+	callback         map[string]func()
+	callbackOnAdd    map[string]func(obj *corev1.Service)
+	callbackOnUpdate map[string]func(old, obj *corev1.Service)
+	callbackOnDelete map[string]func(obj *corev1.Service)
 
 	logger logr.Logger
 	try    *utils.TryBuffer
@@ -34,10 +37,13 @@ type clusterServiceCacheConfig struct {
 
 func newClusterServiceCache(conf clusterServiceCacheConfig) *clusterServiceCache {
 	c := &clusterServiceCache{
-		clientset: conf.Clientset,
-		logger:    conf.Logger,
-		callback:  map[string]func(){},
-		cache:     map[utils.ObjectRef]*corev1.Service{},
+		clientset:        conf.Clientset,
+		logger:           conf.Logger,
+		callback:         map[string]func(){},
+		callbackOnAdd:    map[string]func(obj *corev1.Service){},
+		callbackOnUpdate: map[string]func(old *corev1.Service, obj *corev1.Service){},
+		callbackOnDelete: map[string]func(obj *corev1.Service){},
+		cache:            map[utils.ObjectRef]*corev1.Service{},
 	}
 	return c
 }
@@ -107,6 +113,42 @@ func (c *clusterServiceCache) UnregistryCallback(name string) {
 	delete(c.callback, name)
 }
 
+func (c *clusterServiceCache) RegistryOnAdd(name string, fun func(obj *corev1.Service)) {
+	c.mut.Lock()
+	defer c.mut.Unlock()
+	c.callbackOnAdd[name] = fun
+}
+
+func (c *clusterServiceCache) UnregistryOnAdd(name string) {
+	c.mut.Lock()
+	defer c.mut.Unlock()
+	delete(c.callbackOnAdd, name)
+}
+
+func (c *clusterServiceCache) RegistryOnUpdate(name string, fun func(old, obj *corev1.Service)) {
+	c.mut.Lock()
+	defer c.mut.Unlock()
+	c.callbackOnUpdate[name] = fun
+}
+
+func (c *clusterServiceCache) UnregistryOnUpdate(name string) {
+	c.mut.Lock()
+	defer c.mut.Unlock()
+	delete(c.callbackOnUpdate, name)
+}
+
+func (c *clusterServiceCache) RegistryOnDelete(name string, fun func(obj *corev1.Service)) {
+	c.mut.Lock()
+	defer c.mut.Unlock()
+	c.callbackOnDelete[name] = fun
+}
+
+func (c *clusterServiceCache) UnregistryOnDelete(name string) {
+	c.mut.Lock()
+	defer c.mut.Unlock()
+	delete(c.callbackOnDelete, name)
+}
+
 func (c *clusterServiceCache) OnAdd(obj interface{}) {
 	svc := obj.(*corev1.Service)
 	c.logger.Info("OnAdd",
@@ -116,6 +158,11 @@ func (c *clusterServiceCache) OnAdd(obj interface{}) {
 
 	c.mut.Lock()
 	defer c.mut.Unlock()
+
+	for _, cb := range c.callbackOnAdd {
+		cb(svc)
+	}
+
 	c.cache[utils.KObj(svc)] = svc
 	c.try.Try()
 }
@@ -129,6 +176,11 @@ func (c *clusterServiceCache) OnUpdate(oldObj, newObj interface{}) {
 
 	c.mut.Lock()
 	defer c.mut.Unlock()
+
+	for _, cb := range c.callbackOnUpdate {
+		cb(oldObj.(*corev1.Service), svc)
+	}
+
 	c.cache[utils.KObj(svc)] = svc
 	c.try.Try()
 }
@@ -142,6 +194,11 @@ func (c *clusterServiceCache) OnDelete(obj interface{}) {
 
 	c.mut.Lock()
 	defer c.mut.Unlock()
+
+	for _, cb := range c.callbackOnDelete {
+		cb(svc)
+	}
+
 	delete(c.cache, utils.KObj(svc))
 	c.try.Try()
 }
