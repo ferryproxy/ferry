@@ -66,5 +66,5 @@ spec:
       restartPolicy: Always
       containers:
         - name: tunnel
-          image: ghcr.io/ferry-proxy/ferry:v0.0.5
+          image: ghcr.io/ferry-proxy/ferry:v0.0.6
           imagePullPolicy: IfNotPresent
