@@ -82,6 +82,12 @@ func (d *DataPlaneController) Start(ctx context.Context) error {
 		d.logger.Info("DataPlane controller stopped")
 	}()
 	d.ctx = ctx
+	d.try = utils.NewTryBuffer(func() {
+		err := d.sync(ctx)
+		if err != nil {
+			d.logger.Error(err, "sync failed")
+		}
+	}, time.Second/2)
 
 	proxy, err := d.getProxyInfo(ctx)
 	if err != nil {
@@ -91,13 +97,6 @@ func (d *DataPlaneController) Start(ctx context.Context) error {
 	opt := metav1.ListOptions{
 		LabelSelector: labels.SelectorFromSet(proxy.Labels).String(),
 	}
-
-	d.try = utils.NewTryBuffer(func() {
-		err := d.sync(ctx)
-		if err != nil {
-			d.logger.Error(err, "sync failed")
-		}
-	}, time.Second/2)
 
 	err = d.initLastSourceResources(ctx, proxy, opt)
 	if err != nil {
