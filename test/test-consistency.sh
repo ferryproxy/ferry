@@ -152,21 +152,21 @@ stats
 
 recreate-controller control-plane-cluster
 wait-controller-ready control-plane-cluster
-sleep 5
+sleep 10
 
 NAME="recreate controller" check-consistency
 stats
 
 recreate-tunnel data-plane-cluster-1
 wait-tunnel-ready data-plane-cluster-1
-sleep 5
+sleep 10
 
 NAME="recreate tunnel of cluster-1" check-consistency
 stats
 
 recreate-tunnel control-plane-cluster
 wait-tunnel-ready control-plane-cluster
-sleep 5
+sleep 10
 
 NAME="recreate tunnel of plane-cluster" check-consistency
 stats
