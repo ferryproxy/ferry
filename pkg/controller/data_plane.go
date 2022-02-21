@@ -92,6 +92,13 @@ func (d *DataPlaneController) Start(ctx context.Context) error {
 		LabelSelector: labels.SelectorFromSet(proxy.Labels).String(),
 	}
 
+	d.try = utils.NewTryBuffer(func() {
+		err := d.sync(ctx)
+		if err != nil {
+			d.logger.Error(err, "sync failed")
+		}
+	}, time.Second/2)
+
 	err = d.initLastSourceResources(ctx, proxy, opt)
 	if err != nil {
 		return err
@@ -100,13 +107,6 @@ func (d *DataPlaneController) Start(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-
-	d.try = utils.NewTryBuffer(func() {
-		err := d.sync(ctx)
-		if err != nil {
-			d.logger.Error(err, "sync failed")
-		}
-	}, time.Second/2)
 
 	d.clusterInformationController.
 		ServiceCache(d.exportClusterName).

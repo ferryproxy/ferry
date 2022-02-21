@@ -37,6 +37,9 @@ func (t *TryBuffer) run(duration time.Duration) {
 }
 
 func (t *TryBuffer) Try() {
+	if t == nil || t.buffer == nil {
+		return
+	}
 	t.buffer <- struct{}{}
 }
 
