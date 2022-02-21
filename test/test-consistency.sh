@@ -133,8 +133,6 @@ spec:
             name: web-1
 EOF
 
-sleep 5
-
 wait-controller-ready control-plane-cluster
 wait-tunnel-ready data-plane-cluster-2
 wait-tunnel-ready data-plane-cluster-1
@@ -144,37 +142,31 @@ fetch-tunnel-config control-plane-cluster
 fetch-tunnel-config data-plane-cluster-1
 fetch-tunnel-config data-plane-cluster-2
 
-fetch-controller-log control-plane-cluster
-fetch-tunnel-log control-plane-cluster
-fetch-tunnel-log data-plane-cluster-1
-fetch-tunnel-log data-plane-cluster-2
+fetch-controller-log control-plane-cluster &
+fetch-tunnel-log control-plane-cluster &
+fetch-tunnel-log data-plane-cluster-1 &
+fetch-tunnel-log data-plane-cluster-2 &
 
 NAME=base check-consistency
-
 stats
 
 recreate-controller control-plane-cluster
 wait-controller-ready control-plane-cluster
+sleep 5
 
 NAME="recreate controller" check-consistency
-
 stats
 
 recreate-tunnel data-plane-cluster-1
 wait-tunnel-ready data-plane-cluster-1
+sleep 5
 
 NAME="recreate tunnel of cluster-1" check-consistency
-
 stats
 
 recreate-tunnel control-plane-cluster
 wait-tunnel-ready control-plane-cluster
+sleep 5
 
 NAME="recreate tunnel of plane-cluster" check-consistency
-
-fetch-controller-log control-plane-cluster
-fetch-tunnel-log control-plane-cluster
-fetch-tunnel-log data-plane-cluster-1
-fetch-tunnel-log data-plane-cluster-2
-
 stats
