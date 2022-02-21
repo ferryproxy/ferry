@@ -186,12 +186,14 @@ func (d *DataPlaneController) initLastDestinationResources(ctx context.Context, 
 	for _, item := range svcList.Items {
 		d.lastDestinationResources = append(d.lastDestinationResources, router.Service{item.DeepCopy()})
 	}
-	err = d.clusterInformationController.
-		TunnelPorts(d.importClusterName).
-		loadPortPeer(svcList)
-	if err != nil {
-		return err
-	}
+
+	tunnelPorts := d.clusterInformationController.
+		TunnelPorts(d.importClusterName)
+	tunnelPorts.loadPortPeer(svcList)
+	d.clusterInformationController.
+		ServiceCache(d.importClusterName).
+		RegistryOnAdd(d.importClusterName, tunnelPorts.loadPortPeerForService)
+
 	epList, err := d.importClientset.
 		CoreV1().
 		Endpoints("").
@@ -485,6 +487,10 @@ func (d *DataPlaneController) Close() {
 	defer d.mut.Unlock()
 	d.isClose = true
 	d.try.Close()
+
+	d.clusterInformationController.
+		ServiceCache(d.importClusterName).
+		UnregistryOnAdd(d.importClusterName)
 
 	d.clusterInformationController.
 		ServiceCache(d.exportClusterName).

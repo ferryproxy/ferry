@@ -201,11 +201,13 @@ func (c *clusterInformationController) OnAdd(obj interface{}) {
 
 	c.setupWatchEgress(c.ctx, f)
 	c.cacheClusterInformation[f.Name] = f
-	c.cacheTunnelPorts[f.Name] = newTunnelPorts()
+	c.cacheTunnelPorts[f.Name] = newTunnelPorts(&tunnelPortsConfig{
+		Logger: c.logger.WithName(f.Name),
+	})
 
 	clusterService := newClusterServiceCache(clusterServiceCacheConfig{
 		Clientset: clientset,
-		Logger:    c.logger.WithName("service"),
+		Logger:    c.logger.WithName(f.Name),
 	})
 	c.cacheService[f.Name] = clusterService
 
