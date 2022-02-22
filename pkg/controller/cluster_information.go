@@ -26,7 +26,7 @@ type clusterInformationControllerConfig struct {
 	Logger    logr.Logger
 	Config    *restclient.Config
 	Namespace string
-	SyncFunc  func(context.Context, string)
+	SyncFunc  func()
 }
 type clusterInformationController struct {
 	mut                     sync.RWMutex
@@ -38,7 +38,7 @@ type clusterInformationController struct {
 	cacheService            map[string]*clusterServiceCache
 	cacheTunnelPorts        map[string]*tunnelPorts
 	cacheEgressWatchCancel  map[string]func()
-	syncFunc                func(context.Context, string)
+	syncFunc                func()
 	namespace               string
 }
 
@@ -138,7 +138,10 @@ func (c *clusterInformationController) setupWatchEgress(ctx context.Context, ci 
 		}
 		c.cacheEgressWatchCancel[ci.Name] = cancel
 		go func() {
-			defer watch.Stop()
+			defer func() {
+				watch.Stop()
+				c.syncFunc()
+			}()
 			for {
 				select {
 				case <-ctx.Done():
@@ -174,7 +177,7 @@ func (c *clusterInformationController) setupWatchEgress(ctx context.Context, ci 
 					if !reflect.DeepEqual(lastIPs, ips) || lastPort != port {
 						lastIPs = ips
 						lastPort = port
-						c.syncFunc(ctx, ci.Name)
+						c.syncFunc()
 					}
 				}
 			}
@@ -216,7 +219,7 @@ func (c *clusterInformationController) OnAdd(obj interface{}) {
 		c.logger.Error(err, "failed start cluster service cache")
 	}
 
-	c.syncFunc(c.ctx, f.Name)
+	c.syncFunc()
 }
 
 func (c *clusterInformationController) OnUpdate(oldObj, newObj interface{}) {
@@ -245,7 +248,7 @@ func (c *clusterInformationController) OnUpdate(oldObj, newObj interface{}) {
 	c.setupWatchEgress(c.ctx, f)
 	c.cacheClusterInformation[f.Name] = f
 
-	c.syncFunc(c.ctx, f.Name)
+	c.syncFunc()
 }
 
 func (c *clusterInformationController) OnDelete(obj interface{}) {
@@ -266,7 +269,7 @@ func (c *clusterInformationController) OnDelete(obj interface{}) {
 	}
 	delete(c.cacheService, f.Name)
 
-	c.syncFunc(c.ctx, f.Name)
+	c.syncFunc()
 }
 
 func (c *clusterInformationController) Get(name string) *v1alpha1.ClusterInformation {
