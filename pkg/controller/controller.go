@@ -84,10 +84,23 @@ func (c *Controller) Run(ctx context.Context) error {
 		cancel()
 	}()
 
-	<-ctx.Done()
+	select {
+	case <-ctx.Done():
+		c.try.Close()
+		return ctx.Err()
+	case <-time.After(5 * time.Second):
+		c.try.Try()
+	}
 
-	c.try.Close()
-	return nil
+	for {
+		select {
+		case <-ctx.Done():
+			c.try.Close()
+			return ctx.Err()
+		case <-time.After(time.Minute):
+			c.try.Try()
+		}
+	}
 }
 
 type MatchRule struct {
