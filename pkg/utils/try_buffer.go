@@ -40,7 +40,10 @@ func (t *TryBuffer) Try() {
 	if t == nil || t.buffer == nil {
 		return
 	}
-	t.buffer <- struct{}{}
+	select {
+	case t.buffer <- struct{}{}:
+	default:
+	}
 }
 
 func (t *TryBuffer) Close() {
