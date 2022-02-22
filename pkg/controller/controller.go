@@ -52,18 +52,14 @@ func (c *Controller) Run(ctx context.Context) error {
 		Config:    c.config,
 		Namespace: c.namespace,
 		Logger:    c.logger.WithName("cluster-information"),
-		SyncFunc: func(ctx context.Context, s string) {
-			c.try.Try()
-		},
+		SyncFunc:  c.try.Try,
 	})
 	c.clusterInformationController = clusterInformation
 	ferryPolicy := newFerryPolicyController(&ferryPolicyControllerConfig{
 		Config:    c.config,
 		Namespace: c.namespace,
 		Logger:    c.logger.WithName("ferry-policy"),
-		SyncFunc: func(ctx context.Context, policy *v1alpha1.FerryPolicy) {
-			c.try.Try()
-		},
+		SyncFunc:  c.try.Try,
 	})
 	c.ferryPolicyController = ferryPolicy
 

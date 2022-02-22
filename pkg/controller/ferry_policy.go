@@ -19,7 +19,7 @@ type ferryPolicyControllerConfig struct {
 	Logger    logr.Logger
 	Config    *restclient.Config
 	Namespace string
-	SyncFunc  func(context.Context, *v1alpha1.FerryPolicy)
+	SyncFunc  func()
 }
 
 type ferryPolicyController struct {
@@ -27,9 +27,8 @@ type ferryPolicyController struct {
 	mut       sync.RWMutex
 	config    *restclient.Config
 	cache     map[string]*v1alpha1.FerryPolicy
-	mapCancel map[string]func()
 	namespace string
-	syncFunc  func(context.Context, *v1alpha1.FerryPolicy)
+	syncFunc  func()
 	logger    logr.Logger
 }
 
@@ -40,7 +39,6 @@ func newFerryPolicyController(conf *ferryPolicyControllerConfig) *ferryPolicyCon
 		logger:    conf.Logger,
 		syncFunc:  conf.SyncFunc,
 		cache:     map[string]*v1alpha1.FerryPolicy{},
-		mapCancel: map[string]func(){},
 	}
 }
 
@@ -97,9 +95,7 @@ func (c *ferryPolicyController) OnAdd(obj interface{}) {
 
 	c.cache[f.Name] = f
 
-	ctx, cancel := context.WithCancel(c.ctx)
-	c.mapCancel[f.Name] = cancel
-	c.syncFunc(ctx, f)
+	c.syncFunc()
 }
 
 func (c *ferryPolicyController) OnUpdate(oldObj, newObj interface{}) {
@@ -114,14 +110,7 @@ func (c *ferryPolicyController) OnUpdate(oldObj, newObj interface{}) {
 
 	c.cache[f.Name] = f
 
-	cancel, ok := c.mapCancel[f.Name]
-	if ok && cancel != nil {
-		cancel()
-	}
-
-	ctx, cancel := context.WithCancel(c.ctx)
-	c.mapCancel[f.Name] = cancel
-	c.syncFunc(ctx, f)
+	c.syncFunc()
 }
 
 func (c *ferryPolicyController) OnDelete(obj interface{}) {
@@ -135,13 +124,7 @@ func (c *ferryPolicyController) OnDelete(obj interface{}) {
 
 	delete(c.cache, f.Name)
 
-	cancel, ok := c.mapCancel[f.Name]
-	if ok && cancel != nil {
-		cancel()
-	}
-
-	delete(c.mapCancel, f.Name)
-	c.syncFunc(context.Background(), f)
+	c.syncFunc()
 }
 
 func getPort(ctx context.Context, clientset *kubernetes.Clientset, route *v1alpha1.ClusterInformationSpecRoute) (int32, error) {
