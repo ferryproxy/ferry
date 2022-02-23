@@ -1,0 +1,120 @@
+name: test
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build-ferrctl:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        repository: ferry-proxy/ferryctl
+
+    - name: Set up Go
+      uses: actions/setup-go@v2
+      with:
+        go-version: 1.17
+
+    - run: |
+        go build -o ferryctl ./cmd/ferryctl
+
+    - name: Upload ferryctl
+      uses: actions/upload-artifact@v2
+      with:
+        name: test
+        path: ferryctl
+
+  build-ferry:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        repository: ferry-proxy/ferry
+
+    - run: |
+        docker build -t ferry:test . && docker save -o ferry.tar ferry:test
+
+    - name: Upload ferry
+      uses: actions/upload-artifact@v2
+      with:
+        name: test
+        path: ferry.tar
+
+  build-ferry-tunnel:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        repository: ferry-proxy/ferry-tunnel
+    - run: |
+        docker build -t ferry-tunnel:test . && docker save -o ferry-tunnel.tar ferry-tunnel:test
+    - name: Upload ferry-tunnel
+      uses: actions/upload-artifact@v2
+      with:
+        name: test
+        path: ferry-tunnel.tar
+
+  test-default:
+    runs-on: ubuntu-latest
+    needs:
+    - build-ferrctl
+    - build-ferry
+    - build-ferry-tunnel
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        repository: ferry-proxy/test
+
+    - name: Download for test
+      uses: actions/download-artifact@v2
+      with:
+        name: test
+
+    - name: Setup
+      run: |
+        cp ferryctl /usr/local/bin/ferryctl && chmod +x /usr/local/bin/ferryctl
+        docker load -i ferry.tar
+        docker load -i ferry-tunnel.tar
+
+    - name: Start cluster
+      run: |
+        ulimit -n 4096
+        ./hack/start-environment.sh default
+
+    - name: Test both
+      run: ./test/test-both.sh
+
+  test-traversal:
+    runs-on: ubuntu-latest
+    needs:
+    - build-ferrctl
+    - build-ferry
+    - build-ferry-tunnel
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        repository: ferry-proxy/test
+
+    - name: Download for test
+      uses: actions/download-artifact@v2
+      with:
+        name: test
+
+    - name: Setup
+      run: |
+        cp ferryctl /usr/local/bin/ferryctl && chmod +x /usr/local/bin/ferryctl
+        docker load -i ferry.tar
+        docker load -i ferry-tunnel.tar
+
+    - name: Start cluster
+      run: |
+        ulimit -n 4096
+        ./hack/start-environment.sh traversal
+
+    - name: Test both
+      run: ./test/test-both.sh
