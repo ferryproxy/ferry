@@ -31,6 +31,8 @@ func newTunnelPorts(conf *tunnelPortsConfig) *tunnelPorts {
 	return &tunnelPorts{
 		logger:     conf.Logger,
 		portOffset: 40000,
+		portToPeer: map[int32]portPeer{},
+		peerToPort: map[portPeer]int32{},
 	}
 }
 
@@ -50,12 +52,13 @@ func (d *tunnelPorts) getPort(cluster, namespace, name string, port int32) int32
 	for {
 		_, ok := d.portToPeer[d.portOffset]
 		if !ok {
-			p = d.portOffset
-			d.portOffset++
 			break
 		}
 		d.portOffset++
 	}
+
+	p = d.portOffset
+	d.portOffset++
 
 	d.portToPeer[p] = pp
 	d.peerToPort[pp] = p
@@ -63,9 +66,6 @@ func (d *tunnelPorts) getPort(cluster, namespace, name string, port int32) int32
 }
 
 func (d *tunnelPorts) loadPortPeer(list *corev1.ServiceList) {
-	d.portToPeer = make(map[int32]portPeer)
-	d.peerToPort = make(map[portPeer]int32)
-
 	for _, item := range list.Items {
 		d.loadPortPeerForService(&item)
 	}
@@ -121,6 +121,8 @@ func (d *tunnelPorts) loadPortPeerForService(svc *corev1.Service) {
 				logger.Info("duplicate port", "port", port, "peer", peer, "duplicate", v)
 				continue
 			}
+		} else {
+			d.portToPeer[port] = peer
 		}
 
 		if v, ok := d.peerToPort[peer]; ok {
@@ -128,9 +130,8 @@ func (d *tunnelPorts) loadPortPeerForService(svc *corev1.Service) {
 				logger.Info("duplicate peer", "port", port, "peer", peer, "duplicate", v)
 				continue
 			}
+		} else {
+			d.peerToPort[peer] = port
 		}
-
-		d.portToPeer[port] = peer
-		d.peerToPort[peer] = port
 	}
 }
