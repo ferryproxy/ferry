@@ -28,18 +28,20 @@ type Controller struct {
 	try                          *utils.TryBuffer
 }
 
-func NewController(ctx context.Context, config *restclient.Config, namespace string) (*Controller, error) {
-	log, err := logr.FromContext(ctx)
-	if err != nil {
-		return nil, err
-	}
+type ControllerConfig struct {
+	Config    *restclient.Config
+	Logger    logr.Logger
+	Namespace string
+}
+
+func NewController(conf *ControllerConfig) *Controller {
 	return &Controller{
-		logger:                   log,
-		config:                   config,
-		namespace:                namespace,
+		logger:                   conf.Logger,
+		config:                   conf.Config,
+		namespace:                conf.Namespace,
 		cacheDataPlaneController: map[ClusterPair]*DataPlaneController{},
 		cacheMatchRule:           map[string]map[string][]MatchRule{},
-	}, nil
+	}
 }
 
 func (c *Controller) Run(ctx context.Context) error {
@@ -205,16 +207,17 @@ func (c *Controller) sync(ctx context.Context, policies []*v1alpha1.FerryPolicy)
 
 	updated, deleted := CalculateClusterPatch(c.cacheMatchRule, newerMatchRules)
 
+	logger := c.logger.WithName("sync")
 	for _, r := range deleted {
-		logger := c.logger.WithValues("export", r.Export, "import", r.Import)
+		logger := logger.WithValues("export", r.Export, "import", r.Import)
 		logger.Info("Delete data plane")
 		c.cleanupDataPlane(r.Export, r.Import)
 	}
 
 	for _, r := range updated {
-		logger := c.logger.WithValues("export", r.Export, "import", r.Import)
+		logger := logger.WithValues("export", r.Export, "import", r.Import)
 		logger.Info("Update data plane")
-		dataPlane, err := c.startDataPlane(logr.NewContext(ctx, logger), r.Export, r.Import)
+		dataPlane, err := c.startDataPlane(ctx, r.Export, r.Import)
 		if err != nil {
 			logger.Error(err, "start data plane")
 			continue
@@ -325,7 +328,7 @@ func (c *Controller) startDataPlane(ctx context.Context, exportClusterName, impo
 		ImportCluster:                importCluster,
 		ExportClientset:              exportClientset,
 		ImportClientset:              importClientset,
-		Logger:                       logr.FromContextOrDiscard(ctx),
+		Logger:                       c.logger.WithName("data-plane").WithName(importClusterName).WithValues("export", exportClusterName, "import", importClusterName),
 		SourceResourceBuilder:        router.ResourceBuilders{original.IngressBuilder},
 		DestinationResourceBuilder:   router.ResourceBuilders{original.EgressBuilder, original.ServiceEgressDiscoveryBuilder},
 	})
