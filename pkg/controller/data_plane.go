@@ -82,12 +82,6 @@ func (d *DataPlaneController) Start(ctx context.Context) error {
 		d.logger.Info("DataPlane controller stopped")
 	}()
 	d.ctx = ctx
-	d.try = utils.NewTryBuffer(func() {
-		err := d.sync(ctx)
-		if err != nil {
-			d.logger.Error(err, "sync failed")
-		}
-	}, time.Second/2)
 
 	proxy, err := d.getProxyInfo(ctx)
 	if err != nil {
@@ -106,6 +100,13 @@ func (d *DataPlaneController) Start(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+
+	d.try = utils.NewTryBuffer(func() {
+		err := d.sync(ctx)
+		if err != nil {
+			d.logger.Error(err, "sync failed")
+		}
+	}, time.Second/2)
 
 	d.clusterInformationController.
 		ServiceCache(d.exportClusterName).
@@ -189,9 +190,6 @@ func (d *DataPlaneController) initLastDestinationResources(ctx context.Context, 
 	tunnelPorts := d.clusterInformationController.
 		TunnelPorts(d.importClusterName)
 	tunnelPorts.loadPortPeer(svcList)
-	d.clusterInformationController.
-		ServiceCache(d.importClusterName).
-		RegistryOnAdd(d.importClusterName, tunnelPorts.loadPortPeerForService)
 
 	epList, err := d.importClientset.
 		CoreV1().
