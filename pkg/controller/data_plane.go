@@ -356,7 +356,8 @@ func (d *DataPlaneController) sync(ctx context.Context) error {
 		return nil
 	}
 
-	if len(d.labels) == 0 && len(d.mappings) == 0 {
+	if len(d.lastSourceResources) == 0 && len(d.lastDestinationResources) == 0 &&
+		len(d.labels) == 0 && len(d.mappings) == 0 {
 		d.logger.Info("No need to sync")
 		return nil
 	}
@@ -419,17 +420,18 @@ func (d *DataPlaneController) sync(ctx context.Context) error {
 		}
 	}
 
-	if len(ir) == 0 && len(er) == 0 {
-		d.logger.Info("No need to sync")
-		return nil
-	}
-
 	d.logger.Info("CalculatePatchResources",
 		"lastSourceResources", len(d.lastSourceResources),
 		"lastDestinationResources", len(d.lastDestinationResources),
 		"ImportResources", len(ir),
 		"ExportResources", len(er),
 	)
+
+	if len(d.lastSourceResources) == 0 && len(d.lastDestinationResources) == 0 &&
+		len(ir) == 0 && len(er) == 0 {
+		d.logger.Info("No need to sync")
+		return nil
+	}
 
 	sourceUpdate, sourceDelete := router.CalculatePatchResources(d.lastSourceResources, ir)
 	destinationUpdate, destinationDelete := router.CalculatePatchResources(d.lastDestinationResources, er)

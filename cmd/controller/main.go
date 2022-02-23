@@ -54,17 +54,17 @@ func init() {
 }
 
 func main() {
-	clientset, err := clientcmd.BuildConfigFromFlags(getEnv("MASTER", ""), getEnv("KUBECONFIG", ""))
+	restConfig, err := clientcmd.BuildConfigFromFlags(getEnv("MASTER", ""), getEnv("KUBECONFIG", ""))
 	if err != nil {
 		log.Error(err, "failed to create kubernetes client")
 		os.Exit(1)
 	}
 
-	control, err := controller.NewController(logr.NewContext(ctx, log.WithName("controller")), clientset, "ferry-system")
-	if err != nil {
-		log.Error(err, "unable to create main controller")
-		os.Exit(1)
-	}
+	control := controller.NewController(&controller.ControllerConfig{
+		Logger:    log.WithName("controller"),
+		Config:    restConfig,
+		Namespace: "ferry-system",
+	})
 
 	err = control.Run(ctx)
 	if err != nil {
