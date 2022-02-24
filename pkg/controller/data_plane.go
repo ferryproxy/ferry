@@ -190,17 +190,6 @@ func (d *DataPlaneController) initLastDestinationResources(ctx context.Context, 
 	tunnelPorts := d.clusterInformationController.
 		TunnelPorts(d.importClusterName)
 	tunnelPorts.loadPortPeer(svcList)
-
-	epList, err := d.importClientset.
-		CoreV1().
-		Endpoints("").
-		List(ctx, opt)
-	if err != nil {
-		return err
-	}
-	for _, item := range epList.Items {
-		d.lastDestinationResources = append(d.lastDestinationResources, router.Endpoints{item.DeepCopy()})
-	}
 	return nil
 }
 
@@ -241,11 +230,6 @@ func (d *DataPlaneController) getProxyInfo(ctx context.Context) (*router.Proxy, 
 	importCluster := d.clusterInformationController.Get(importClusterName)
 	if importCluster == nil {
 		return nil, fmt.Errorf("not found cluster information %q", importClusterName)
-	}
-
-	inClusterEgressIPs, err := getIPs(ctx, importClientset, importCluster.Spec.Egress)
-	if err != nil {
-		return nil, err
 	}
 
 	exportIngressIPs, err := getIPs(ctx, exportClientset, exportCluster.Spec.Ingress)
@@ -331,8 +315,6 @@ func (d *DataPlaneController) getProxyInfo(ctx context.Context) (*router.Proxy, 
 
 		ExportClusterName: exportCluster.Name,
 		ImportClusterName: importCluster.Name,
-
-		InClusterEgressIPs: inClusterEgressIPs,
 
 		ExportIngressIPs:  exportIngressIPs,
 		ExportIngressPort: exportIngressPort,

@@ -44,8 +44,6 @@ type Proxy struct {
 
 	Labels map[string]string
 
-	InClusterEgressIPs []string
-
 	ExportIngressIPs  []string
 	ExportIngressPort int32
 
@@ -127,72 +125,6 @@ func (s Service) Delete(ctx context.Context, clientset *kubernetes.Clientset) (e
 	return nil
 }
 
-type Endpoints struct {
-	*corev1.Endpoints
-}
-
-func (s Endpoints) Apply(ctx context.Context, clientset *kubernetes.Clientset) (err error) {
-	logger := logr.FromContextOrDiscard(ctx)
-
-	ori, err := clientset.
-		CoreV1().
-		Endpoints(s.Namespace).
-		Get(ctx, s.Name, metav1.GetOptions{})
-	if err != nil {
-		if !errors.IsNotFound(err) {
-			return fmt.Errorf("get Endpoints %s: %w", utils.KObj(s), err)
-		}
-		logger.Info("Creating Endpoints", "Endpoints", utils.KObj(s))
-		_, err = clientset.
-			CoreV1().
-			Endpoints(s.Namespace).
-			Create(ctx, s.Endpoints, metav1.CreateOptions{
-				FieldManager: consts.LabelFerryManagedByValue,
-			})
-		if err != nil {
-			return fmt.Errorf("create Endpoints %s: %w", utils.KObj(s), err)
-		}
-	} else {
-		if ori.Labels[consts.LabelFerryManagedByKey] != consts.LabelFerryManagedByValue {
-			return fmt.Errorf("endpoints %s is not managed by ferry", utils.KObj(s))
-		}
-		if reflect.DeepEqual(ori.Subsets, s.Subsets) {
-			return nil
-		}
-
-		copyLabel(ori.Labels, s.Labels)
-
-		logger.Info("Update Endpoints", "Endpoints", utils.KObj(s))
-		logger.Info(cmp.Diff(ori.Subsets, s.Subsets), "Endpoints", utils.KObj(s))
-
-		ori.Subsets = s.Subsets
-		_, err = clientset.
-			CoreV1().
-			Endpoints(s.Namespace).
-			Update(ctx, ori, metav1.UpdateOptions{
-				FieldManager: consts.LabelFerryManagedByValue,
-			})
-		if err != nil {
-			return fmt.Errorf("update Endpoints %s: %w", utils.KObj(s), err)
-		}
-	}
-	return nil
-}
-
-func (s Endpoints) Delete(ctx context.Context, clientset *kubernetes.Clientset) (err error) {
-	logger := logr.FromContextOrDiscard(ctx)
-	logger.Info("Deleting Endpoints", "Endpoints", utils.KObj(s))
-
-	err = clientset.
-		CoreV1().
-		Endpoints(s.Namespace).
-		Delete(ctx, s.Name, metav1.DeleteOptions{})
-	if err != nil && !errors.IsNotFound(err) {
-		return fmt.Errorf("delete Endpoints %s: %w", utils.KObj(s), err)
-	}
-	return nil
-}
-
 type ConfigMap struct {
 	*corev1.ConfigMap
 }
@@ -261,16 +193,6 @@ func (s ConfigMap) Delete(ctx context.Context, clientset *kubernetes.Clientset) 
 	return nil
 }
 
-func BuildIPToEndpointAddress(ips []string) []corev1.EndpointAddress {
-	eps := []corev1.EndpointAddress{}
-	for _, ip := range ips {
-		eps = append(eps, corev1.EndpointAddress{
-			IP: ip,
-		})
-	}
-	return eps
-}
-
 func CalculatePatchResources(older, newer []Resourcer) (updated, deleted []Resourcer) {
 	if len(older) == 0 {
 		return newer, nil
@@ -314,6 +236,7 @@ func copyLabel(old, new map[string]string) {
 		consts.LabelFerryExportedFromNameKey,
 		consts.LabelFerryExportedFromPortsKey,
 		consts.LabelFerryImportedToKey,
+		consts.LabelFerryTunnelKey,
 	}
 	for _, key := range keys {
 		if v, ok := new[key]; ok {

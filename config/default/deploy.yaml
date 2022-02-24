@@ -65,6 +65,6 @@ spec:
       serviceAccountName: ferry
       restartPolicy: Always
       containers:
-        - name: tunnel
+        - name: controller
           image: ghcr.io/ferry-proxy/ferry:v0.0.8
           imagePullPolicy: IfNotPresent
