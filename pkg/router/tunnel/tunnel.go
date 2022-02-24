@@ -62,13 +62,10 @@ func (serviceEgressDiscoveryBuilder) Build(proxy *router.Proxy, origin, destinat
 
 		portName := fmt.Sprintf("%s-%s-%d-%d", origin.Name, origin.Namespace, port.Port, svcPort)
 		service.Spec.Ports = append(service.Spec.Ports, corev1.ServicePort{
-			Name:     portName,
-			Port:     port.Port,
-			Protocol: port.Protocol,
-			TargetPort: intstr.IntOrString{
-				Type:   intstr.Int,
-				IntVal: port.Port,
-			},
+			Name:       portName,
+			Port:       port.Port,
+			Protocol:   port.Protocol,
+			TargetPort: intstr.FromInt(int(svcPort)),
 		})
 		endpoints.Subsets = append(endpoints.Subsets, corev1.EndpointSubset{
 			Addresses: addresses,
