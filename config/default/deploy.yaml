@@ -66,5 +66,5 @@ spec:
       restartPolicy: Always
       containers:
         - name: controller
-          image: ghcr.io/ferry-proxy/ferry:v0.0.8
+          image: ghcr.io/ferry-proxy/ferry:v0.0.12
           imagePullPolicy: IfNotPresent
