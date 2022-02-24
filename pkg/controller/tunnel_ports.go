@@ -97,7 +97,7 @@ func (d *tunnelPorts) loadPortPeerForService(svc *corev1.Service) {
 
 		var serverPort int32
 		for _, svcPort := range svc.Spec.Ports {
-			if strings.HasSuffix(svcPort.Name, "-"+portStr) {
+			if svcPort.TargetPort.String() == portStr {
 				serverPort = svcPort.Port
 				break
 			}
