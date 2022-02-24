@@ -30,11 +30,11 @@ func (serviceEgressDiscoveryBuilder) Build(proxy *router.Proxy, origin, destinat
 	labels := utils.MergeMap(proxy.Labels, map[string]string{
 		consts.LabelFerryExportedFromNamespaceKey: origin.Namespace,
 		consts.LabelFerryExportedFromNameKey:      origin.Name,
+		consts.LabelFerryTunnelKey:                consts.LabelFerryTunnelValue,
 	})
 
 	ports := []string{}
 	resources := []router.Resourcer{}
-	addresses := router.BuildIPToEndpointAddress(proxy.InClusterEgressIPs)
 
 	meta := metav1.ObjectMeta{
 		Name:      destination.Name,
@@ -46,10 +46,6 @@ func (serviceEgressDiscoveryBuilder) Build(proxy *router.Proxy, origin, destinat
 		Spec: corev1.ServiceSpec{
 			Ports: []corev1.ServicePort{},
 		},
-	}
-	endpoints := &corev1.Endpoints{
-		ObjectMeta: meta,
-		Subsets:    []corev1.EndpointSubset{},
 	}
 
 	for _, port := range spec.Ports {
@@ -67,21 +63,11 @@ func (serviceEgressDiscoveryBuilder) Build(proxy *router.Proxy, origin, destinat
 			Protocol:   port.Protocol,
 			TargetPort: intstr.FromInt(int(svcPort)),
 		})
-		endpoints.Subsets = append(endpoints.Subsets, corev1.EndpointSubset{
-			Addresses: addresses,
-			Ports: []corev1.EndpointPort{
-				{
-					Name:     portName,
-					Port:     svcPort,
-					Protocol: port.Protocol,
-				},
-			},
-		})
 	}
 	sort.Strings(ports)
 	labels[consts.LabelFerryExportedFromPortsKey] = strings.Join(ports, "-")
 
-	resources = append(resources, router.Service{service}, router.Endpoints{endpoints})
+	resources = append(resources, router.Service{service})
 	return resources, nil
 }
 
