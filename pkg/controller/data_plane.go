@@ -10,7 +10,8 @@ import (
 	"github.com/ferry-proxy/api/apis/ferry/v1alpha1"
 	"github.com/ferry-proxy/ferry/pkg/consts"
 	"github.com/ferry-proxy/ferry/pkg/router"
-	"github.com/ferry-proxy/ferry/pkg/utils"
+	"github.com/ferry-proxy/utils/objref"
+	"github.com/ferry-proxy/utils/trybuffer"
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -43,7 +44,7 @@ func NewDataPlaneController(conf DataPlaneControllerConfig) *DataPlaneController
 		clusterInformationController: conf.ClusterInformationController,
 		sourceResourceBuilder:        conf.SourceResourceBuilder,
 		destinationResourceBuilder:   conf.DestinationResourceBuilder,
-		mappings:                     map[utils.ObjectRef][]utils.ObjectRef{},
+		mappings:                     map[objref.ObjectRef][]objref.ObjectRef{},
 		labels:                       map[string]labels.Selector{},
 	}
 }
@@ -58,7 +59,7 @@ type DataPlaneController struct {
 	exportCluster *v1alpha1.ClusterInformation
 	importCluster *v1alpha1.ClusterInformation
 
-	mappings map[utils.ObjectRef][]utils.ObjectRef
+	mappings map[objref.ObjectRef][]objref.ObjectRef
 	labels   map[string]labels.Selector
 
 	clusterInformationController *clusterInformationController
@@ -71,7 +72,7 @@ type DataPlaneController struct {
 	lastDestinationResources   []router.Resourcer
 	logger                     logr.Logger
 
-	try *utils.TryBuffer
+	try *trybuffer.TryBuffer
 
 	isClose bool
 }
@@ -101,7 +102,7 @@ func (d *DataPlaneController) Start(ctx context.Context) error {
 		return err
 	}
 
-	d.try = utils.NewTryBuffer(func() {
+	d.try = trybuffer.NewTryBuffer(func() {
 		err := d.sync(ctx)
 		if err != nil {
 			d.logger.Error(err, "sync failed")
@@ -127,7 +128,7 @@ func (d *DataPlaneController) UnregistrySelector(sel labels.Selector) {
 	delete(d.labels, sel.String())
 }
 
-func (d *DataPlaneController) RegistryObj(export, impor utils.ObjectRef) {
+func (d *DataPlaneController) RegistryObj(export, impor objref.ObjectRef) {
 	d.mut.Lock()
 	defer d.mut.Unlock()
 
@@ -139,7 +140,7 @@ func (d *DataPlaneController) RegistryObj(export, impor utils.ObjectRef) {
 	d.mappings[export] = append(d.mappings[export], impor)
 }
 
-func (d *DataPlaneController) UnregistryObj(export, impor utils.ObjectRef) {
+func (d *DataPlaneController) UnregistryObj(export, impor objref.ObjectRef) {
 	d.mut.Lock()
 	defer d.mut.Unlock()
 
@@ -366,7 +367,7 @@ func (d *DataPlaneController) sync(ctx context.Context) error {
 	})
 
 	for _, svc := range svcs {
-		origin := utils.KObj(svc)
+		origin := objref.KObj(svc)
 
 		for _, label := range d.labels {
 			if label.Matches(labels.Set(svc.Labels)) {

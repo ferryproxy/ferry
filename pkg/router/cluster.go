@@ -6,7 +6,7 @@ import (
 	"reflect"
 
 	"github.com/ferry-proxy/ferry/pkg/consts"
-	"github.com/ferry-proxy/ferry/pkg/utils"
+	"github.com/ferry-proxy/utils/objref"
 	"github.com/go-logr/logr"
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
@@ -16,12 +16,12 @@ import (
 )
 
 type ResourceBuilder interface {
-	Build(proxy *Proxy, origin, destination utils.ObjectRef, spec *corev1.ServiceSpec) ([]Resourcer, error)
+	Build(proxy *Proxy, origin, destination objref.ObjectRef, spec *corev1.ServiceSpec) ([]Resourcer, error)
 }
 
 type ResourceBuilders []ResourceBuilder
 
-func (r ResourceBuilders) Build(proxy *Proxy, origin, destination utils.ObjectRef, spec *corev1.ServiceSpec) ([]Resourcer, error) {
+func (r ResourceBuilders) Build(proxy *Proxy, origin, destination objref.ObjectRef, spec *corev1.ServiceSpec) ([]Resourcer, error) {
 	var resourcers []Resourcer
 	for _, i := range r {
 		resourcer, err := i.Build(proxy, origin, destination, spec)
@@ -73,9 +73,9 @@ func (s Service) Apply(ctx context.Context, clientset *kubernetes.Clientset) (er
 		Get(ctx, s.Name, metav1.GetOptions{})
 	if err != nil {
 		if !errors.IsNotFound(err) {
-			return fmt.Errorf("get service %s: %w", utils.KObj(s), err)
+			return fmt.Errorf("get service %s: %w", objref.KObj(s), err)
 		}
-		logger.Info("Creating Service", "Service", utils.KObj(s))
+		logger.Info("Creating Service", "Service", objref.KObj(s))
 		_, err = clientset.
 			CoreV1().
 			Services(s.Namespace).
@@ -83,11 +83,11 @@ func (s Service) Apply(ctx context.Context, clientset *kubernetes.Clientset) (er
 				FieldManager: consts.LabelFerryManagedByValue,
 			})
 		if err != nil {
-			return fmt.Errorf("create service %s: %w", utils.KObj(s), err)
+			return fmt.Errorf("create service %s: %w", objref.KObj(s), err)
 		}
 	} else {
 		if ori.Labels[consts.LabelFerryManagedByKey] != consts.LabelFerryManagedByValue {
-			return fmt.Errorf("service %s is not managed by ferry", utils.KObj(s))
+			return fmt.Errorf("service %s is not managed by ferry", objref.KObj(s))
 		}
 		if reflect.DeepEqual(ori.Spec.Ports, s.Spec.Ports) {
 			return nil
@@ -95,8 +95,8 @@ func (s Service) Apply(ctx context.Context, clientset *kubernetes.Clientset) (er
 
 		copyLabel(ori.Labels, s.Labels)
 
-		logger.Info("Update Service", "Service", utils.KObj(s))
-		logger.Info(cmp.Diff(ori.Spec.Ports, s.Spec.Ports), "Service", utils.KObj(s))
+		logger.Info("Update Service", "Service", objref.KObj(s))
+		logger.Info(cmp.Diff(ori.Spec.Ports, s.Spec.Ports), "Service", objref.KObj(s))
 		ori.Spec.Ports = s.Spec.Ports
 		_, err = clientset.
 			CoreV1().
@@ -105,7 +105,7 @@ func (s Service) Apply(ctx context.Context, clientset *kubernetes.Clientset) (er
 				FieldManager: consts.LabelFerryManagedByValue,
 			})
 		if err != nil {
-			return fmt.Errorf("update service %s: %w", utils.KObj(s), err)
+			return fmt.Errorf("update service %s: %w", objref.KObj(s), err)
 		}
 	}
 	return nil
@@ -113,14 +113,14 @@ func (s Service) Apply(ctx context.Context, clientset *kubernetes.Clientset) (er
 
 func (s Service) Delete(ctx context.Context, clientset *kubernetes.Clientset) (err error) {
 	logger := logr.FromContextOrDiscard(ctx)
-	logger.Info("Deleting Service", "Service", utils.KObj(s))
+	logger.Info("Deleting Service", "Service", objref.KObj(s))
 
 	err = clientset.
 		CoreV1().
 		Services(s.Namespace).
 		Delete(ctx, s.Name, metav1.DeleteOptions{})
 	if err != nil && !errors.IsNotFound(err) {
-		return fmt.Errorf("delete service %s: %w", utils.KObj(s), err)
+		return fmt.Errorf("delete service %s: %w", objref.KObj(s), err)
 	}
 	return nil
 }
@@ -138,9 +138,9 @@ func (s ConfigMap) Apply(ctx context.Context, clientset *kubernetes.Clientset) (
 		Get(ctx, s.Name, metav1.GetOptions{})
 	if err != nil {
 		if !errors.IsNotFound(err) {
-			return fmt.Errorf("get ConfigMap %s: %w", utils.KObj(s), err)
+			return fmt.Errorf("get ConfigMap %s: %w", objref.KObj(s), err)
 		}
-		logger.Info("Creating ConfigMap", "ConfigMap", utils.KObj(s))
+		logger.Info("Creating ConfigMap", "ConfigMap", objref.KObj(s))
 		_, err = clientset.
 			CoreV1().
 			ConfigMaps(s.Namespace).
@@ -148,11 +148,11 @@ func (s ConfigMap) Apply(ctx context.Context, clientset *kubernetes.Clientset) (
 				FieldManager: consts.LabelFerryManagedByValue,
 			})
 		if err != nil {
-			return fmt.Errorf("create ConfigMap %s: %w", utils.KObj(s), err)
+			return fmt.Errorf("create ConfigMap %s: %w", objref.KObj(s), err)
 		}
 	} else {
 		if ori.Labels[consts.LabelFerryManagedByKey] != consts.LabelFerryManagedByValue {
-			return fmt.Errorf("configmap %s is not managed by ferry", utils.KObj(s))
+			return fmt.Errorf("configmap %s is not managed by ferry", objref.KObj(s))
 		}
 
 		if reflect.DeepEqual(ori.Data, s.Data) {
@@ -161,8 +161,8 @@ func (s ConfigMap) Apply(ctx context.Context, clientset *kubernetes.Clientset) (
 
 		copyLabel(ori.Labels, s.Labels)
 
-		logger.Info("Update ConfigMap", "ConfigMap", utils.KObj(s))
-		logger.Info(cmp.Diff(ori.Data, s.Data), "ConfigMap", utils.KObj(s))
+		logger.Info("Update ConfigMap", "ConfigMap", objref.KObj(s))
+		logger.Info(cmp.Diff(ori.Data, s.Data), "ConfigMap", objref.KObj(s))
 
 		ori.Data = s.Data
 		_, err = clientset.
@@ -172,7 +172,7 @@ func (s ConfigMap) Apply(ctx context.Context, clientset *kubernetes.Clientset) (
 				FieldManager: consts.LabelFerryManagedByValue,
 			})
 		if err != nil {
-			return fmt.Errorf("update ConfigMap %s: %w", utils.KObj(s), err)
+			return fmt.Errorf("update ConfigMap %s: %w", objref.KObj(s), err)
 		}
 	}
 	return nil
@@ -180,14 +180,14 @@ func (s ConfigMap) Apply(ctx context.Context, clientset *kubernetes.Clientset) (
 
 func (s ConfigMap) Delete(ctx context.Context, clientset *kubernetes.Clientset) (err error) {
 	logger := logr.FromContextOrDiscard(ctx)
-	logger.Info("Deleting ConfigMap", "ConfigMap", utils.KObj(s))
+	logger.Info("Deleting ConfigMap", "ConfigMap", objref.KObj(s))
 
 	err = clientset.
 		CoreV1().
 		ConfigMaps(s.Namespace).
 		Delete(ctx, s.Name, metav1.DeleteOptions{})
 	if err != nil && !errors.IsNotFound(err) {
-		return fmt.Errorf("delete ConfigMap %s: %w", utils.KObj(s), err)
+		return fmt.Errorf("delete ConfigMap %s: %w", objref.KObj(s), err)
 	}
 
 	return nil
