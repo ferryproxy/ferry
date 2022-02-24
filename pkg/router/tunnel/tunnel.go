@@ -9,7 +9,8 @@ import (
 
 	"github.com/ferry-proxy/ferry/pkg/consts"
 	"github.com/ferry-proxy/ferry/pkg/router"
-	"github.com/ferry-proxy/ferry/pkg/utils"
+	"github.com/ferry-proxy/utils/maps"
+	"github.com/ferry-proxy/utils/objref"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -26,8 +27,8 @@ type serviceEgressDiscoveryBuilder struct {
 }
 
 // Build the Egress Discovery resource, perhaps Service or DNS
-func (serviceEgressDiscoveryBuilder) Build(proxy *router.Proxy, origin, destination utils.ObjectRef, spec *corev1.ServiceSpec) ([]router.Resourcer, error) {
-	labels := utils.MergeMap(proxy.Labels, map[string]string{
+func (serviceEgressDiscoveryBuilder) Build(proxy *router.Proxy, origin, destination objref.ObjectRef, spec *corev1.ServiceSpec) ([]router.Resourcer, error) {
+	labels := maps.Merge(proxy.Labels, map[string]string{
 		consts.LabelFerryExportedFromNamespaceKey: origin.Namespace,
 		consts.LabelFerryExportedFromNameKey:      origin.Name,
 		consts.LabelFerryTunnelKey:                consts.LabelFerryTunnelValue,
@@ -75,7 +76,7 @@ var EgressBuilder = egressBuilder{}
 
 type egressBuilder struct{}
 
-func (egressBuilder) Build(proxy *router.Proxy, origin, destination utils.ObjectRef, spec *corev1.ServiceSpec) ([]router.Resourcer, error) {
+func (egressBuilder) Build(proxy *router.Proxy, origin, destination objref.ObjectRef, spec *corev1.ServiceSpec) ([]router.Resourcer, error) {
 	if len(proxy.ImportProxy) != 0 {
 		var clientProxyBuilder clientProxyBuilder
 		return clientProxyBuilder.Build(proxy, origin, destination, spec)
@@ -93,8 +94,8 @@ func (egressBuilder) Build(proxy *router.Proxy, origin, destination utils.Object
 type clientProxyBuilder struct{}
 
 // Build the client proxy resource
-func (clientProxyBuilder) Build(proxy *router.Proxy, origin, destination utils.ObjectRef, spec *corev1.ServiceSpec) ([]router.Resourcer, error) {
-	labels := utils.MergeMap(proxy.Labels, map[string]string{
+func (clientProxyBuilder) Build(proxy *router.Proxy, origin, destination objref.ObjectRef, spec *corev1.ServiceSpec) ([]router.Resourcer, error) {
+	labels := maps.Merge(proxy.Labels, map[string]string{
 		consts.LabelFerryExportedFromNamespaceKey: origin.Namespace,
 		consts.LabelFerryExportedFromNameKey:      origin.Name,
 		consts.LabelFerryTunnelKey:                consts.LabelFerryTunnelValue,
@@ -141,8 +142,8 @@ func (clientProxyBuilder) Build(proxy *router.Proxy, origin, destination utils.O
 type clientBuilder struct{}
 
 // Build the client resource
-func (clientBuilder) Build(proxy *router.Proxy, origin, destination utils.ObjectRef, spec *corev1.ServiceSpec) ([]router.Resourcer, error) {
-	labels := utils.MergeMap(proxy.Labels, map[string]string{
+func (clientBuilder) Build(proxy *router.Proxy, origin, destination objref.ObjectRef, spec *corev1.ServiceSpec) ([]router.Resourcer, error) {
+	labels := maps.Merge(proxy.Labels, map[string]string{
 		consts.LabelFerryExportedFromNamespaceKey: origin.Namespace,
 		consts.LabelFerryExportedFromNameKey:      origin.Name,
 		consts.LabelFerryTunnelKey:                consts.LabelFerryTunnelValue,
@@ -196,7 +197,7 @@ var IngressBuilder = ingressBuilder{}
 
 type ingressBuilder struct{}
 
-func (ingressBuilder) Build(proxy *router.Proxy, origin, destination utils.ObjectRef, spec *corev1.ServiceSpec) ([]router.Resourcer, error) {
+func (ingressBuilder) Build(proxy *router.Proxy, origin, destination objref.ObjectRef, spec *corev1.ServiceSpec) ([]router.Resourcer, error) {
 	if len(proxy.ExportProxy) != 0 {
 		var serverProxyBuilder serverProxyBuilder
 		return serverProxyBuilder.Build(proxy, origin, destination, spec)
@@ -214,8 +215,8 @@ func (ingressBuilder) Build(proxy *router.Proxy, origin, destination utils.Objec
 type serverProxyBuilder struct{}
 
 // Build the server proxy resource
-func (serverProxyBuilder) Build(proxy *router.Proxy, origin, destination utils.ObjectRef, spec *corev1.ServiceSpec) ([]router.Resourcer, error) {
-	labels := utils.MergeMap(proxy.Labels, map[string]string{
+func (serverProxyBuilder) Build(proxy *router.Proxy, origin, destination objref.ObjectRef, spec *corev1.ServiceSpec) ([]router.Resourcer, error) {
+	labels := maps.Merge(proxy.Labels, map[string]string{
 		consts.LabelFerryExportedFromNamespaceKey: origin.Namespace,
 		consts.LabelFerryExportedFromNameKey:      origin.Name,
 		consts.LabelFerryTunnelKey:                consts.LabelFerryTunnelValue,
@@ -264,8 +265,8 @@ func (serverProxyBuilder) Build(proxy *router.Proxy, origin, destination utils.O
 type serverBuilder struct{}
 
 // Build the server resource
-func (serverBuilder) Build(proxy *router.Proxy, origin, destination utils.ObjectRef, spec *corev1.ServiceSpec) ([]router.Resourcer, error) {
-	labels := utils.MergeMap(proxy.Labels, map[string]string{
+func (serverBuilder) Build(proxy *router.Proxy, origin, destination objref.ObjectRef, spec *corev1.ServiceSpec) ([]router.Resourcer, error) {
+	labels := maps.Merge(proxy.Labels, map[string]string{
 		consts.LabelFerryExportedFromNamespaceKey: origin.Namespace,
 		consts.LabelFerryExportedFromNameKey:      origin.Name,
 		consts.LabelFerryTunnelKey:                consts.LabelFerryTunnelValue,

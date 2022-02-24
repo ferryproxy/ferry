@@ -22,6 +22,7 @@ import (
 	"syscall"
 
 	"github.com/ferry-proxy/ferry/pkg/controller"
+	"github.com/ferry-proxy/utils/env"
 	"github.com/go-logr/logr"
 	"github.com/go-logr/zapr"
 	"github.com/wzshiming/notify"
@@ -32,6 +33,9 @@ import (
 var (
 	ctx, globalCancel = context.WithCancel(context.Background())
 	log               = logr.Discard()
+	master            = env.GetEnv("MASTER", "")
+	kubeconfig        = env.GetEnv("KUBECONFIG", "")
+	namespace         = env.GetEnv("NAMESPACE", "ferry-system")
 )
 
 func init() {
@@ -54,7 +58,7 @@ func init() {
 }
 
 func main() {
-	restConfig, err := clientcmd.BuildConfigFromFlags(getEnv("MASTER", ""), getEnv("KUBECONFIG", ""))
+	restConfig, err := clientcmd.BuildConfigFromFlags(master, kubeconfig)
 	if err != nil {
 		log.Error(err, "failed to create kubernetes client")
 		os.Exit(1)
@@ -63,7 +67,7 @@ func main() {
 	control := controller.NewController(&controller.ControllerConfig{
 		Logger:    log.WithName("controller"),
 		Config:    restConfig,
-		Namespace: "ferry-system",
+		Namespace: namespace,
 	})
 
 	err = control.Run(ctx)
@@ -71,11 +75,4 @@ func main() {
 		log.Error(err, "unable to start main controller")
 		os.Exit(1)
 	}
-}
-
-func getEnv(key, fallback string) string {
-	if value, ok := os.LookupEnv(key); ok {
-		return value
-	}
-	return fallback
 }

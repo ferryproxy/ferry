@@ -5,6 +5,7 @@ go 1.17
 require (
 	github.com/ferry-proxy/api v0.0.0-20220119055001-eb135282cb64
 	github.com/ferry-proxy/client-go v0.0.0-20220119081948-d273cf9fc6f4
+	github.com/ferry-proxy/utils v0.0.0-20220224074316-5c078e7e3638
 	github.com/go-logr/logr v1.2.2
 	github.com/go-logr/zapr v1.2.2
 	github.com/google/go-cmp v0.5.5

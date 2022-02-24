@@ -5,7 +5,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ferry-proxy/ferry/pkg/utils"
+	"github.com/ferry-proxy/utils/objref"
+	"github.com/ferry-proxy/utils/trybuffer"
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/informers"
@@ -18,14 +19,14 @@ type clusterServiceCache struct {
 	cancel    context.CancelFunc
 
 	clientset        *kubernetes.Clientset
-	cache            map[utils.ObjectRef]*corev1.Service
+	cache            map[objref.ObjectRef]*corev1.Service
 	callback         map[string]func()
 	callbackOnAdd    map[string]func(obj *corev1.Service)
 	callbackOnUpdate map[string]func(old, obj *corev1.Service)
 	callbackOnDelete map[string]func(obj *corev1.Service)
 
 	logger logr.Logger
-	try    *utils.TryBuffer
+	try    *trybuffer.TryBuffer
 
 	mut sync.Mutex
 }
@@ -43,7 +44,7 @@ func newClusterServiceCache(conf clusterServiceCacheConfig) *clusterServiceCache
 		callbackOnAdd:    map[string]func(obj *corev1.Service){},
 		callbackOnUpdate: map[string]func(old *corev1.Service, obj *corev1.Service){},
 		callbackOnDelete: map[string]func(obj *corev1.Service){},
-		cache:            map[utils.ObjectRef]*corev1.Service{},
+		cache:            map[objref.ObjectRef]*corev1.Service{},
 	}
 	return c
 }
@@ -52,7 +53,7 @@ func (c *clusterServiceCache) ResetClientset(clientset *kubernetes.Clientset) er
 	c.mut.Lock()
 	defer c.mut.Unlock()
 
-	c.cache = map[utils.ObjectRef]*corev1.Service{}
+	c.cache = map[objref.ObjectRef]*corev1.Service{}
 	if c.cancel != nil {
 		c.cancel()
 	}
@@ -71,7 +72,7 @@ func (c *clusterServiceCache) ResetClientset(clientset *kubernetes.Clientset) er
 
 func (c *clusterServiceCache) Start(ctx context.Context) error {
 	c.parentCtx = ctx
-	c.try = utils.NewTryBuffer(c.sync, time.Second/2)
+	c.try = trybuffer.NewTryBuffer(c.sync, time.Second/2)
 	err := c.ResetClientset(c.clientset)
 	if err != nil {
 		return err
@@ -152,7 +153,7 @@ func (c *clusterServiceCache) UnregistryOnDelete(name string) {
 func (c *clusterServiceCache) OnAdd(obj interface{}) {
 	svc := obj.(*corev1.Service)
 	c.logger.Info("OnAdd",
-		"Service", utils.KObj(svc),
+		"Service", objref.KObj(svc),
 	)
 	svc = svc.DeepCopy()
 
@@ -163,14 +164,14 @@ func (c *clusterServiceCache) OnAdd(obj interface{}) {
 		cb(svc)
 	}
 
-	c.cache[utils.KObj(svc)] = svc
+	c.cache[objref.KObj(svc)] = svc
 	c.try.Try()
 }
 
 func (c *clusterServiceCache) OnUpdate(oldObj, newObj interface{}) {
 	svc := newObj.(*corev1.Service)
 	c.logger.Info("OnUpdate",
-		"Service", utils.KObj(svc),
+		"Service", objref.KObj(svc),
 	)
 	svc = svc.DeepCopy()
 
@@ -181,14 +182,14 @@ func (c *clusterServiceCache) OnUpdate(oldObj, newObj interface{}) {
 		cb(oldObj.(*corev1.Service), svc)
 	}
 
-	c.cache[utils.KObj(svc)] = svc
+	c.cache[objref.KObj(svc)] = svc
 	c.try.Try()
 }
 
 func (c *clusterServiceCache) OnDelete(obj interface{}) {
 	svc := obj.(*corev1.Service)
 	c.logger.Info("OnDelete",
-		"Service", utils.KObj(svc),
+		"Service", objref.KObj(svc),
 	)
 	svc = svc.DeepCopy()
 
@@ -199,6 +200,6 @@ func (c *clusterServiceCache) OnDelete(obj interface{}) {
 		cb(svc)
 	}
 
-	delete(c.cache, utils.KObj(svc))
+	delete(c.cache, objref.KObj(svc))
 	c.try.Try()
 }

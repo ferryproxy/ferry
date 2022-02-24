@@ -10,7 +10,9 @@ import (
 	"github.com/ferry-proxy/api/apis/ferry/v1alpha1"
 	"github.com/ferry-proxy/ferry/pkg/router"
 	original "github.com/ferry-proxy/ferry/pkg/router/tunnel"
-	"github.com/ferry-proxy/ferry/pkg/utils"
+	"github.com/ferry-proxy/utils/maps"
+	"github.com/ferry-proxy/utils/objref"
+	"github.com/ferry-proxy/utils/trybuffer"
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/labels"
 	restclient "k8s.io/client-go/rest"
@@ -25,7 +27,7 @@ type Controller struct {
 	ferryPolicyController        *ferryPolicyController
 	cacheDataPlaneController     map[ClusterPair]*DataPlaneController
 	cacheMatchRule               map[string]map[string][]MatchRule
-	try                          *utils.TryBuffer
+	try                          *trybuffer.TryBuffer
 }
 
 type ControllerConfig struct {
@@ -45,7 +47,7 @@ func NewController(conf *ControllerConfig) *Controller {
 }
 
 func (c *Controller) Run(ctx context.Context) error {
-	c.try = utils.NewTryBuffer(func() {
+	c.try = trybuffer.NewTryBuffer(func() {
 		list := c.ferryPolicyController.List()
 		c.sync(ctx, list)
 	}, time.Second/2)
@@ -232,8 +234,8 @@ func (c *Controller) sync(ctx context.Context, policies []*v1alpha1.FerryPolicy)
 				case (rule.Import.Name != "" || rule.Export.Name != "") &&
 					(len(rule.Export.Labels) == 0 && len(rule.Import.Labels) == 0):
 					dataPlane.UnregistryObj(
-						utils.ObjectRef{Name: rule.Export.Name, Namespace: rule.Export.Namespace},
-						utils.ObjectRef{Name: rule.Import.Name, Namespace: rule.Import.Namespace},
+						objref.ObjectRef{Name: rule.Export.Name, Namespace: rule.Export.Namespace},
+						objref.ObjectRef{Name: rule.Import.Name, Namespace: rule.Import.Namespace},
 					)
 
 				case (len(rule.Export.Labels) != 0 || len(rule.Import.Labels) != 0) &&
@@ -244,7 +246,7 @@ func (c *Controller) sync(ctx context.Context, policies []*v1alpha1.FerryPolicy)
 						continue
 					}
 
-					matchSet := utils.MergeMap(rule.Export.Labels, rule.Import.Labels)
+					matchSet := maps.Merge(rule.Export.Labels, rule.Import.Labels)
 					dataPlane.UnregistrySelector(labels.Set(matchSet).AsSelector())
 				}
 			}
@@ -255,8 +257,8 @@ func (c *Controller) sync(ctx context.Context, policies []*v1alpha1.FerryPolicy)
 				case (rule.Import.Name != "" || rule.Export.Name != "") &&
 					(len(rule.Export.Labels) == 0 && len(rule.Import.Labels) == 0):
 					dataPlane.RegistryObj(
-						utils.ObjectRef{Name: rule.Export.Name, Namespace: rule.Export.Namespace},
-						utils.ObjectRef{Name: rule.Import.Name, Namespace: rule.Import.Namespace},
+						objref.ObjectRef{Name: rule.Export.Name, Namespace: rule.Export.Namespace},
+						objref.ObjectRef{Name: rule.Import.Name, Namespace: rule.Import.Namespace},
 					)
 
 				case (len(rule.Export.Labels) != 0 || len(rule.Import.Labels) != 0) &&
@@ -267,7 +269,7 @@ func (c *Controller) sync(ctx context.Context, policies []*v1alpha1.FerryPolicy)
 						continue
 					}
 
-					matchSet := utils.MergeMap(rule.Export.Labels, rule.Import.Labels)
+					matchSet := maps.Merge(rule.Export.Labels, rule.Import.Labels)
 					dataPlane.RegistrySelector(labels.Set(matchSet).AsSelector())
 				}
 			}
