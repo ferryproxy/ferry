@@ -14,6 +14,7 @@ import (
 	"github.com/ferry-proxy/ferry/pkg/client"
 	"github.com/ferry-proxy/utils/objref"
 	"github.com/go-logr/logr"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	restclient "k8s.io/client-go/rest"
 )
@@ -184,26 +185,15 @@ func (c *clusterInformationController) proxy(ctx context.Context, proxy v1alpha1
 	if proxy.Proxy != "" {
 		return proxy.Proxy, nil
 	}
-	ci := c.Get(proxy.ClusterName)
-	if ci == nil {
-		return "", fmt.Errorf("not found cluster %s", proxy.ClusterName)
-	}
-	if ci.Spec.Ingress == nil {
-		return "", fmt.Errorf("not ingress int cluster %s", proxy.ClusterName)
+
+	ip, err := c.GetIPs(ctx, proxy.ClusterName)
+	if err != nil {
+		return "", fmt.Errorf("failed get ip: %w", err)
 	}
 
-	cli := c.Clientset(proxy.ClusterName)
-	if cli == nil {
-		return "", fmt.Errorf("not found clientset on cluster %s", proxy.ClusterName)
-	}
-	ip, err := getIPs(ctx, cli, ci.Spec.Ingress)
+	port, err := c.GetPort(ctx, proxy.ClusterName)
 	if err != nil {
-		return "", err
-	}
-
-	port, err := getPort(ctx, cli, ci.Spec.Ingress)
-	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed get port: %w", err)
 	}
 
 	return "ssh://" + net.JoinHostPort(ip[0], strconv.FormatInt(int64(port), 10)), nil
@@ -219,4 +209,114 @@ func (c *clusterInformationController) proxies(ctx context.Context, proxies []v1
 		out = append(out, p)
 	}
 	return out, nil
+}
+
+func (c *clusterInformationController) GetPort(ctx context.Context, clusterName string) (int32, error) {
+	ci := c.Get(clusterName)
+	if ci == nil {
+		return 0, fmt.Errorf("not found cluster %s", clusterName)
+	}
+	if ci.Spec.Ingress == nil {
+		return 0, fmt.Errorf("not ingress int cluster %s", clusterName)
+	}
+
+	route := ci.Spec.Ingress
+
+	if route == nil {
+		return 31087, nil
+	}
+	if route.Port != 0 {
+		return route.Port, nil
+	}
+	if route.ServiceNamespace == "" && route.ServiceName == "" {
+		return 31087, nil
+	}
+	if route.ServiceNamespace == "" {
+		return 0, fmt.Errorf("ServiceNamespace is empty")
+	}
+	if route.ServiceName == "" {
+		return 0, fmt.Errorf("ServiceName is empty")
+	}
+
+	clientset := c.Clientset(clusterName)
+	if clientset == nil {
+		return 0, fmt.Errorf("not found clientset on cluster %s", clusterName)
+	}
+	ep, err := clientset.
+		CoreV1().
+		Endpoints(route.ServiceNamespace).
+		Get(ctx, route.ServiceName, metav1.GetOptions{})
+	if err != nil {
+		return 0, err
+	}
+	if len(ep.Subsets) == 0 {
+		return 0, fmt.Errorf("Endpoints's Subsets is empty")
+	}
+
+	if len(ep.Subsets[0].Ports) == 0 {
+		return 0, fmt.Errorf("Endpoints's Subsets[0].Ports is empty")
+	}
+
+	for _, port := range ep.Subsets[0].Ports {
+		if port.Port != 0 {
+			return port.Port, nil
+		}
+	}
+	return 31087, nil
+}
+
+func (c *clusterInformationController) GetIPs(ctx context.Context, clusterName string) ([]string, error) {
+	ci := c.Get(clusterName)
+	if ci == nil {
+		return nil, fmt.Errorf("not found cluster %s", clusterName)
+	}
+	if ci.Spec.Ingress == nil {
+		return nil, fmt.Errorf("not ingress int cluster %s", clusterName)
+	}
+
+	route := ci.Spec.Ingress
+
+	if route == nil {
+		return nil, nil
+	}
+	if route.IP != "" {
+		return []string{route.IP}, nil
+	}
+	if route.ServiceNamespace == "" && route.ServiceName == "" {
+		return nil, nil
+	}
+	if route.ServiceNamespace == "" {
+		return nil, fmt.Errorf("ServiceNamespace is empty")
+	}
+	if route.ServiceName == "" {
+		return nil, fmt.Errorf("ServiceName is empty")
+	}
+
+	clientset := c.Clientset(clusterName)
+	if clientset == nil {
+		return nil, fmt.Errorf("not found clientset on cluster %s", clusterName)
+	}
+	ep, err := clientset.
+		CoreV1().
+		Endpoints(route.ServiceNamespace).
+		Get(ctx, route.ServiceName, metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+	if len(ep.Subsets) == 0 {
+		return nil, fmt.Errorf("Endpoints's Subsets is empty")
+	}
+
+	if len(ep.Subsets[0].Addresses) == 0 {
+		return nil, fmt.Errorf("Endpoints's Subsets[0].Addresses is empty")
+	}
+
+	ips := []string{}
+	for _, address := range ep.Subsets[0].Addresses {
+		if address.IP == "" {
+			continue
+		}
+		ips = append(ips, address.IP)
+	}
+	return ips, nil
 }

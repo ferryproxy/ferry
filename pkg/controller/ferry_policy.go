@@ -2,7 +2,6 @@ package controller
 
 import (
 	"context"
-	"fmt"
 	"sync"
 
 	"github.com/ferry-proxy/api/apis/ferry/v1alpha1"
@@ -10,8 +9,6 @@ import (
 	externalversions "github.com/ferry-proxy/client-go/generated/informers/externalversions"
 	"github.com/ferry-proxy/utils/objref"
 	"github.com/go-logr/logr"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
 	restclient "k8s.io/client-go/rest"
 )
 
@@ -125,84 +122,4 @@ func (c *ferryPolicyController) OnDelete(obj interface{}) {
 	delete(c.cache, f.Name)
 
 	c.syncFunc()
-}
-
-func getPort(ctx context.Context, clientset *kubernetes.Clientset, route *v1alpha1.ClusterInformationSpecRoute) (int32, error) {
-	if route == nil {
-		return 31087, nil
-	}
-	if route.Port != 0 {
-		return route.Port, nil
-	}
-	if route.ServiceNamespace == "" && route.ServiceName == "" {
-		return 31087, nil
-	}
-	if route.ServiceNamespace == "" {
-		return 0, fmt.Errorf("ServiceNamespace is empty")
-	}
-	if route.ServiceName == "" {
-		return 0, fmt.Errorf("ServiceName is empty")
-	}
-	ep, err := clientset.
-		CoreV1().
-		Endpoints(route.ServiceNamespace).
-		Get(ctx, route.ServiceName, metav1.GetOptions{})
-	if err != nil {
-		return 0, err
-	}
-	if len(ep.Subsets) == 0 {
-		return 0, fmt.Errorf("Endpoints's Subsets is empty")
-	}
-
-	if len(ep.Subsets[0].Ports) == 0 {
-		return 0, fmt.Errorf("Endpoints's Subsets[0].Ports is empty")
-	}
-
-	for _, port := range ep.Subsets[0].Ports {
-		if port.Port != 0 {
-			return port.Port, nil
-		}
-	}
-	return 31087, nil
-}
-
-func getIPs(ctx context.Context, clientset *kubernetes.Clientset, route *v1alpha1.ClusterInformationSpecRoute) ([]string, error) {
-	if route == nil {
-		return nil, nil
-	}
-	if route.IP != "" {
-		return []string{route.IP}, nil
-	}
-	if route.ServiceNamespace == "" && route.ServiceName == "" {
-		return nil, nil
-	}
-	if route.ServiceNamespace == "" {
-		return nil, fmt.Errorf("ServiceNamespace is empty")
-	}
-	if route.ServiceName == "" {
-		return nil, fmt.Errorf("ServiceName is empty")
-	}
-	ep, err := clientset.
-		CoreV1().
-		Endpoints(route.ServiceNamespace).
-		Get(ctx, route.ServiceName, metav1.GetOptions{})
-	if err != nil {
-		return nil, err
-	}
-	if len(ep.Subsets) == 0 {
-		return nil, fmt.Errorf("Endpoints's Subsets is empty")
-	}
-
-	if len(ep.Subsets[0].Addresses) == 0 {
-		return nil, fmt.Errorf("Endpoints's Subsets[0].Addresses is empty")
-	}
-
-	ips := []string{}
-	for _, address := range ep.Subsets[0].Addresses {
-		if address.IP == "" {
-			continue
-		}
-		ips = append(ips, address.IP)
-	}
-	return ips, nil
 }
