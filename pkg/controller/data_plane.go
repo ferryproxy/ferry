@@ -84,7 +84,7 @@ func (d *DataPlaneController) Start(ctx context.Context) error {
 	}()
 	d.ctx = ctx
 
-	proxy, err := d.getProxyInfo(ctx)
+	proxy, err := d.GetProxyInfo(ctx)
 	if err != nil {
 		return err
 	}
@@ -210,44 +210,45 @@ func CalculateProxy(exportProxy, importProxy []string) ([]string, []string) {
 	return exportProxy, append([]string{exportProxy[0]}, importProxy...)
 }
 
+func (d *DataPlaneController) GetProxyInfo(ctx context.Context) (*router.Proxy, error) {
+	proxy, err := d.getProxyInfo(ctx)
+	if err != nil {
+		for {
+			d.logger.Error(err, "get proxy info failed")
+			select {
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			case <-time.After(2 * time.Second):
+				proxy, err = d.getProxyInfo(ctx)
+				if err != nil {
+					continue
+				}
+				return proxy, nil
+			}
+		}
+	}
+	return proxy, nil
+}
+
 func (d *DataPlaneController) getProxyInfo(ctx context.Context) (*router.Proxy, error) {
 	exportClusterName := d.exportClusterName
 	importClusterName := d.importClusterName
 
-	exportClientset := d.clusterInformationController.Clientset(exportClusterName)
-	if exportClientset == nil {
-		return nil, fmt.Errorf("not found clientset %q", exportClusterName)
-	}
-	importClientset := d.clusterInformationController.Clientset(importClusterName)
-	if importClientset == nil {
-		return nil, fmt.Errorf("not found clientset %q", importClusterName)
-	}
-
-	exportCluster := d.clusterInformationController.Get(exportClusterName)
-	if exportCluster == nil {
-		return nil, fmt.Errorf("not found cluster information %q", exportCluster)
-	}
-
-	importCluster := d.clusterInformationController.Get(importClusterName)
-	if importCluster == nil {
-		return nil, fmt.Errorf("not found cluster information %q", importClusterName)
-	}
-
-	exportIngressIPs, err := getIPs(ctx, exportClientset, exportCluster.Spec.Ingress)
+	exportIngressIPs, err := d.clusterInformationController.GetIPs(ctx, exportClusterName)
 	if err != nil {
 		return nil, err
 	}
 
-	exportIngressPort, err := getPort(ctx, exportClientset, exportCluster.Spec.Ingress)
+	exportIngressPort, err := d.clusterInformationController.GetPort(ctx, exportClusterName)
 	if err != nil {
 		return nil, err
 	}
 
-	importIngressIPs, err := getIPs(ctx, importClientset, importCluster.Spec.Ingress)
+	importIngressIPs, err := d.clusterInformationController.GetIPs(ctx, importClusterName)
 	if err != nil {
 		return nil, err
 	}
-	importIngressPort, err := getPort(ctx, importClientset, importCluster.Spec.Ingress)
+	importIngressPort, err := d.clusterInformationController.GetPort(ctx, importClusterName)
 	if err != nil {
 		return nil, err
 	}
@@ -261,6 +262,15 @@ func (d *DataPlaneController) getProxyInfo(ctx context.Context) (*router.Proxy, 
 	var importProxies v1alpha1.Proxies
 	var ok bool
 
+	exportCluster := d.clusterInformationController.Get(exportClusterName)
+	if exportCluster == nil {
+		return nil, fmt.Errorf("not found cluster information %q", exportCluster)
+	}
+
+	importCluster := d.clusterInformationController.Get(importClusterName)
+	if importCluster == nil {
+		return nil, fmt.Errorf("not found cluster information %q", importClusterName)
+	}
 	if exportCluster.Spec.Ingress != nil {
 		if len(exportCluster.Spec.Ingress.Proxies) != 0 {
 			exportProxies, ok = exportCluster.Spec.Ingress.Proxies[importClusterName]
@@ -314,8 +324,8 @@ func (d *DataPlaneController) getProxyInfo(ctx context.Context) (*router.Proxy, 
 		TunnelNamespace: "ferry-tunnel-system",
 		Reverse:         reverse,
 
-		ExportClusterName: exportCluster.Name,
-		ImportClusterName: importCluster.Name,
+		ExportClusterName: exportClusterName,
+		ImportClusterName: importClusterName,
 
 		ExportIngressIPs:  exportIngressIPs,
 		ExportIngressPort: exportIngressPort,
@@ -348,7 +358,7 @@ func (d *DataPlaneController) sync(ctx context.Context) error {
 	var ir []router.Resourcer
 	var er []router.Resourcer
 
-	proxy, err := d.getProxyInfo(ctx)
+	proxy, err := d.GetProxyInfo(ctx)
 	if err != nil {
 		return err
 	}
