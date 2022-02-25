@@ -1,7 +1,0 @@
-
-resources:
-- https://github.com/ferry-proxy/api/config/crd
-- ../../config/default
-
-patches:
-- ./patch.yaml

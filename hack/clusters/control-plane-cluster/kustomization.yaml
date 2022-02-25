@@ -1,8 +1,0 @@
-
-resources:
-- https://github.com/ferry-proxy/ferry-tunnel/config/default
-- ns.yaml
-- svc.yaml
-- control-plane-cluster.yaml
-- data-plane-cluster-1.yaml
-- data-plane-cluster-2.yaml
