@@ -20,6 +20,7 @@ import (
 
 type Controller struct {
 	mut                          sync.Mutex
+	ctx                          context.Context
 	logger                       logr.Logger
 	config                       *restclient.Config
 	namespace                    string
@@ -47,10 +48,9 @@ func NewController(conf *ControllerConfig) *Controller {
 }
 
 func (c *Controller) Run(ctx context.Context) error {
-	c.try = trybuffer.NewTryBuffer(func() {
-		list := c.ferryPolicyController.List()
-		c.sync(ctx, list)
-	}, time.Second/2)
+	ctx, cancel := context.WithCancel(ctx)
+	c.ctx = ctx
+	c.try = trybuffer.NewTryBuffer(c.sync, time.Second/2)
 
 	clusterInformation := newClusterInformationController(&clusterInformationControllerConfig{
 		Config:    c.config,
@@ -67,9 +67,8 @@ func (c *Controller) Run(ctx context.Context) error {
 	})
 	c.ferryPolicyController = ferryPolicy
 
-	ctx, cancel := context.WithCancel(ctx)
 	go func() {
-		err := clusterInformation.Run(ctx)
+		err := clusterInformation.Run(c.ctx)
 		if err != nil {
 			c.logger.Error(err, "Run ClusterInformationController")
 		}
@@ -77,7 +76,7 @@ func (c *Controller) Run(ctx context.Context) error {
 	}()
 
 	go func() {
-		err := ferryPolicy.Run(ctx)
+		err := ferryPolicy.Run(c.ctx)
 		if err != nil {
 			c.logger.Error(err, "Run FerryPolicyController")
 		}
@@ -85,18 +84,18 @@ func (c *Controller) Run(ctx context.Context) error {
 	}()
 
 	select {
-	case <-ctx.Done():
+	case <-c.ctx.Done():
 		c.try.Close()
-		return ctx.Err()
+		return c.ctx.Err()
 	case <-time.After(5 * time.Second):
 		c.try.Try()
 	}
 
 	for {
 		select {
-		case <-ctx.Done():
+		case <-c.ctx.Done():
 			c.try.Close()
-			return ctx.Err()
+			return c.ctx.Err()
 		case <-time.After(time.Minute):
 			c.try.Try()
 		}
@@ -198,9 +197,12 @@ func (c *Controller) getMatchRules(policies []*v1alpha1.FerryPolicy) map[string]
 	return mapping
 }
 
-func (c *Controller) sync(ctx context.Context, policies []*v1alpha1.FerryPolicy) {
+func (c *Controller) sync() {
 	c.mut.Lock()
 	defer c.mut.Unlock()
+	ctx := c.ctx
+
+	policies := c.ferryPolicyController.List()
 
 	newerMatchRules := c.getMatchRules(policies)
 	defer func() {
