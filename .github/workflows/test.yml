@@ -116,5 +116,5 @@ jobs:
         ulimit -n 4096
         ./hack/start-environment.sh traversal
 
-    - name: Test both
-      run: ./test/test-both.sh
+    - name: Test thrin
+      run: ./test/test-thrin.sh
