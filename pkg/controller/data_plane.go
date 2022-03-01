@@ -481,10 +481,6 @@ func (d *DataPlaneController) Close() {
 	d.try.Close()
 
 	d.clusterInformationController.
-		ServiceCache(d.importClusterName).
-		UnregistryOnAdd(d.importClusterName)
-
-	d.clusterInformationController.
 		ServiceCache(d.exportClusterName).
 		UnregistryCallback(d.importClusterName)
 
