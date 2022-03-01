@@ -2,6 +2,8 @@ package controller
 
 import (
 	"context"
+	"fmt"
+	"reflect"
 	"sync"
 
 	"github.com/ferry-proxy/api/apis/ferry/v1alpha1"
@@ -9,6 +11,7 @@ import (
 	externalversions "github.com/ferry-proxy/client-go/generated/informers/externalversions"
 	"github.com/ferry-proxy/utils/objref"
 	"github.com/go-logr/logr"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	restclient "k8s.io/client-go/rest"
 )
 
@@ -23,6 +26,7 @@ type ferryPolicyController struct {
 	ctx       context.Context
 	mut       sync.RWMutex
 	config    *restclient.Config
+	clientset *versioned.Clientset
 	cache     map[string]*v1alpha1.FerryPolicy
 	namespace string
 	syncFunc  func()
@@ -67,6 +71,7 @@ func (c *ferryPolicyController) Run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	c.clientset = clientset
 	c.ctx = ctx
 	informerFactory := externalversions.NewSharedInformerFactoryWithOptions(clientset, 0,
 		externalversions.WithNamespace(c.namespace))
@@ -78,6 +83,26 @@ func (c *ferryPolicyController) Run(ctx context.Context) error {
 	informer.AddEventHandler(c)
 	informer.Run(ctx.Done())
 	return nil
+}
+
+func (c *ferryPolicyController) UpdateStatus(name string) error {
+	c.mut.RLock()
+	defer c.mut.RUnlock()
+
+	fp := c.cache[name]
+	if fp == nil {
+		return fmt.Errorf("not found FerryPolicy %s", name)
+	}
+
+	fp = fp.DeepCopy()
+
+	fp.Status.LastSynchronizationTimestamp = metav1.Now()
+
+	_, err := c.clientset.
+		FerryV1alpha1().
+		FerryPolicies(c.namespace).
+		UpdateStatus(c.ctx, fp, metav1.UpdateOptions{})
+	return err
 }
 
 func (c *ferryPolicyController) OnAdd(obj interface{}) {
@@ -104,6 +129,11 @@ func (c *ferryPolicyController) OnUpdate(oldObj, newObj interface{}) {
 
 	c.mut.Lock()
 	defer c.mut.Unlock()
+
+	if reflect.DeepEqual(c.cache[f.Name].Spec, f.Spec) {
+		c.cache[f.Name] = f
+		return
+	}
 
 	c.cache[f.Name] = f
 

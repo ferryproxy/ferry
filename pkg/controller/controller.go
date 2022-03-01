@@ -280,6 +280,19 @@ func (c *Controller) sync() {
 		dataPlane.try.Try()
 	}
 
+	cis := CalculateClusterInformationStatus(updated)
+	for name, status := range cis {
+		err := c.clusterInformationController.UpdateStatus(name, status.ImportedFrom, status.ExportedTo)
+		if err != nil {
+			logger.Error(err, "update cluster information status")
+		}
+	}
+	for _, policy := range policies {
+		err := c.ferryPolicyController.UpdateStatus(policy.Name)
+		if err != nil {
+			logger.Error(err, "update ferry policy status")
+		}
+	}
 	return
 }
 
@@ -343,4 +356,23 @@ func (c *Controller) startDataPlane(ctx context.Context, exportClusterName, impo
 		return nil, err
 	}
 	return dataPlane, nil
+}
+
+type clusterStatus struct {
+	ExportedTo   []string
+	ImportedFrom []string
+}
+
+func CalculateClusterInformationStatus(updated []ClusterPair) map[string]clusterStatus {
+	out := map[string]clusterStatus{}
+	for _, u := range updated {
+		imported := out[u.Import]
+		imported.ImportedFrom = append(imported.ImportedFrom, u.Export)
+		out[u.Import] = imported
+
+		exported := out[u.Export]
+		exported.ExportedTo = append(exported.ExportedTo, u.Import)
+		out[u.Export] = exported
+	}
+	return out
 }

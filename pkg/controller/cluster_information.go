@@ -5,6 +5,8 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"reflect"
+	"sort"
 	"strconv"
 	"sync"
 
@@ -30,6 +32,7 @@ type clusterInformationController struct {
 	ctx                     context.Context
 	logger                  logr.Logger
 	config                  *restclient.Config
+	clientset               *versioned.Clientset
 	cacheClusterInformation map[string]*v1alpha1.ClusterInformation
 	cacheClientset          map[string]*kubernetes.Clientset
 	cacheService            map[string]*clusterServiceCache
@@ -59,6 +62,8 @@ func (c *clusterInformationController) Run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	c.clientset = clientset
+
 	c.ctx = ctx
 	informerFactory := externalversions.NewSharedInformerFactoryWithOptions(clientset, 0,
 		externalversions.WithNamespace(c.namespace))
@@ -70,6 +75,34 @@ func (c *clusterInformationController) Run(ctx context.Context) error {
 	informer.AddEventHandler(c)
 	informer.Run(ctx.Done())
 	return nil
+}
+
+func (c *clusterInformationController) UpdateStatus(name string, importedFrom []string, exportedTo []string) error {
+	c.mut.RLock()
+	defer c.mut.RUnlock()
+
+	ci := c.cacheClusterInformation[name]
+	if ci == nil {
+		return fmt.Errorf("not found ClusterInformation %s", name)
+	}
+	sort.Strings(importedFrom)
+	sort.Strings(exportedTo)
+
+	ci = ci.DeepCopy()
+	ci.Status.ImportedFrom = importedFrom
+	ci.Status.ExportedTo = exportedTo
+	ci.Status.LastSynchronizationTimestamp = metav1.Now()
+	if ci.Spec.Ingress != nil && (ci.Spec.Ingress.IP != "" || ci.Spec.Ingress.ServiceName != "") {
+		ci.Status.Mode = "Direct"
+	} else {
+		ci.Status.Mode = "Tunnel"
+	}
+
+	_, err := c.clientset.
+		FerryV1alpha1().
+		ClusterInformations(c.namespace).
+		UpdateStatus(c.ctx, ci, metav1.UpdateOptions{})
+	return err
 }
 
 func (c *clusterInformationController) Clientset(name string) *kubernetes.Clientset {
@@ -135,6 +168,11 @@ func (c *clusterInformationController) OnUpdate(oldObj, newObj interface{}) {
 
 	c.mut.Lock()
 	defer c.mut.Unlock()
+
+	if reflect.DeepEqual(c.cacheClusterInformation[f.Name].Spec, f.Spec) {
+		c.cacheClusterInformation[f.Name] = f
+		return
+	}
 
 	if !bytes.Equal(c.cacheClusterInformation[f.Name].Spec.Kubeconfig, f.Spec.Kubeconfig) {
 		clientset, err := client.NewClientsetFromKubeconfig(f.Spec.Kubeconfig)
