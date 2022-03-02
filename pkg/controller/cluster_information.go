@@ -80,7 +80,10 @@ func (c *clusterInformationController) Run(ctx context.Context) error {
 func (c *clusterInformationController) UpdateStatus(name string, importedFrom []string, exportedTo []string) error {
 	c.mut.RLock()
 	defer c.mut.RUnlock()
+	return c.updateStatus(name, importedFrom, exportedTo)
+}
 
+func (c *clusterInformationController) updateStatus(name string, importedFrom []string, exportedTo []string) error {
 	ci := c.cacheClusterInformation[name]
 	if ci == nil {
 		return fmt.Errorf("not found ClusterInformation %s", name)
@@ -154,6 +157,13 @@ func (c *clusterInformationController) OnAdd(obj interface{}) {
 	err = clusterService.Start(c.ctx)
 	if err != nil {
 		c.logger.Error(err, "failed start cluster service cache")
+	}
+
+	err = c.updateStatus(f.Name, []string{}, []string{})
+	if err != nil {
+		c.logger.Error(err, "UpdateStatus",
+			"ClusterInformation", objref.KObj(f),
+		)
 	}
 
 	c.syncFunc()
