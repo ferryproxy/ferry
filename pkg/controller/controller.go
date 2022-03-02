@@ -329,7 +329,7 @@ func (c *Controller) startDataPlane(ctx context.Context, exportClusterName, impo
 
 	exportCluster := c.clusterInformationController.Get(exportClusterName)
 	if exportCluster == nil {
-		return nil, fmt.Errorf("not found cluster information %q", exportCluster)
+		return nil, fmt.Errorf("not found cluster information %q", exportClusterName)
 	}
 
 	importCluster := c.clusterInformationController.Get(importClusterName)
