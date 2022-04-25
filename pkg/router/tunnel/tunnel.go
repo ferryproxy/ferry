@@ -118,7 +118,7 @@ func (clientProxyBuilder) Build(proxy *router.Proxy, origin, destination objref.
 			continue
 		}
 		svcPort := proxy.GetPortFunc(origin.Namespace, origin.Name, port.Port)
-		virtualName := fmt.Sprintf("unix:/dev/shm/%s-%s-%s-%s-%s-%s-%d-%d-tunnel.socks", proxy.ImportClusterName, destination.Namespace, destination.Name, proxy.ExportClusterName, origin.Namespace, origin.Name, port.Port, svcPort)
+		virtualName := fmt.Sprintf("unix:///dev/shm/%s-%s-%s-%s-%s-%s-%d-%d-tunnel.socks", proxy.ImportClusterName, destination.Namespace, destination.Name, proxy.ExportClusterName, origin.Namespace, origin.Name, port.Port, svcPort)
 
 		chain := Chain{
 			Bind: []string{
@@ -241,7 +241,7 @@ func (serverProxyBuilder) Build(proxy *router.Proxy, origin, destination objref.
 		}
 
 		svcPort := proxy.GetPortFunc(origin.Namespace, origin.Name, port.Port)
-		virtualName := fmt.Sprintf("unix:/dev/shm/%s-%s-%s-%s-%s-%s-%d-%d-tunnel.socks", proxy.ImportClusterName, destination.Namespace, destination.Name, proxy.ExportClusterName, origin.Namespace, origin.Name, port.Port, svcPort)
+		virtualName := fmt.Sprintf("unix:///dev/shm/%s-%s-%s-%s-%s-%s-%d-%d-tunnel.socks", proxy.ImportClusterName, destination.Namespace, destination.Name, proxy.ExportClusterName, origin.Namespace, origin.Name, port.Port, svcPort)
 
 		chain := Chain{
 			Bind: append([]string{virtualName}, proxy.ExportProxy...),
