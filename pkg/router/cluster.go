@@ -46,9 +46,11 @@ type Proxy struct {
 
 	ExportIngressIPs  []string
 	ExportIngressPort int32
+	ExportIdentity    string
 
 	ImportIngressIPs  []string
 	ImportIngressPort int32
+	ImportIdentity    string
 
 	ExportProxy []string
 	ImportProxy []string

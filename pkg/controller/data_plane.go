@@ -329,9 +329,11 @@ func (d *DataPlaneController) getProxyInfo(ctx context.Context) (*router.Proxy, 
 
 		ExportIngressIPs:  exportIngressIPs,
 		ExportIngressPort: exportIngressPort,
+		ExportIdentity:    d.clusterInformationController.GetIdentity(exportClusterName),
 
 		ImportIngressIPs:  importIngressIPs,
 		ImportIngressPort: importIngressPort,
+		ImportIdentity:    d.clusterInformationController.GetIdentity(importClusterName),
 
 		ExportProxy: exportProxy,
 		ImportProxy: importProxy,
