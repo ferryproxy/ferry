@@ -264,7 +264,7 @@ func (d *DataPlaneController) getProxyInfo(ctx context.Context) (*router.Proxy, 
 
 	exportCluster := d.clusterInformationController.Get(exportClusterName)
 	if exportCluster == nil {
-		return nil, fmt.Errorf("not found cluster information %q", exportCluster)
+		return nil, fmt.Errorf("not found cluster information %q", exportClusterName)
 	}
 
 	importCluster := d.clusterInformationController.Get(importClusterName)
