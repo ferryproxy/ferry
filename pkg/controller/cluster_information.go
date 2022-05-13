@@ -3,6 +3,7 @@ package controller
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"fmt"
 	"net"
 	"reflect"
@@ -33,10 +34,12 @@ type clusterInformationController struct {
 	logger                  logr.Logger
 	config                  *restclient.Config
 	clientset               *versioned.Clientset
+	kubeClientset           *kubernetes.Clientset
 	cacheClusterInformation map[string]*v1alpha1.ClusterInformation
 	cacheClientset          map[string]*kubernetes.Clientset
 	cacheService            map[string]*clusterServiceCache
 	cacheTunnelPorts        map[string]*tunnelPorts
+	cacheIdentity           map[string]string
 	syncFunc                func()
 	namespace               string
 }
@@ -51,6 +54,7 @@ func newClusterInformationController(conf *clusterInformationControllerConfig) *
 		cacheClientset:          map[string]*kubernetes.Clientset{},
 		cacheService:            map[string]*clusterServiceCache{},
 		cacheTunnelPorts:        map[string]*tunnelPorts{},
+		cacheIdentity:           map[string]string{},
 	}
 }
 
@@ -63,6 +67,12 @@ func (c *clusterInformationController) Run(ctx context.Context) error {
 		return err
 	}
 	c.clientset = clientset
+
+	kubeClientset, err := kubernetes.NewForConfig(c.config)
+	if err != nil {
+		return err
+	}
+	c.kubeClientset = kubeClientset
 
 	c.ctx = ctx
 	informerFactory := externalversions.NewSharedInformerFactoryWithOptions(clientset, 0,
@@ -120,6 +130,12 @@ func (c *clusterInformationController) ServiceCache(name string) *clusterService
 	return c.cacheService[name]
 }
 
+func (c *clusterInformationController) GetIdentity(name string) string {
+	c.mut.Lock()
+	defer c.mut.Unlock()
+	return c.cacheIdentity[name]
+}
+
 func (c *clusterInformationController) TunnelPorts(name string) *tunnelPorts {
 	c.mut.RLock()
 	defer c.mut.RUnlock()
@@ -166,7 +182,32 @@ func (c *clusterInformationController) OnAdd(obj interface{}) {
 		)
 	}
 
+	err = c.updateIdentityKey(f.Name)
+	if err != nil {
+		c.logger.Error(err, "UpdateIdentityKey",
+			"ClusterInformation", objref.KObj(f),
+		)
+	}
 	c.syncFunc()
+}
+
+func (c *clusterInformationController) updateIdentityKey(name string) error {
+	secret, err := c.kubeClientset.
+		CoreV1().
+		Secrets(c.namespace).
+		Get(c.ctx, name, metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+	if secret.Data == nil {
+		return fmt.Errorf("secret %q is empty", name)
+	}
+	identity := secret.Data["identity"]
+	if len(identity) == 0 {
+		return fmt.Errorf("secret %q not found identity key", name)
+	}
+	c.cacheIdentity[name] = base64.URLEncoding.EncodeToString(identity)
+	return nil
 }
 
 func (c *clusterInformationController) OnUpdate(oldObj, newObj interface{}) {
@@ -178,6 +219,13 @@ func (c *clusterInformationController) OnUpdate(oldObj, newObj interface{}) {
 
 	c.mut.Lock()
 	defer c.mut.Unlock()
+
+	err := c.updateIdentityKey(f.Name)
+	if err != nil {
+		c.logger.Error(err, "UpdateIdentityKey",
+			"ClusterInformation", objref.KObj(f),
+		)
+	}
 
 	if reflect.DeepEqual(c.cacheClusterInformation[f.Name].Spec, f.Spec) {
 		c.cacheClusterInformation[f.Name] = f
@@ -219,6 +267,7 @@ func (c *clusterInformationController) OnDelete(obj interface{}) {
 		c.cacheService[f.Name].Close()
 	}
 	delete(c.cacheService, f.Name)
+	delete(c.cacheIdentity, f.Name)
 
 	c.syncFunc()
 }
@@ -244,7 +293,7 @@ func (c *clusterInformationController) proxy(ctx context.Context, proxy v1alpha1
 		return "", fmt.Errorf("failed get port: %w", err)
 	}
 
-	return "ssh://" + net.JoinHostPort(ip[0], strconv.FormatInt(int64(port), 10)), nil
+	return "ssh://" + net.JoinHostPort(ip[0], strconv.FormatInt(int64(port), 10)) + "?identity_data=" + c.GetIdentity(proxy.ClusterName), nil
 }
 
 func (c *clusterInformationController) proxies(ctx context.Context, proxies []v1alpha1.Proxy) ([]string, error) {
