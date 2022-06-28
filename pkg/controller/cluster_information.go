@@ -314,7 +314,7 @@ func (c *clusterInformationController) GetPort(ctx context.Context, clusterName 
 		return 0, fmt.Errorf("not found cluster %s", clusterName)
 	}
 	if ci.Spec.Ingress == nil {
-		return 0, fmt.Errorf("not ingress int cluster %s", clusterName)
+		return 0, fmt.Errorf("not ingress in cluster %s", clusterName)
 	}
 
 	route := ci.Spec.Ingress
@@ -368,7 +368,7 @@ func (c *clusterInformationController) GetIPs(ctx context.Context, clusterName s
 		return nil, fmt.Errorf("not found cluster %s", clusterName)
 	}
 	if ci.Spec.Ingress == nil {
-		return nil, fmt.Errorf("not ingress int cluster %s", clusterName)
+		return nil, fmt.Errorf("not ingress in cluster %s", clusterName)
 	}
 
 	route := ci.Spec.Ingress
