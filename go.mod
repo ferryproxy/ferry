@@ -1,6 +1,6 @@
 module github.com/ferry-proxy/ferry
 
-go 1.17
+go 1.18
 
 require (
 	github.com/ferry-proxy/api v0.0.0-20220301100913-8bc7e88a5242
