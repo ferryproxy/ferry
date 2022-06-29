@@ -271,11 +271,16 @@ func (d *DataPlaneController) getProxyInfo(ctx context.Context) (*router.Proxy, 
 	if importCluster == nil {
 		return nil, fmt.Errorf("not found cluster information %q", importClusterName)
 	}
+
+	reverse = len(importIngressIPs) == 0
+
 	if exportCluster.Spec.Ingress != nil {
 		if len(exportCluster.Spec.Ingress.Proxies) != 0 {
 			exportProxies, ok = exportCluster.Spec.Ingress.Proxies[importClusterName]
 			if !ok {
 				exportProxies = exportCluster.Spec.Ingress.DefaultProxies
+			} else {
+				reverse = true
 			}
 		} else {
 			exportProxies = exportCluster.Spec.Ingress.DefaultProxies
@@ -287,31 +292,23 @@ func (d *DataPlaneController) getProxyInfo(ctx context.Context) (*router.Proxy, 
 			importProxies, ok = importCluster.Spec.Egress.Proxies[exportClusterName]
 			if !ok {
 				importProxies = importCluster.Spec.Egress.DefaultProxies
+			} else {
+				reverse = true
 			}
 		} else {
 			importProxies = importCluster.Spec.Egress.DefaultProxies
 		}
 	}
 
-	if len(exportIngressIPs) == 0 {
-		if len(importIngressIPs) == 0 {
-			if len(importProxies) == 0 && len(exportProxies) == 0 {
-				return nil, fmt.Errorf("not found ingress ip or proxy")
-			} else {
-				exportProxy, err = d.clusterInformationController.proxies(ctx, exportProxies)
-				if err != nil {
-					return nil, err
-				}
-				importProxy, err = d.clusterInformationController.proxies(ctx, importProxies)
-				if err != nil {
-					return nil, err
-				}
-				exportProxy, importProxy = CalculateProxy(exportProxy, importProxy)
-			}
-		} else {
-			reverse = true
-		}
+	exportProxy, err = d.clusterInformationController.proxies(ctx, exportProxies)
+	if err != nil {
+		return nil, err
 	}
+	importProxy, err = d.clusterInformationController.proxies(ctx, importProxies)
+	if err != nil {
+		return nil, err
+	}
+	exportProxy, importProxy = CalculateProxy(exportProxy, importProxy)
 
 	ports := d.clusterInformationController.TunnelPorts(importClusterName)
 	return &router.Proxy{
