@@ -2,7 +2,6 @@ package controller
 
 import (
 	"context"
-	"fmt"
 	"sort"
 	"sync"
 	"time"
@@ -194,22 +193,6 @@ func (d *DataPlaneController) initLastDestinationResources(ctx context.Context, 
 	return nil
 }
 
-func CalculateProxy(exportProxy, importProxy []string) ([]string, []string) {
-	if len(exportProxy) == 0 && len(importProxy) == 0 {
-		return nil, nil
-	}
-	if len(exportProxy) == 0 {
-		return []string{importProxy[0]}, importProxy
-	}
-	if len(importProxy) == 0 {
-		return exportProxy, []string{exportProxy[0]}
-	}
-	if exportProxy[0] == importProxy[0] {
-		return exportProxy, importProxy
-	}
-	return exportProxy, append([]string{exportProxy[0]}, importProxy...)
-}
-
 func (d *DataPlaneController) GetProxyInfo(ctx context.Context) (*router.Proxy, error) {
 	proxy, err := d.getProxyInfo(ctx)
 	if err != nil {
@@ -234,113 +217,93 @@ func (d *DataPlaneController) getProxyInfo(ctx context.Context) (*router.Proxy, 
 	exportClusterName := d.exportClusterName
 	importClusterName := d.importClusterName
 
-	exportIngressIPs, err := d.clusterInformationController.GetIPs(ctx, exportClusterName)
-	if err != nil {
-		return nil, err
-	}
-
-	exportIngressPort, err := d.clusterInformationController.GetPort(ctx, exportClusterName)
-	if err != nil {
-		return nil, err
-	}
-
-	importIngressIPs, err := d.clusterInformationController.GetIPs(ctx, importClusterName)
-	if err != nil {
-		return nil, err
-	}
-	importIngressPort, err := d.clusterInformationController.GetPort(ctx, importClusterName)
-	if err != nil {
-		return nil, err
-	}
-
-	reverse := false
-
-	var exportProxy = []string{}
-	var importProxy = []string{}
-
-	var exportProxies v1alpha1.Proxies
-	var importProxies v1alpha1.Proxies
-	var ok bool
-
-	exportCluster := d.clusterInformationController.Get(exportClusterName)
-	if exportCluster == nil {
-		return nil, fmt.Errorf("not found cluster information %q", exportClusterName)
-	}
-
-	importCluster := d.clusterInformationController.Get(importClusterName)
-	if importCluster == nil {
-		return nil, fmt.Errorf("not found cluster information %q", importClusterName)
-	}
-	if exportCluster.Spec.Ingress != nil {
-		if len(exportCluster.Spec.Ingress.Proxies) != 0 {
-			exportProxies, ok = exportCluster.Spec.Ingress.Proxies[importClusterName]
-			if !ok {
-				exportProxies = exportCluster.Spec.Ingress.DefaultProxies
-			}
-		} else {
-			exportProxies = exportCluster.Spec.Ingress.DefaultProxies
-		}
-	}
-
-	if importCluster.Spec.Egress != nil {
-		if len(importCluster.Spec.Egress.Proxies) != 0 {
-			importProxies, ok = importCluster.Spec.Egress.Proxies[exportClusterName]
-			if !ok {
-				importProxies = importCluster.Spec.Egress.DefaultProxies
-			}
-		} else {
-			importProxies = importCluster.Spec.Egress.DefaultProxies
-		}
-	}
-
-	if len(exportIngressIPs) == 0 {
-		if len(importIngressIPs) == 0 {
-			if len(importProxies) == 0 && len(exportProxies) == 0 {
-				return nil, fmt.Errorf("not found ingress ip or proxy")
-			} else {
-				exportProxy, err = d.clusterInformationController.proxies(ctx, exportProxies)
-				if err != nil {
-					return nil, err
-				}
-				importProxy, err = d.clusterInformationController.proxies(ctx, importProxies)
-				if err != nil {
-					return nil, err
-				}
-				exportProxy, importProxy = CalculateProxy(exportProxy, importProxy)
-			}
-		} else {
-			reverse = true
-		}
-	}
-
-	ports := d.clusterInformationController.TunnelPorts(importClusterName)
-	return &router.Proxy{
+	proxy := &router.Proxy{
 		Labels: map[string]string{
 			consts.LabelFerryManagedByKey:    consts.LabelFerryManagedByValue,
-			consts.LabelFerryExportedFromKey: exportCluster.Name,
-			consts.LabelFerryImportedToKey:   importCluster.Name,
+			consts.LabelFerryExportedFromKey: exportClusterName,
+			consts.LabelFerryImportedToKey:   importClusterName,
 		},
 		RemotePrefix:    "ferry",
 		TunnelNamespace: "ferry-tunnel-system",
-		Reverse:         reverse,
 
 		ExportClusterName: exportClusterName,
 		ImportClusterName: importClusterName,
+	}
 
-		ExportIngressIPs:  exportIngressIPs,
-		ExportIngressPort: exportIngressPort,
-		ExportIdentity:    d.clusterInformationController.GetIdentity(exportClusterName),
+	exportCluster := d.clusterInformationController.Get(exportClusterName)
+	gateway := exportCluster.Spec.Gateway
 
-		ImportIngressIPs:  importIngressIPs,
-		ImportIngressPort: importIngressPort,
-		ImportIdentity:    d.clusterInformationController.GetIdentity(importClusterName),
+	importCluster := d.clusterInformationController.Get(importClusterName)
+	if importCluster.Spec.Override != nil {
+		gw, ok := importCluster.Spec.Override[exportClusterName]
+		if ok {
+			gateway = mergeGateway(gateway, gw)
+		}
+	}
 
-		ExportProxy: exportProxy,
-		ImportProxy: importProxy,
-		GetPortFunc: func(namespace, name string, port int32) int32 {
-			return ports.getPort(exportCluster.Name, namespace, name, port)
-		},
-	}, nil
+	if !gateway.Reachable {
+		proxy.Reverse = true
+
+		gatewayReverse := importCluster.Spec.Gateway
+		if exportCluster.Spec.Override != nil {
+			gw, ok := exportCluster.Spec.Override[exportClusterName]
+			if ok {
+				gatewayReverse = mergeGateway(gatewayReverse, gw)
+			}
+		}
+
+		proxy.ImportIngressAddress = gatewayReverse.Address
+		proxy.ImportIdentity = d.clusterInformationController.GetIdentity(importClusterName)
+
+		importProxy, err := d.clusterInformationController.proxies(gatewayReverse.Navigation)
+		if err != nil {
+			return nil, err
+		}
+
+		exportProxy, err := d.clusterInformationController.proxies(gatewayReverse.Reception)
+		if err != nil {
+			return nil, err
+		}
+		proxy.ExportProxy = exportProxy
+		proxy.ImportProxy = importProxy
+	} else {
+		proxy.ExportIngressAddress = gateway.Address
+		proxy.ExportIdentity = d.clusterInformationController.GetIdentity(exportClusterName)
+
+		exportProxy, err := d.clusterInformationController.proxies(gateway.Navigation)
+		if err != nil {
+			return nil, err
+		}
+
+		importProxy, err := d.clusterInformationController.proxies(gateway.Reception)
+		if err != nil {
+			return nil, err
+		}
+
+		proxy.ExportProxy = exportProxy
+		proxy.ImportProxy = importProxy
+	}
+
+	ports := d.clusterInformationController.TunnelPorts(importClusterName)
+	proxy.GetPortFunc = func(namespace, name string, port int32) int32 {
+		return ports.getPort(exportCluster.Name, namespace, name, port)
+	}
+
+	return proxy, nil
+}
+
+func mergeGateway(origin, override v1alpha1.ClusterInformationSpecGateway) v1alpha1.ClusterInformationSpecGateway {
+	origin.Reachable = override.Reachable
+	if override.Address != "" {
+		origin.Address = override.Address
+	}
+	if override.Navigation != nil {
+		origin.Navigation = override.Navigation
+	}
+	if override.Reception != nil {
+		origin.Reception = override.Reception
+	}
+	return origin
 }
 
 func (d *DataPlaneController) sync(ctx context.Context) error {

@@ -44,13 +44,11 @@ type Proxy struct {
 
 	Labels map[string]string
 
-	ExportIngressIPs  []string
-	ExportIngressPort int32
-	ExportIdentity    string
+	ExportIngressAddress string
+	ExportIdentity       string
 
-	ImportIngressIPs  []string
-	ImportIngressPort int32
-	ImportIdentity    string
+	ImportIngressAddress string
+	ImportIdentity       string
 
 	ExportProxy []string
 	ImportProxy []string

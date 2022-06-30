@@ -5,10 +5,8 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
-	"net"
 	"reflect"
 	"sort"
-	"strconv"
 	"sync"
 
 	"github.com/ferry-proxy/api/apis/ferry/v1alpha1"
@@ -87,13 +85,13 @@ func (c *clusterInformationController) Run(ctx context.Context) error {
 	return nil
 }
 
-func (c *clusterInformationController) UpdateStatus(name string, importedFrom []string, exportedTo []string) error {
+func (c *clusterInformationController) UpdateStatus(name string, importedFrom []string, exportedTo []string, phase string) error {
 	c.mut.RLock()
 	defer c.mut.RUnlock()
-	return c.updateStatus(name, importedFrom, exportedTo)
+	return c.updateStatus(name, importedFrom, exportedTo, phase)
 }
 
-func (c *clusterInformationController) updateStatus(name string, importedFrom []string, exportedTo []string) error {
+func (c *clusterInformationController) updateStatus(name string, importedFrom []string, exportedTo []string, phase string) error {
 	ci := c.cacheClusterInformation[name]
 	if ci == nil {
 		return fmt.Errorf("not found ClusterInformation %s", name)
@@ -105,11 +103,7 @@ func (c *clusterInformationController) updateStatus(name string, importedFrom []
 	ci.Status.ImportedFrom = importedFrom
 	ci.Status.ExportedTo = exportedTo
 	ci.Status.LastSynchronizationTimestamp = metav1.Now()
-	if ci.Spec.Ingress != nil && (ci.Spec.Ingress.IP != "" || ci.Spec.Ingress.ServiceName != "") {
-		ci.Status.Mode = "Direct"
-	} else {
-		ci.Status.Mode = "Tunnel"
-	}
+	ci.Status.Phase = phase
 
 	_, err := c.clientset.
 		FerryV1alpha1().
@@ -175,7 +169,7 @@ func (c *clusterInformationController) OnAdd(obj interface{}) {
 		c.logger.Error(err, "failed start cluster service cache")
 	}
 
-	err = c.updateStatus(f.Name, []string{}, []string{})
+	err = c.updateStatus(f.Name, []string{}, []string{}, "Pending")
 	if err != nil {
 		c.logger.Error(err, "UpdateStatus",
 			"ClusterInformation", objref.KObj(f),
@@ -278,142 +272,30 @@ func (c *clusterInformationController) Get(name string) *v1alpha1.ClusterInforma
 	return c.cacheClusterInformation[name]
 }
 
-func (c *clusterInformationController) proxy(ctx context.Context, proxy v1alpha1.Proxy) (string, error) {
+func (c *clusterInformationController) proxy(proxy v1alpha1.ClusterInformationSpecGatewayWay) (string, error) {
 	if proxy.Proxy != "" {
 		return proxy.Proxy, nil
 	}
 
-	ip, err := c.GetIPs(ctx, proxy.ClusterName)
-	if err != nil {
-		return "", fmt.Errorf("failed get ip: %w", err)
+	ci := c.Get(proxy.ClusterName)
+	if ci == nil {
+		return "", fmt.Errorf("failed get cluster information %q", proxy.ClusterName)
 	}
-
-	port, err := c.GetPort(ctx, proxy.ClusterName)
-	if err != nil {
-		return "", fmt.Errorf("failed get port: %w", err)
+	if ci.Spec.Gateway.Address == "" {
+		return "", fmt.Errorf("failed get address of cluster information %q", proxy.ClusterName)
 	}
-
-	return "ssh://" + net.JoinHostPort(ip[0], strconv.FormatInt(int64(port), 10)) + "?identity_data=" + c.GetIdentity(proxy.ClusterName), nil
+	address := ci.Spec.Gateway.Address
+	return "ssh://" + address + "?identity_data=" + c.GetIdentity(proxy.ClusterName), nil
 }
 
-func (c *clusterInformationController) proxies(ctx context.Context, proxies []v1alpha1.Proxy) ([]string, error) {
+func (c *clusterInformationController) proxies(proxies v1alpha1.ClusterInformationSpecGatewayWays) ([]string, error) {
 	out := make([]string, 0, len(proxies))
 	for _, proxy := range proxies {
-		p, err := c.proxy(ctx, proxy)
+		p, err := c.proxy(proxy)
 		if err != nil {
 			return nil, err
 		}
 		out = append(out, p)
 	}
 	return out, nil
-}
-
-func (c *clusterInformationController) GetPort(ctx context.Context, clusterName string) (int32, error) {
-	ci := c.Get(clusterName)
-	if ci == nil {
-		return 0, fmt.Errorf("not found cluster %s", clusterName)
-	}
-	if ci.Spec.Ingress == nil {
-		return 0, fmt.Errorf("not ingress in cluster %s", clusterName)
-	}
-
-	route := ci.Spec.Ingress
-
-	if route == nil {
-		return 31087, nil
-	}
-	if route.Port != 0 {
-		return route.Port, nil
-	}
-	if route.ServiceNamespace == "" && route.ServiceName == "" {
-		return 31087, nil
-	}
-	if route.ServiceNamespace == "" {
-		return 0, fmt.Errorf("ServiceNamespace is empty")
-	}
-	if route.ServiceName == "" {
-		return 0, fmt.Errorf("ServiceName is empty")
-	}
-
-	clientset := c.Clientset(clusterName)
-	if clientset == nil {
-		return 0, fmt.Errorf("not found clientset on cluster %s", clusterName)
-	}
-	ep, err := clientset.
-		CoreV1().
-		Endpoints(route.ServiceNamespace).
-		Get(ctx, route.ServiceName, metav1.GetOptions{})
-	if err != nil {
-		return 0, err
-	}
-	if len(ep.Subsets) == 0 {
-		return 0, fmt.Errorf("Endpoints's Subsets is empty")
-	}
-
-	if len(ep.Subsets[0].Ports) == 0 {
-		return 0, fmt.Errorf("Endpoints's Subsets[0].Ports is empty")
-	}
-
-	for _, port := range ep.Subsets[0].Ports {
-		if port.Port != 0 {
-			return port.Port, nil
-		}
-	}
-	return 31087, nil
-}
-
-func (c *clusterInformationController) GetIPs(ctx context.Context, clusterName string) ([]string, error) {
-	ci := c.Get(clusterName)
-	if ci == nil {
-		return nil, fmt.Errorf("not found cluster %s", clusterName)
-	}
-	if ci.Spec.Ingress == nil {
-		return nil, fmt.Errorf("not ingress in cluster %s", clusterName)
-	}
-
-	route := ci.Spec.Ingress
-
-	if route == nil {
-		return nil, nil
-	}
-	if route.IP != "" {
-		return []string{route.IP}, nil
-	}
-	if route.ServiceNamespace == "" && route.ServiceName == "" {
-		return nil, nil
-	}
-	if route.ServiceNamespace == "" {
-		return nil, fmt.Errorf("ServiceNamespace is empty")
-	}
-	if route.ServiceName == "" {
-		return nil, fmt.Errorf("ServiceName is empty")
-	}
-
-	clientset := c.Clientset(clusterName)
-	if clientset == nil {
-		return nil, fmt.Errorf("not found clientset on cluster %s", clusterName)
-	}
-	ep, err := clientset.
-		CoreV1().
-		Endpoints(route.ServiceNamespace).
-		Get(ctx, route.ServiceName, metav1.GetOptions{})
-	if err != nil {
-		return nil, err
-	}
-	if len(ep.Subsets) == 0 {
-		return nil, fmt.Errorf("Endpoints's Subsets is empty")
-	}
-
-	if len(ep.Subsets[0].Addresses) == 0 {
-		return nil, fmt.Errorf("Endpoints's Subsets[0].Addresses is empty")
-	}
-
-	ips := []string{}
-	for _, address := range ep.Subsets[0].Addresses {
-		if address.IP == "" {
-			continue
-		}
-		ips = append(ips, address.IP)
-	}
-	return ips, nil
 }

@@ -175,10 +175,10 @@ func (clientBuilder) Build(proxy *router.Proxy, origin, destination objref.Objec
 			},
 		}
 		if proxy.Reverse {
-			bind := "ssh://" + proxy.ImportIngressIPs[0] + ":" + strconv.FormatInt(int64(proxy.ImportIngressPort), 10) + "?identity_data=" + proxy.ImportIdentity
+			bind := "ssh://" + proxy.ImportIngressAddress + "?identity_data=" + proxy.ImportIdentity
 			chain.Bind = append(chain.Bind, bind)
 		} else {
-			proxy := "ssh://" + proxy.ExportIngressIPs[0] + ":" + strconv.FormatInt(int64(proxy.ExportIngressPort), 10) + "?identity_data=" + proxy.ExportIdentity
+			proxy := "ssh://" + proxy.ExportIngressAddress + "?identity_data=" + proxy.ExportIdentity
 			chain.Proxy = append(chain.Proxy, proxy)
 		}
 		data, err := json.MarshalIndent([]Chain{chain}, "", "  ")

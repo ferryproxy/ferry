@@ -208,10 +208,18 @@ func (c *Controller) sync() {
 	defer func() {
 		c.cacheMatchRule = newerMatchRules
 	}()
+	logger := c.logger.WithName("sync")
 
 	updated, deleted := CalculateClusterPatch(c.cacheMatchRule, newerMatchRules)
 
-	logger := c.logger.WithName("sync")
+	cis := CalculateClusterInformationStatus(updated)
+	for name, status := range cis {
+		err := c.clusterInformationController.UpdateStatus(name, status.ImportedFrom, status.ExportedTo, "Working")
+		if err != nil {
+			logger.Error(err, "update cluster information status")
+		}
+	}
+
 	for _, r := range deleted {
 		logger := logger.WithValues("export", r.Export, "import", r.Import)
 		logger.Info("Delete data plane")
@@ -279,10 +287,8 @@ func (c *Controller) sync() {
 		}
 		dataPlane.try.Try()
 	}
-
-	cis := CalculateClusterInformationStatus(updated)
 	for name, status := range cis {
-		err := c.clusterInformationController.UpdateStatus(name, status.ImportedFrom, status.ExportedTo)
+		err := c.clusterInformationController.UpdateStatus(name, status.ImportedFrom, status.ExportedTo, "Worked")
 		if err != nil {
 			logger.Error(err, "update cluster information status")
 		}
