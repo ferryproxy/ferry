@@ -2,7 +2,6 @@ package controller
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"sync"
 	"time"
@@ -10,11 +9,10 @@ import (
 	"github.com/ferry-proxy/api/apis/ferry/v1alpha1"
 	"github.com/ferry-proxy/ferry/pkg/router"
 	original "github.com/ferry-proxy/ferry/pkg/router/tunnel"
-	"github.com/ferry-proxy/utils/maps"
+	"github.com/ferry-proxy/ferry/pkg/utils"
 	"github.com/ferry-proxy/utils/objref"
 	"github.com/ferry-proxy/utils/trybuffer"
 	"github.com/go-logr/logr"
-	"k8s.io/apimachinery/pkg/labels"
 	restclient "k8s.io/client-go/rest"
 )
 
@@ -25,9 +23,10 @@ type Controller struct {
 	config                       *restclient.Config
 	namespace                    string
 	clusterInformationController *clusterInformationController
+	mappingRuleController        *mappingRuleController
 	ferryPolicyController        *ferryPolicyController
 	cacheDataPlaneController     map[ClusterPair]*DataPlaneController
-	cacheMatchRule               map[string]map[string][]MatchRule
+	cacheMappingRules            map[string]map[string][]*v1alpha1.MappingRule
 	try                          *trybuffer.TryBuffer
 }
 
@@ -43,7 +42,7 @@ func NewController(conf *ControllerConfig) *Controller {
 		config:                   conf.Config,
 		namespace:                conf.Namespace,
 		cacheDataPlaneController: map[ClusterPair]*DataPlaneController{},
-		cacheMatchRule:           map[string]map[string][]MatchRule{},
+		cacheMappingRules:        map[string]map[string][]*v1alpha1.MappingRule{},
 	}
 }
 
@@ -59,11 +58,20 @@ func (c *Controller) Run(ctx context.Context) error {
 		SyncFunc:  c.try.Try,
 	})
 	c.clusterInformationController = clusterInformation
-	ferryPolicy := newFerryPolicyController(&ferryPolicyControllerConfig{
+
+	mappingRule := newMappingRuleController(&mappingRuleControllerConfig{
 		Config:    c.config,
 		Namespace: c.namespace,
 		Logger:    c.logger.WithName("ferry-policy"),
 		SyncFunc:  c.try.Try,
+	})
+	c.mappingRuleController = mappingRule
+
+	ferryPolicy := newFerryPolicyController(&ferryPolicyControllerConfig{
+		Config:                       c.config,
+		Namespace:                    c.namespace,
+		ClusterInformationController: clusterInformation,
+		Logger:                       c.logger.WithName("ferry-policy"),
 	})
 	c.ferryPolicyController = ferryPolicy
 
@@ -71,6 +79,14 @@ func (c *Controller) Run(ctx context.Context) error {
 		err := clusterInformation.Run(c.ctx)
 		if err != nil {
 			c.logger.Error(err, "Run ClusterInformationController")
+		}
+		cancel()
+	}()
+
+	go func() {
+		err := mappingRule.Run(c.ctx)
+		if err != nil {
+			c.logger.Error(err, "Run MappingRuleController")
 		}
 		cancel()
 	}()
@@ -102,40 +118,12 @@ func (c *Controller) Run(ctx context.Context) error {
 	}
 }
 
-type MatchRule struct {
-	Export v1alpha1.Match
-	Import v1alpha1.Match
-}
-
-func CalculateMatchRulePatch(older, newer []MatchRule) (updated, deleted []MatchRule) {
-	if len(older) == 0 {
-		return newer, nil
-	}
-
-	exist := map[string]MatchRule{}
-
-	for _, r := range older {
-		data, _ := json.Marshal(r)
-		exist[string(data)] = r
-	}
-
-	for _, r := range newer {
-		data, _ := json.Marshal(r)
-		updated = append(updated, r)
-		delete(exist, string(data))
-	}
-	for _, r := range exist {
-		deleted = append(deleted, r)
-	}
-	return updated, deleted
-}
-
 type ClusterPair struct {
 	Export string
 	Import string
 }
 
-func CalculateClusterPatch(older, newer map[string]map[string][]MatchRule) (updated, deleted []ClusterPair) {
+func CalculateMappingRulesPatch(older, newer map[string]map[string][]*v1alpha1.MappingRule) (updated, deleted []ClusterPair) {
 	exist := map[ClusterPair]struct{}{}
 
 	for exportName, other := range older {
@@ -165,34 +153,27 @@ func CalculateClusterPatch(older, newer map[string]map[string][]MatchRule) (upda
 	return updated, deleted
 }
 
-func (c *Controller) getMatchRules(policies []*v1alpha1.FerryPolicy) map[string]map[string][]MatchRule {
-	mapping := map[string]map[string][]MatchRule{}
+func GroupMappingRules(rules []*v1alpha1.MappingRule) map[string]map[string][]*v1alpha1.MappingRule {
+	mapping := map[string]map[string][]*v1alpha1.MappingRule{}
 
-	for _, policy := range policies {
-		for _, rule := range policy.Spec.Rules {
-			for _, export := range rule.Exports {
-				if export.ClusterName == "" {
-					continue
-				}
-				if _, ok := mapping[export.ClusterName]; !ok {
-					mapping[export.ClusterName] = map[string][]MatchRule{}
-				}
-				for _, impor := range rule.Imports {
-					if impor.ClusterName == "" || impor.ClusterName == export.ClusterName {
-						continue
-					}
-					if _, ok := mapping[export.ClusterName][impor.ClusterName]; !ok {
-						mapping[export.ClusterName][impor.ClusterName] = []MatchRule{}
-					}
+	for _, spec := range rules {
+		rule := spec.Spec
+		export := rule.Export
+		impor := rule.Import
 
-					matchRule := MatchRule{
-						Export: export.Match,
-						Import: impor.Match,
-					}
-					mapping[export.ClusterName][impor.ClusterName] = append(mapping[export.ClusterName][impor.ClusterName], matchRule)
-				}
-			}
+		if export.ClusterName == "" || impor.ClusterName == "" || impor.ClusterName == export.ClusterName {
+			continue
 		}
+
+		if _, ok := mapping[export.ClusterName]; !ok {
+			mapping[export.ClusterName] = map[string][]*v1alpha1.MappingRule{}
+		}
+
+		if _, ok := mapping[export.ClusterName][impor.ClusterName]; !ok {
+			mapping[export.ClusterName][impor.ClusterName] = []*v1alpha1.MappingRule{}
+		}
+
+		mapping[export.ClusterName][impor.ClusterName] = append(mapping[export.ClusterName][impor.ClusterName], spec)
 	}
 	return mapping
 }
@@ -202,15 +183,15 @@ func (c *Controller) sync() {
 	defer c.mut.Unlock()
 	ctx := c.ctx
 
-	policies := c.ferryPolicyController.List()
+	mappingRules := c.mappingRuleController.List()
 
-	newerMatchRules := c.getMatchRules(policies)
+	newerMappingRules := GroupMappingRules(mappingRules)
 	defer func() {
-		c.cacheMatchRule = newerMatchRules
+		c.cacheMappingRules = newerMappingRules
 	}()
 	logger := c.logger.WithName("sync")
 
-	updated, deleted := CalculateClusterPatch(c.cacheMatchRule, newerMatchRules)
+	updated, deleted := CalculateMappingRulesPatch(c.cacheMappingRules, newerMappingRules)
 
 	cis := CalculateClusterInformationStatus(updated)
 	for name, status := range cis {
@@ -234,56 +215,29 @@ func (c *Controller) sync() {
 			logger.Error(err, "start data plane")
 			continue
 		}
-		if newerMatchRules[r.Export] != nil && newerMatchRules[r.Export][r.Import] != nil {
-			older := c.cacheMatchRule[r.Export][r.Import]
-			newer := newerMatchRules[r.Export][r.Import]
-			updated, deleted := CalculateMatchRulePatch(older, newer)
+		if newerMappingRules[r.Export] != nil && newerMappingRules[r.Export][r.Import] != nil {
+			older := c.cacheMappingRules[r.Export][r.Import]
+			newer := newerMappingRules[r.Export][r.Import]
+			updated, deleted := utils.CalculatePatchResources(older, newer)
 			for _, rule := range deleted {
 				logger.Info("Delete rule", "rule", rule)
-				switch {
-				case (rule.Import.Name != "" || rule.Export.Name != "") &&
-					(len(rule.Export.Labels) == 0 && len(rule.Import.Labels) == 0):
-					dataPlane.UnregistryObj(
-						objref.ObjectRef{Name: rule.Export.Name, Namespace: rule.Export.Namespace},
-						objref.ObjectRef{Name: rule.Import.Name, Namespace: rule.Import.Namespace},
-					)
-
-				case (len(rule.Export.Labels) != 0 || len(rule.Import.Labels) != 0) &&
-					(rule.Import.Name == "" && rule.Export.Name == ""):
-					if (rule.Export.Namespace != "" || rule.Import.Namespace != "") &&
-						rule.Export.Namespace != rule.Import.Namespace {
-						logger.Info("Tried to import Service but Namespace is not matched")
-						continue
-					}
-
-					matchSet := maps.Merge(rule.Export.Labels, rule.Import.Labels)
-					dataPlane.UnregistrySelector(labels.Set(matchSet).AsSelector())
-				}
+				dataPlane.Unregistry(
+					objref.ObjectRef{Name: rule.Spec.Export.Service.Name, Namespace: rule.Spec.Export.Service.Namespace},
+					objref.ObjectRef{Name: rule.Spec.Import.Service.Name, Namespace: rule.Spec.Import.Service.Namespace},
+				)
 			}
 
 			for _, rule := range updated {
 				logger.Info("Update rule", "rule", rule)
-				switch {
-				case (rule.Import.Name != "" || rule.Export.Name != "") &&
-					(len(rule.Export.Labels) == 0 && len(rule.Import.Labels) == 0):
-					dataPlane.RegistryObj(
-						objref.ObjectRef{Name: rule.Export.Name, Namespace: rule.Export.Namespace},
-						objref.ObjectRef{Name: rule.Import.Name, Namespace: rule.Import.Namespace},
-					)
-
-				case (len(rule.Export.Labels) != 0 || len(rule.Import.Labels) != 0) &&
-					(rule.Import.Name == "" && rule.Export.Name == ""):
-					if (rule.Export.Namespace != "" || rule.Import.Namespace != "") &&
-						rule.Export.Namespace != rule.Import.Namespace {
-						logger.Info("Tried to import Service but Namespace is not matched")
-						continue
-					}
-
-					matchSet := maps.Merge(rule.Export.Labels, rule.Import.Labels)
-					dataPlane.RegistrySelector(labels.Set(matchSet).AsSelector())
+				dataPlane.Registry(
+					objref.ObjectRef{Name: rule.Spec.Export.Service.Name, Namespace: rule.Spec.Export.Service.Namespace},
+					objref.ObjectRef{Name: rule.Spec.Import.Service.Name, Namespace: rule.Spec.Import.Service.Namespace},
+				)
+				err = c.mappingRuleController.UpdateStatus(rule.Name, "Worked")
+				if err != nil {
+					logger.Error(err, "failed to update status")
 				}
 			}
-
 		}
 		dataPlane.try.Try()
 	}
@@ -291,12 +245,6 @@ func (c *Controller) sync() {
 		err := c.clusterInformationController.UpdateStatus(name, status.ImportedFrom, status.ExportedTo, "Worked")
 		if err != nil {
 			logger.Error(err, "update cluster information status")
-		}
-	}
-	for _, policy := range policies {
-		err := c.ferryPolicyController.UpdateStatus(policy.Name)
-		if err != nil {
-			logger.Error(err, "update ferry policy status")
 		}
 	}
 	return

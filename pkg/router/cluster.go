@@ -5,7 +5,10 @@ import (
 	"fmt"
 	"reflect"
 
+	"github.com/ferry-proxy/api/apis/ferry/v1alpha1"
+	versioned "github.com/ferry-proxy/client-go/generated/clientset/versioned"
 	"github.com/ferry-proxy/ferry/pkg/consts"
+	"github.com/ferry-proxy/ferry/pkg/utils"
 	"github.com/ferry-proxy/utils/objref"
 	"github.com/go-logr/logr"
 	"github.com/google/go-cmp/cmp"
@@ -57,8 +60,61 @@ type Proxy struct {
 }
 
 type Resourcer interface {
+	utils.KMetadata
 	Apply(ctx context.Context, clientset *kubernetes.Clientset) (err error)
 	Delete(ctx context.Context, clientset *kubernetes.Clientset) (err error)
+}
+
+type MappingRule struct {
+	*v1alpha1.MappingRule
+}
+
+func (rule *MappingRule) Apply(ctx context.Context, clientset *versioned.Clientset) (err error) {
+	logger := logr.FromContextOrDiscard(ctx)
+	ori, err := clientset.
+		FerryV1alpha1().
+		MappingRules(rule.Namespace).
+		Get(ctx, rule.Name, metav1.GetOptions{})
+	if err != nil {
+		if !errors.IsNotFound(err) {
+			return fmt.Errorf("get mapping rule %s: %w", objref.KObj(rule), err)
+		}
+		logger.Info("Creating Service", "Service", objref.KObj(rule))
+		_, err = clientset.
+			FerryV1alpha1().
+			MappingRules(rule.Namespace).
+			Create(ctx, rule.MappingRule, metav1.CreateOptions{
+				FieldManager: consts.LabelFerryManagedByValue,
+			})
+		if err != nil {
+			return fmt.Errorf("create mapping rule %s: %w", objref.KObj(rule), err)
+		}
+	} else {
+		_, err = clientset.
+			FerryV1alpha1().
+			MappingRules(rule.Namespace).
+			Update(ctx, ori, metav1.UpdateOptions{
+				FieldManager: consts.LabelFerryManagedByValue,
+			})
+		if err != nil {
+			return fmt.Errorf("update mapping rule %s: %w", objref.KObj(rule), err)
+		}
+	}
+	return nil
+}
+
+func (rule *MappingRule) Delete(ctx context.Context, clientset *versioned.Clientset) (err error) {
+	logger := logr.FromContextOrDiscard(ctx)
+	logger.Info("Deleting Service", "Service", objref.KObj(rule))
+
+	err = clientset.
+		FerryV1alpha1().
+		MappingRules(rule.Namespace).
+		Delete(ctx, rule.Name, metav1.DeleteOptions{})
+	if err != nil && !errors.IsNotFound(err) {
+		return fmt.Errorf("delete mapping rule  %s: %w", objref.KObj(rule), err)
+	}
+	return nil
 }
 
 type Service struct {
@@ -191,42 +247,6 @@ func (s ConfigMap) Delete(ctx context.Context, clientset *kubernetes.Clientset) 
 	}
 
 	return nil
-}
-
-func CalculatePatchResources(older, newer []Resourcer) (updated, deleted []Resourcer) {
-	if len(older) == 0 {
-		return newer, nil
-	}
-	type meta interface {
-		GetName() string
-		GetNamespace() string
-	}
-	exist := map[string]Resourcer{}
-
-	nameFunc := func(m meta) string {
-		return fmt.Sprintf("%s/%s/%s", reflect.TypeOf(m).Name(), m.GetNamespace(), m.GetName())
-	}
-	for _, r := range older {
-		m, ok := r.(meta)
-		if !ok {
-			continue
-		}
-		name := nameFunc(m)
-		exist[name] = r
-	}
-
-	for _, r := range newer {
-		m, ok := r.(meta)
-		if !ok {
-			continue
-		}
-		name := nameFunc(m)
-		delete(exist, name)
-	}
-	for _, r := range exist {
-		deleted = append(deleted, r)
-	}
-	return newer, deleted
 }
 
 func copyLabel(old, new map[string]string) {

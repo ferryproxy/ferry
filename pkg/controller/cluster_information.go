@@ -15,7 +15,9 @@ import (
 	"github.com/ferry-proxy/ferry/pkg/client"
 	"github.com/ferry-proxy/utils/objref"
 	"github.com/go-logr/logr"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
 	restclient "k8s.io/client-go/rest"
 )
@@ -298,4 +300,143 @@ func (c *clusterInformationController) proxies(proxies v1alpha1.ClusterInformati
 		out = append(out, p)
 	}
 	return out, nil
+}
+
+func (c *clusterInformationController) PoliciesToRules(policies []*v1alpha1.FerryPolicy) []*v1alpha1.MappingRule {
+	svcs := []*corev1.Service{}
+	out := []*v1alpha1.MappingRule{}
+	rules := GroupFerryPolicies(policies)
+	controller := true
+	for exportClusterName, i := range rules {
+		svcs = svcs[:0]
+		c.ServiceCache(exportClusterName).
+			ForEach(func(svc *corev1.Service) {
+				svcs = append(svcs, svc)
+			})
+		sort.Slice(svcs, func(i, j int) bool {
+			return svcs[i].CreationTimestamp.Before(&svcs[j].CreationTimestamp)
+		})
+
+		for importClusterName, matches := range i {
+			for _, match := range matches {
+				for _, svc := range svcs {
+					var (
+						exportName      = match.Export.Name
+						exportNamespace = match.Export.Namespace
+						importName      = match.Import.Name
+						importNamespace = match.Import.Namespace
+					)
+
+					if len(match.Export.Labels) != 0 {
+						if !labels.SelectorFromSet(match.Export.Labels).Matches(labels.Set(svc.Labels)) {
+							continue
+						}
+						if exportName == "" {
+							exportName = svc.Name
+						}
+						if exportNamespace == "" {
+							exportNamespace = svc.Namespace
+						}
+					} else {
+						if svc.Namespace != exportNamespace {
+							continue
+						}
+
+						if svc.Name != exportName {
+							continue
+						}
+					}
+
+					if importName == "" {
+						importName = exportName
+					}
+
+					if importNamespace == "" {
+						importNamespace = exportNamespace
+					}
+
+					policy := match.Policy
+
+					ports := []uint32{}
+					for _, port := range svc.Spec.Ports {
+						ports = append(ports, uint32(port.Port))
+					}
+					out = append(out, &v1alpha1.MappingRule{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      fmt.Sprintf("%s-%s-%s-%s-%s-%s-%s", policy.Name, exportClusterName, exportNamespace, exportName, importClusterName, importNamespace, importName),
+							Namespace: policy.Namespace,
+							Labels:    policy.Labels,
+							OwnerReferences: []metav1.OwnerReference{
+								{
+									APIVersion: v1alpha1.GroupVersion.String(),
+									Kind:       "FerryPolicy",
+									Name:       policy.Name,
+									UID:        policy.UID,
+									Controller: &controller,
+								},
+							},
+						},
+						Spec: v1alpha1.MappingRuleSpec{
+							Import: v1alpha1.MappingRuleSpecPorts{
+								ClusterName: importClusterName,
+								Service: v1alpha1.MappingRuleSpecPortsService{
+									Name:      importName,
+									Namespace: importNamespace,
+								},
+							},
+							Export: v1alpha1.MappingRuleSpecPorts{
+								ClusterName: exportClusterName,
+								Service: v1alpha1.MappingRuleSpecPortsService{
+									Name:      exportName,
+									Namespace: exportNamespace,
+								},
+							},
+						},
+					})
+				}
+			}
+		}
+	}
+	sort.Slice(out, func(i, j int) bool {
+		return out[i].Name < out[j].Name
+	})
+	return out
+}
+
+func GroupFerryPolicies(policies []*v1alpha1.FerryPolicy) map[string]map[string][]GroupFerryPolicy {
+	mapping := map[string]map[string][]GroupFerryPolicy{}
+	for _, policy := range policies {
+		for _, rule := range policy.Spec.Rules {
+			for _, export := range rule.Exports {
+				if export.ClusterName == "" {
+					continue
+				}
+				if _, ok := mapping[export.ClusterName]; !ok {
+					mapping[export.ClusterName] = map[string][]GroupFerryPolicy{}
+				}
+				for _, impor := range rule.Imports {
+					if impor.ClusterName == "" || impor.ClusterName == export.ClusterName {
+						continue
+					}
+					if _, ok := mapping[export.ClusterName][impor.ClusterName]; !ok {
+						mapping[export.ClusterName][impor.ClusterName] = []GroupFerryPolicy{}
+					}
+
+					matchRule := GroupFerryPolicy{
+						Policy: policy,
+						Export: export.Match,
+						Import: impor.Match,
+					}
+					mapping[export.ClusterName][impor.ClusterName] = append(mapping[export.ClusterName][impor.ClusterName], matchRule)
+				}
+			}
+		}
+	}
+	return mapping
+}
+
+type GroupFerryPolicy struct {
+	Policy *v1alpha1.FerryPolicy
+	Export v1alpha1.FerryPolicySpecRuleMatch
+	Import v1alpha1.FerryPolicySpecRuleMatch
 }
