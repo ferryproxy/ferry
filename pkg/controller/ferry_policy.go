@@ -5,41 +5,48 @@ import (
 	"fmt"
 	"reflect"
 	"sync"
+	"time"
 
 	"github.com/ferry-proxy/api/apis/ferry/v1alpha1"
 	versioned "github.com/ferry-proxy/client-go/generated/clientset/versioned"
 	externalversions "github.com/ferry-proxy/client-go/generated/informers/externalversions"
+	"github.com/ferry-proxy/ferry/pkg/router"
+	"github.com/ferry-proxy/ferry/pkg/utils"
 	"github.com/ferry-proxy/utils/objref"
+	"github.com/ferry-proxy/utils/trybuffer"
 	"github.com/go-logr/logr"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	restclient "k8s.io/client-go/rest"
 )
 
 type ferryPolicyControllerConfig struct {
-	Logger    logr.Logger
-	Config    *restclient.Config
-	Namespace string
-	SyncFunc  func()
+	Logger                       logr.Logger
+	Config                       *restclient.Config
+	ClusterInformationController *clusterInformationController
+	Namespace                    string
 }
 
 type ferryPolicyController struct {
-	ctx       context.Context
-	mut       sync.RWMutex
-	config    *restclient.Config
-	clientset *versioned.Clientset
-	cache     map[string]*v1alpha1.FerryPolicy
-	namespace string
-	syncFunc  func()
-	logger    logr.Logger
+	ctx                          context.Context
+	mut                          sync.RWMutex
+	config                       *restclient.Config
+	clientset                    *versioned.Clientset
+	clusterInformationController *clusterInformationController
+	cache                        map[string]*v1alpha1.FerryPolicy
+	namespace                    string
+	logger                       logr.Logger
+	cacheFerryPolicyMappingRules []*v1alpha1.MappingRule
+	try                          *trybuffer.TryBuffer
+	syncFunc                     func()
 }
 
 func newFerryPolicyController(conf *ferryPolicyControllerConfig) *ferryPolicyController {
 	return &ferryPolicyController{
-		config:    conf.Config,
-		namespace: conf.Namespace,
-		logger:    conf.Logger,
-		syncFunc:  conf.SyncFunc,
-		cache:     map[string]*v1alpha1.FerryPolicy{},
+		config:                       conf.Config,
+		namespace:                    conf.Namespace,
+		logger:                       conf.Logger,
+		clusterInformationController: conf.ClusterInformationController,
+		cache:                        map[string]*v1alpha1.FerryPolicy{},
 	}
 }
 
@@ -81,11 +88,17 @@ func (c *ferryPolicyController) Run(ctx context.Context) error {
 		FerryPolicies().
 		Informer()
 	informer.AddEventHandler(c)
+
+	c.try = trybuffer.NewTryBuffer(func() {
+		c.sync(ctx)
+	}, time.Second)
+	c.syncFunc = c.try.Try
+	defer c.try.Close()
 	informer.Run(ctx.Done())
 	return nil
 }
 
-func (c *ferryPolicyController) UpdateStatus(name string) error {
+func (c *ferryPolicyController) UpdateStatus(name string, phase string) error {
 	c.mut.RLock()
 	defer c.mut.RUnlock()
 
@@ -97,6 +110,7 @@ func (c *ferryPolicyController) UpdateStatus(name string) error {
 	fp = fp.DeepCopy()
 
 	fp.Status.LastSynchronizationTimestamp = metav1.Now()
+	fp.Status.Phase = phase
 
 	_, err := c.clientset.
 		FerryV1alpha1().
@@ -152,4 +166,46 @@ func (c *ferryPolicyController) OnDelete(obj interface{}) {
 	delete(c.cache, f.Name)
 
 	c.syncFunc()
+}
+
+func (c *ferryPolicyController) sync(ctx context.Context) {
+	ferryPolicies := c.List()
+	for _, policy := range ferryPolicies {
+		err := c.UpdateStatus(policy.Name, "Working")
+		if err != nil {
+			c.logger.Error(err, "failed to update status")
+		}
+	}
+	defer func() {
+		for _, policy := range ferryPolicies {
+			err := c.UpdateStatus(policy.Name, "Worked")
+			if err != nil {
+				c.logger.Error(err, "failed to update status")
+			}
+		}
+	}()
+
+	mappingRules := c.clusterInformationController.PoliciesToRules(ferryPolicies)
+
+	updated, deleted := utils.CalculatePatchResources(c.cacheFerryPolicyMappingRules, mappingRules)
+
+	defer func() {
+		c.cacheFerryPolicyMappingRules = mappingRules
+	}()
+
+	for _, r := range deleted {
+		mr := router.MappingRule{r}
+		err := mr.Delete(ctx, c.clientset)
+		if err != nil {
+			c.logger.Error(err, "failed to delete mapping rule")
+		}
+	}
+
+	for _, r := range updated {
+		mr := router.MappingRule{r}
+		err := mr.Apply(ctx, c.clientset)
+		if err != nil {
+			c.logger.Error(err, "failed to update mapping rule")
+		}
+	}
 }

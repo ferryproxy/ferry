@@ -9,6 +9,7 @@ import (
 	"github.com/ferry-proxy/api/apis/ferry/v1alpha1"
 	"github.com/ferry-proxy/ferry/pkg/consts"
 	"github.com/ferry-proxy/ferry/pkg/router"
+	"github.com/ferry-proxy/ferry/pkg/utils"
 	"github.com/ferry-proxy/utils/objref"
 	"github.com/ferry-proxy/utils/trybuffer"
 	"github.com/go-logr/logr"
@@ -44,7 +45,6 @@ func NewDataPlaneController(conf DataPlaneControllerConfig) *DataPlaneController
 		sourceResourceBuilder:        conf.SourceResourceBuilder,
 		destinationResourceBuilder:   conf.DestinationResourceBuilder,
 		mappings:                     map[objref.ObjectRef][]objref.ObjectRef{},
-		labels:                       map[string]labels.Selector{},
 	}
 }
 
@@ -59,7 +59,6 @@ type DataPlaneController struct {
 	importCluster *v1alpha1.ClusterInformation
 
 	mappings map[objref.ObjectRef][]objref.ObjectRef
-	labels   map[string]labels.Selector
 
 	clusterInformationController *clusterInformationController
 
@@ -115,19 +114,7 @@ func (d *DataPlaneController) Start(ctx context.Context) error {
 	return nil
 }
 
-func (d *DataPlaneController) RegistrySelector(sel labels.Selector) {
-	d.mut.Lock()
-	defer d.mut.Unlock()
-	d.labels[sel.String()] = sel
-}
-
-func (d *DataPlaneController) UnregistrySelector(sel labels.Selector) {
-	d.mut.Lock()
-	defer d.mut.Unlock()
-	delete(d.labels, sel.String())
-}
-
-func (d *DataPlaneController) RegistryObj(export, impor objref.ObjectRef) {
+func (d *DataPlaneController) Registry(export, impor objref.ObjectRef) {
 	d.mut.Lock()
 	defer d.mut.Unlock()
 
@@ -139,7 +126,7 @@ func (d *DataPlaneController) RegistryObj(export, impor objref.ObjectRef) {
 	d.mappings[export] = append(d.mappings[export], impor)
 }
 
-func (d *DataPlaneController) UnregistryObj(export, impor objref.ObjectRef) {
+func (d *DataPlaneController) Unregistry(export, impor objref.ObjectRef) {
 	d.mut.Lock()
 	defer d.mut.Unlock()
 
@@ -315,7 +302,7 @@ func (d *DataPlaneController) sync(ctx context.Context) error {
 	}
 
 	if len(d.lastSourceResources) == 0 && len(d.lastDestinationResources) == 0 &&
-		len(d.labels) == 0 && len(d.mappings) == 0 {
+		len(d.mappings) == 0 {
 		d.logger.Info("No need to sync")
 		return nil
 	}
@@ -343,24 +330,6 @@ func (d *DataPlaneController) sync(ctx context.Context) error {
 
 	for _, svc := range svcs {
 		origin := objref.KObj(svc)
-
-		for _, label := range d.labels {
-			if label.Matches(labels.Set(svc.Labels)) {
-				i, err := d.sourceResourceBuilder.Build(proxy, origin, origin, &svc.Spec)
-				if err != nil {
-					d.logger.Error(err, "sourceResourceBuilder", "origin", origin, "destination", origin)
-					return err
-				}
-				ir = append(ir, i...)
-
-				e, err := d.destinationResourceBuilder.Build(proxy, origin, origin, &svc.Spec)
-				if err != nil {
-					d.logger.Error(err, "destinationResourceBuilder", "origin", origin, "destination", origin)
-				}
-				er = append(er, e...)
-				break
-			}
-		}
 
 		for _, destination := range d.mappings[origin] {
 			i, err := d.sourceResourceBuilder.Build(proxy, origin, destination, &svc.Spec)
@@ -391,8 +360,8 @@ func (d *DataPlaneController) sync(ctx context.Context) error {
 		return nil
 	}
 
-	sourceUpdate, sourceDelete := router.CalculatePatchResources(d.lastSourceResources, ir)
-	destinationUpdate, destinationDelete := router.CalculatePatchResources(d.lastDestinationResources, er)
+	sourceUpdate, sourceDelete := utils.CalculatePatchResources(d.lastSourceResources, ir)
+	destinationUpdate, destinationDelete := utils.CalculatePatchResources(d.lastDestinationResources, er)
 
 	if len(sourceUpdate) == 0 && len(sourceDelete) == 0 && len(destinationUpdate) == 0 && len(destinationDelete) == 0 {
 		d.logger.Info("No need to sync")
