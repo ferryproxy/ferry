@@ -1,56 +1,57 @@
-package controller
+package ferry_policty
 
 import (
 	"context"
 	"fmt"
 	"reflect"
 	"sync"
-	"time"
 
 	"github.com/ferry-proxy/api/apis/ferry/v1alpha1"
 	versioned "github.com/ferry-proxy/client-go/generated/clientset/versioned"
 	externalversions "github.com/ferry-proxy/client-go/generated/informers/externalversions"
+	"github.com/ferry-proxy/ferry/pkg/controller/cluster_information"
 	"github.com/ferry-proxy/ferry/pkg/router"
 	"github.com/ferry-proxy/ferry/pkg/utils"
 	"github.com/ferry-proxy/utils/objref"
-	"github.com/ferry-proxy/utils/trybuffer"
 	"github.com/go-logr/logr"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	restclient "k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/cache"
 )
 
-type ferryPolicyControllerConfig struct {
+type FerryPolicyControllerConfig struct {
 	Logger                       logr.Logger
 	Config                       *restclient.Config
-	ClusterInformationController *clusterInformationController
+	ClusterInformationController *cluster_information.ClusterInformationController
 	Namespace                    string
+	SyncFunc                     func()
 }
 
-type ferryPolicyController struct {
+type FerryPolicyController struct {
 	ctx                          context.Context
 	mut                          sync.RWMutex
 	config                       *restclient.Config
 	clientset                    *versioned.Clientset
-	clusterInformationController *clusterInformationController
+	clusterInformationController *cluster_information.ClusterInformationController
 	cache                        map[string]*v1alpha1.FerryPolicy
 	namespace                    string
 	logger                       logr.Logger
 	cacheFerryPolicyMappingRules []*v1alpha1.MappingRule
-	try                          *trybuffer.TryBuffer
 	syncFunc                     func()
 }
 
-func newFerryPolicyController(conf *ferryPolicyControllerConfig) *ferryPolicyController {
-	return &ferryPolicyController{
+func NewFerryPolicyController(conf FerryPolicyControllerConfig) *FerryPolicyController {
+	return &FerryPolicyController{
 		config:                       conf.Config,
 		namespace:                    conf.Namespace,
 		logger:                       conf.Logger,
 		clusterInformationController: conf.ClusterInformationController,
+		syncFunc:                     conf.SyncFunc,
 		cache:                        map[string]*v1alpha1.FerryPolicy{},
 	}
 }
 
-func (c *ferryPolicyController) List() []*v1alpha1.FerryPolicy {
+func (c *FerryPolicyController) List() []*v1alpha1.FerryPolicy {
 	c.mut.RLock()
 	defer c.mut.RUnlock()
 	var list []*v1alpha1.FerryPolicy
@@ -64,13 +65,13 @@ func (c *ferryPolicyController) List() []*v1alpha1.FerryPolicy {
 	return list
 }
 
-func (c *ferryPolicyController) Get(name string) *v1alpha1.FerryPolicy {
+func (c *FerryPolicyController) Get(name string) *v1alpha1.FerryPolicy {
 	c.mut.RLock()
 	defer c.mut.RUnlock()
 	return c.cache[name]
 }
 
-func (c *ferryPolicyController) Run(ctx context.Context) error {
+func (c *FerryPolicyController) Run(ctx context.Context) error {
 	c.logger.Info("FerryPolicy controller started")
 	defer c.logger.Info("FerryPolicy controller stopped")
 
@@ -87,18 +88,17 @@ func (c *ferryPolicyController) Run(ctx context.Context) error {
 		V1alpha1().
 		FerryPolicies().
 		Informer()
-	informer.AddEventHandler(c)
+	informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    c.onAdd,
+		UpdateFunc: c.onUpdate,
+		DeleteFunc: c.onDelete,
+	})
 
-	c.try = trybuffer.NewTryBuffer(func() {
-		c.sync(ctx)
-	}, time.Second)
-	c.syncFunc = c.try.Try
-	defer c.try.Close()
 	informer.Run(ctx.Done())
 	return nil
 }
 
-func (c *ferryPolicyController) UpdateStatus(name string, phase string) error {
+func (c *FerryPolicyController) UpdateStatus(name string, phase string) error {
 	c.mut.RLock()
 	defer c.mut.RUnlock()
 
@@ -119,10 +119,10 @@ func (c *ferryPolicyController) UpdateStatus(name string, phase string) error {
 	return err
 }
 
-func (c *ferryPolicyController) OnAdd(obj interface{}) {
+func (c *FerryPolicyController) onAdd(obj interface{}) {
 	f := obj.(*v1alpha1.FerryPolicy)
 	f = f.DeepCopy()
-	c.logger.Info("OnAdd",
+	c.logger.Info("onAdd",
 		"FerryPolicy", objref.KObj(f),
 	)
 
@@ -134,10 +134,10 @@ func (c *ferryPolicyController) OnAdd(obj interface{}) {
 	c.syncFunc()
 }
 
-func (c *ferryPolicyController) OnUpdate(oldObj, newObj interface{}) {
+func (c *FerryPolicyController) onUpdate(oldObj, newObj interface{}) {
 	f := newObj.(*v1alpha1.FerryPolicy)
 	f = f.DeepCopy()
-	c.logger.Info("OnUpdate",
+	c.logger.Info("onUpdate",
 		"FerryPolicy", objref.KObj(f),
 	)
 
@@ -154,9 +154,9 @@ func (c *ferryPolicyController) OnUpdate(oldObj, newObj interface{}) {
 	c.syncFunc()
 }
 
-func (c *ferryPolicyController) OnDelete(obj interface{}) {
+func (c *FerryPolicyController) onDelete(obj interface{}) {
 	f := obj.(*v1alpha1.FerryPolicy)
-	c.logger.Info("OnDelete",
+	c.logger.Info("onDelete",
 		"FerryPolicy", objref.KObj(f),
 	)
 
@@ -168,7 +168,7 @@ func (c *ferryPolicyController) OnDelete(obj interface{}) {
 	c.syncFunc()
 }
 
-func (c *ferryPolicyController) sync(ctx context.Context) {
+func (c *FerryPolicyController) Sync(ctx context.Context) {
 	ferryPolicies := c.List()
 	for _, policy := range ferryPolicies {
 		err := c.UpdateStatus(policy.Name, "Working")

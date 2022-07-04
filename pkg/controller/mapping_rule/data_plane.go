@@ -1,4 +1,4 @@
-package controller
+package mapping_rule
 
 import (
 	"context"
@@ -8,6 +8,7 @@ import (
 
 	"github.com/ferry-proxy/api/apis/ferry/v1alpha1"
 	"github.com/ferry-proxy/ferry/pkg/consts"
+	"github.com/ferry-proxy/ferry/pkg/controller/cluster_information"
 	"github.com/ferry-proxy/ferry/pkg/router"
 	"github.com/ferry-proxy/ferry/pkg/utils"
 	"github.com/ferry-proxy/utils/objref"
@@ -19,10 +20,10 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
-type DataPlaneControllerConfig struct {
+type dataPlaneControllerConfig struct {
 	ExportClusterName            string
 	ImportClusterName            string
-	ClusterInformationController *clusterInformationController
+	ClusterInformationController *cluster_information.ClusterInformationController
 	ExportCluster                *v1alpha1.ClusterInformation
 	ImportCluster                *v1alpha1.ClusterInformation
 	ExportClientset              *kubernetes.Clientset
@@ -32,8 +33,8 @@ type DataPlaneControllerConfig struct {
 	DestinationResourceBuilder   router.ResourceBuilders
 }
 
-func NewDataPlaneController(conf DataPlaneControllerConfig) *DataPlaneController {
-	return &DataPlaneController{
+func newDataPlaneController(conf dataPlaneControllerConfig) *dataPlaneController {
+	return &dataPlaneController{
 		importClusterName:            conf.ImportClusterName,
 		exportClusterName:            conf.ExportClusterName,
 		exportCluster:                conf.ExportCluster,
@@ -48,7 +49,7 @@ func NewDataPlaneController(conf DataPlaneControllerConfig) *DataPlaneController
 	}
 }
 
-type DataPlaneController struct {
+type dataPlaneController struct {
 	mut sync.Mutex
 	ctx context.Context
 
@@ -60,7 +61,7 @@ type DataPlaneController struct {
 
 	mappings map[objref.ObjectRef][]objref.ObjectRef
 
-	clusterInformationController *clusterInformationController
+	clusterInformationController *cluster_information.ClusterInformationController
 
 	exportClientset            *kubernetes.Clientset
 	importClientset            *kubernetes.Clientset
@@ -75,7 +76,7 @@ type DataPlaneController struct {
 	isClose bool
 }
 
-func (d *DataPlaneController) Start(ctx context.Context) error {
+func (d *dataPlaneController) Start(ctx context.Context) error {
 	d.logger.Info("DataPlane controller started")
 	defer func() {
 		d.logger.Info("DataPlane controller stopped")
@@ -114,7 +115,7 @@ func (d *DataPlaneController) Start(ctx context.Context) error {
 	return nil
 }
 
-func (d *DataPlaneController) Registry(export, impor objref.ObjectRef) {
+func (d *dataPlaneController) Registry(export, impor objref.ObjectRef) {
 	d.mut.Lock()
 	defer d.mut.Unlock()
 
@@ -126,7 +127,7 @@ func (d *DataPlaneController) Registry(export, impor objref.ObjectRef) {
 	d.mappings[export] = append(d.mappings[export], impor)
 }
 
-func (d *DataPlaneController) Unregistry(export, impor objref.ObjectRef) {
+func (d *dataPlaneController) Unregistry(export, impor objref.ObjectRef) {
 	d.mut.Lock()
 	defer d.mut.Unlock()
 
@@ -138,7 +139,7 @@ func (d *DataPlaneController) Unregistry(export, impor objref.ObjectRef) {
 	}
 }
 
-func (d *DataPlaneController) initLastSourceResources(ctx context.Context, proxy *router.Proxy, opt metav1.ListOptions) error {
+func (d *dataPlaneController) initLastSourceResources(ctx context.Context, proxy *router.Proxy, opt metav1.ListOptions) error {
 	cmList, err := d.exportClientset.
 		CoreV1().
 		ConfigMaps(proxy.TunnelNamespace).
@@ -152,7 +153,7 @@ func (d *DataPlaneController) initLastSourceResources(ctx context.Context, proxy
 	return nil
 }
 
-func (d *DataPlaneController) initLastDestinationResources(ctx context.Context, proxy *router.Proxy, opt metav1.ListOptions) error {
+func (d *dataPlaneController) initLastDestinationResources(ctx context.Context, proxy *router.Proxy, opt metav1.ListOptions) error {
 	cmList, err := d.importClientset.
 		CoreV1().
 		ConfigMaps(proxy.TunnelNamespace).
@@ -176,11 +177,11 @@ func (d *DataPlaneController) initLastDestinationResources(ctx context.Context, 
 
 	tunnelPorts := d.clusterInformationController.
 		TunnelPorts(d.importClusterName)
-	tunnelPorts.loadPortPeer(svcList)
+	tunnelPorts.LoadPortPeer(svcList)
 	return nil
 }
 
-func (d *DataPlaneController) GetProxyInfo(ctx context.Context) (*router.Proxy, error) {
+func (d *dataPlaneController) GetProxyInfo(ctx context.Context) (*router.Proxy, error) {
 	proxy, err := d.getProxyInfo(ctx)
 	if err != nil {
 		for {
@@ -200,7 +201,7 @@ func (d *DataPlaneController) GetProxyInfo(ctx context.Context) (*router.Proxy, 
 	return proxy, nil
 }
 
-func (d *DataPlaneController) getProxyInfo(ctx context.Context) (*router.Proxy, error) {
+func (d *dataPlaneController) getProxyInfo(ctx context.Context) (*router.Proxy, error) {
 	exportClusterName := d.exportClusterName
 	importClusterName := d.importClusterName
 
@@ -242,12 +243,12 @@ func (d *DataPlaneController) getProxyInfo(ctx context.Context) (*router.Proxy, 
 		proxy.ImportIngressAddress = gatewayReverse.Address
 		proxy.ImportIdentity = d.clusterInformationController.GetIdentity(importClusterName)
 
-		importProxy, err := d.clusterInformationController.proxies(gatewayReverse.Navigation)
+		importProxy, err := d.clusterInformationController.Proxies(gatewayReverse.Navigation)
 		if err != nil {
 			return nil, err
 		}
 
-		exportProxy, err := d.clusterInformationController.proxies(gatewayReverse.Reception)
+		exportProxy, err := d.clusterInformationController.Proxies(gatewayReverse.Reception)
 		if err != nil {
 			return nil, err
 		}
@@ -257,12 +258,12 @@ func (d *DataPlaneController) getProxyInfo(ctx context.Context) (*router.Proxy, 
 		proxy.ExportIngressAddress = gateway.Address
 		proxy.ExportIdentity = d.clusterInformationController.GetIdentity(exportClusterName)
 
-		exportProxy, err := d.clusterInformationController.proxies(gateway.Navigation)
+		exportProxy, err := d.clusterInformationController.Proxies(gateway.Navigation)
 		if err != nil {
 			return nil, err
 		}
 
-		importProxy, err := d.clusterInformationController.proxies(gateway.Reception)
+		importProxy, err := d.clusterInformationController.Proxies(gateway.Reception)
 		if err != nil {
 			return nil, err
 		}
@@ -273,7 +274,7 @@ func (d *DataPlaneController) getProxyInfo(ctx context.Context) (*router.Proxy, 
 
 	ports := d.clusterInformationController.TunnelPorts(importClusterName)
 	proxy.GetPortFunc = func(namespace, name string, port int32) int32 {
-		return ports.getPort(exportCluster.Name, namespace, name, port)
+		return ports.GetPort(exportCluster.Name, namespace, name, port)
 	}
 
 	return proxy, nil
@@ -293,7 +294,7 @@ func mergeGateway(origin, override v1alpha1.ClusterInformationSpecGateway) v1alp
 	return origin
 }
 
-func (d *DataPlaneController) sync(ctx context.Context) error {
+func (d *dataPlaneController) sync(ctx context.Context) error {
 	d.mut.Lock()
 	defer d.mut.Unlock()
 
@@ -408,7 +409,7 @@ func (d *DataPlaneController) sync(ctx context.Context) error {
 	return nil
 }
 
-func (d *DataPlaneController) Close() {
+func (d *dataPlaneController) Close() {
 	d.mut.Lock()
 	defer d.mut.Unlock()
 	d.isClose = true

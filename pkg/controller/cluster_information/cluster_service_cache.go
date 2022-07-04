@@ -1,4 +1,4 @@
-package controller
+package cluster_information
 
 import (
 	"context"
@@ -11,6 +11,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/cache"
 )
 
 type clusterServiceCache struct {
@@ -59,7 +60,12 @@ func (c *clusterServiceCache) ResetClientset(clientset *kubernetes.Clientset) er
 		V1().
 		Services().
 		Informer()
-	informer.AddEventHandler(c)
+	informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    c.onAdd,
+		UpdateFunc: c.onUpdate,
+		DeleteFunc: c.onDelete,
+	})
+
 	go informer.Run(c.ctx.Done())
 	return nil
 }
@@ -108,9 +114,9 @@ func (c *clusterServiceCache) UnregistryCallback(name string) {
 	delete(c.callback, name)
 }
 
-func (c *clusterServiceCache) OnAdd(obj interface{}) {
+func (c *clusterServiceCache) onAdd(obj interface{}) {
 	svc := obj.(*corev1.Service)
-	c.logger.Info("OnAdd",
+	c.logger.Info("onAdd",
 		"Service", objref.KObj(svc),
 	)
 	svc = svc.DeepCopy()
@@ -122,9 +128,9 @@ func (c *clusterServiceCache) OnAdd(obj interface{}) {
 	c.try.Try()
 }
 
-func (c *clusterServiceCache) OnUpdate(oldObj, newObj interface{}) {
+func (c *clusterServiceCache) onUpdate(oldObj, newObj interface{}) {
 	svc := newObj.(*corev1.Service)
-	c.logger.Info("OnUpdate",
+	c.logger.Info("onUpdate",
 		"Service", objref.KObj(svc),
 	)
 	svc = svc.DeepCopy()
@@ -136,9 +142,9 @@ func (c *clusterServiceCache) OnUpdate(oldObj, newObj interface{}) {
 	c.try.Try()
 }
 
-func (c *clusterServiceCache) OnDelete(obj interface{}) {
+func (c *clusterServiceCache) onDelete(obj interface{}) {
 	svc := obj.(*corev1.Service)
-	c.logger.Info("OnDelete",
+	c.logger.Info("onDelete",
 		"Service", objref.KObj(svc),
 	)
 	svc = svc.DeepCopy()

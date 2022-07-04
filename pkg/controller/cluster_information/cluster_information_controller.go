@@ -1,4 +1,4 @@
-package controller
+package cluster_information
 
 import (
 	"bytes"
@@ -20,15 +20,16 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
 	restclient "k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/cache"
 )
 
-type clusterInformationControllerConfig struct {
+type ClusterInformationControllerConfig struct {
 	Logger    logr.Logger
 	Config    *restclient.Config
 	Namespace string
 	SyncFunc  func()
 }
-type clusterInformationController struct {
+type ClusterInformationController struct {
 	mut                     sync.RWMutex
 	ctx                     context.Context
 	logger                  logr.Logger
@@ -44,8 +45,8 @@ type clusterInformationController struct {
 	namespace               string
 }
 
-func newClusterInformationController(conf *clusterInformationControllerConfig) *clusterInformationController {
-	return &clusterInformationController{
+func NewClusterInformationController(conf ClusterInformationControllerConfig) *ClusterInformationController {
+	return &ClusterInformationController{
 		config:                  conf.Config,
 		namespace:               conf.Namespace,
 		logger:                  conf.Logger,
@@ -58,7 +59,7 @@ func newClusterInformationController(conf *clusterInformationControllerConfig) *
 	}
 }
 
-func (c *clusterInformationController) Run(ctx context.Context) error {
+func (c *ClusterInformationController) Run(ctx context.Context) error {
 	c.logger.Info("ClusterInformation controller started")
 	defer c.logger.Info("ClusterInformation controller stopped")
 
@@ -82,18 +83,23 @@ func (c *clusterInformationController) Run(ctx context.Context) error {
 		V1alpha1().
 		ClusterInformations().
 		Informer()
-	informer.AddEventHandler(c)
+	informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    c.onAdd,
+		UpdateFunc: c.onUpdate,
+		DeleteFunc: c.onDelete,
+	})
+
 	informer.Run(ctx.Done())
 	return nil
 }
 
-func (c *clusterInformationController) UpdateStatus(name string, importedFrom []string, exportedTo []string, phase string) error {
+func (c *ClusterInformationController) UpdateStatus(name string, importedFrom []string, exportedTo []string, phase string) error {
 	c.mut.RLock()
 	defer c.mut.RUnlock()
 	return c.updateStatus(name, importedFrom, exportedTo, phase)
 }
 
-func (c *clusterInformationController) updateStatus(name string, importedFrom []string, exportedTo []string, phase string) error {
+func (c *ClusterInformationController) updateStatus(name string, importedFrom []string, exportedTo []string, phase string) error {
 	ci := c.cacheClusterInformation[name]
 	if ci == nil {
 		return fmt.Errorf("not found ClusterInformation %s", name)
@@ -114,34 +120,34 @@ func (c *clusterInformationController) updateStatus(name string, importedFrom []
 	return err
 }
 
-func (c *clusterInformationController) Clientset(name string) *kubernetes.Clientset {
+func (c *ClusterInformationController) Clientset(name string) *kubernetes.Clientset {
 	c.mut.RLock()
 	defer c.mut.RUnlock()
 	return c.cacheClientset[name]
 }
 
-func (c *clusterInformationController) ServiceCache(name string) *clusterServiceCache {
+func (c *ClusterInformationController) ServiceCache(name string) *clusterServiceCache {
 	c.mut.RLock()
 	defer c.mut.RUnlock()
 	return c.cacheService[name]
 }
 
-func (c *clusterInformationController) GetIdentity(name string) string {
+func (c *ClusterInformationController) GetIdentity(name string) string {
 	c.mut.Lock()
 	defer c.mut.Unlock()
 	return c.cacheIdentity[name]
 }
 
-func (c *clusterInformationController) TunnelPorts(name string) *tunnelPorts {
+func (c *ClusterInformationController) TunnelPorts(name string) *tunnelPorts {
 	c.mut.RLock()
 	defer c.mut.RUnlock()
 	return c.cacheTunnelPorts[name]
 }
 
-func (c *clusterInformationController) OnAdd(obj interface{}) {
+func (c *ClusterInformationController) onAdd(obj interface{}) {
 	f := obj.(*v1alpha1.ClusterInformation)
 	f = f.DeepCopy()
-	c.logger.Info("OnAdd",
+	c.logger.Info("onAdd",
 		"ClusterInformation", objref.KObj(f),
 	)
 
@@ -156,7 +162,7 @@ func (c *clusterInformationController) OnAdd(obj interface{}) {
 	}
 
 	c.cacheClusterInformation[f.Name] = f
-	c.cacheTunnelPorts[f.Name] = newTunnelPorts(&tunnelPortsConfig{
+	c.cacheTunnelPorts[f.Name] = newTunnelPorts(tunnelPortsConfig{
 		Logger: c.logger.WithName(f.Name),
 	})
 
@@ -187,7 +193,7 @@ func (c *clusterInformationController) OnAdd(obj interface{}) {
 	c.syncFunc()
 }
 
-func (c *clusterInformationController) updateIdentityKey(name string) error {
+func (c *ClusterInformationController) updateIdentityKey(name string) error {
 	secret, err := c.kubeClientset.
 		CoreV1().
 		Secrets(c.namespace).
@@ -206,10 +212,10 @@ func (c *clusterInformationController) updateIdentityKey(name string) error {
 	return nil
 }
 
-func (c *clusterInformationController) OnUpdate(oldObj, newObj interface{}) {
+func (c *ClusterInformationController) onUpdate(oldObj, newObj interface{}) {
 	f := newObj.(*v1alpha1.ClusterInformation)
 	f = f.DeepCopy()
-	c.logger.Info("OnUpdate",
+	c.logger.Info("onUpdate",
 		"ClusterInformation", objref.KObj(f),
 	)
 
@@ -246,9 +252,9 @@ func (c *clusterInformationController) OnUpdate(oldObj, newObj interface{}) {
 	c.syncFunc()
 }
 
-func (c *clusterInformationController) OnDelete(obj interface{}) {
+func (c *ClusterInformationController) onDelete(obj interface{}) {
 	f := obj.(*v1alpha1.ClusterInformation)
-	c.logger.Info("OnDelete",
+	c.logger.Info("onDelete",
 		"ClusterInformation", objref.KObj(f),
 	)
 
@@ -268,13 +274,13 @@ func (c *clusterInformationController) OnDelete(obj interface{}) {
 	c.syncFunc()
 }
 
-func (c *clusterInformationController) Get(name string) *v1alpha1.ClusterInformation {
+func (c *ClusterInformationController) Get(name string) *v1alpha1.ClusterInformation {
 	c.mut.RLock()
 	defer c.mut.RUnlock()
 	return c.cacheClusterInformation[name]
 }
 
-func (c *clusterInformationController) proxy(proxy v1alpha1.ClusterInformationSpecGatewayWay) (string, error) {
+func (c *ClusterInformationController) proxy(proxy v1alpha1.ClusterInformationSpecGatewayWay) (string, error) {
 	if proxy.Proxy != "" {
 		return proxy.Proxy, nil
 	}
@@ -290,7 +296,7 @@ func (c *clusterInformationController) proxy(proxy v1alpha1.ClusterInformationSp
 	return "ssh://" + address + "?identity_data=" + c.GetIdentity(proxy.ClusterName), nil
 }
 
-func (c *clusterInformationController) proxies(proxies v1alpha1.ClusterInformationSpecGatewayWays) ([]string, error) {
+func (c *ClusterInformationController) Proxies(proxies v1alpha1.ClusterInformationSpecGatewayWays) ([]string, error) {
 	out := make([]string, 0, len(proxies))
 	for _, proxy := range proxies {
 		p, err := c.proxy(proxy)
@@ -302,7 +308,7 @@ func (c *clusterInformationController) proxies(proxies v1alpha1.ClusterInformati
 	return out, nil
 }
 
-func (c *clusterInformationController) PoliciesToRules(policies []*v1alpha1.FerryPolicy) []*v1alpha1.MappingRule {
+func (c *ClusterInformationController) PoliciesToRules(policies []*v1alpha1.FerryPolicy) []*v1alpha1.MappingRule {
 	svcs := []*corev1.Service{}
 	out := []*v1alpha1.MappingRule{}
 	rules := GroupFerryPolicies(policies)
