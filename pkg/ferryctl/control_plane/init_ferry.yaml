@@ -1,0 +1,78 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    app: ferry
+  name: ferry-system
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  labels:
+    app: ferry
+  name: ferry
+  namespace: ferry-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  labels:
+    app: ferry
+  name: ferry
+  namespace: ferry-system
+rules:
+- apiGroups:
+  - ferry.zsm.io
+  resources:
+  - '*'
+  verbs:
+  - '*'
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - watch
+  - list
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  labels:
+    app: ferry
+  name: ferry
+  namespace: ferry-system
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: ferry
+subjects:
+- kind: ServiceAccount
+  name: ferry
+  namespace: ferry-system
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: ferry
+  name: ferry
+  namespace: ferry-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ferry
+  template:
+    metadata:
+      labels:
+        app: ferry
+    spec:
+      containers:
+      - image: {{ .Image }}
+        imagePullPolicy: IfNotPresent
+        name: controller
+      restartPolicy: Always
+      serviceAccount: ferry
+      serviceAccountName: ferry

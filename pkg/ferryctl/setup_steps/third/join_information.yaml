@@ -1,0 +1,26 @@
+apiVersion: ferry.zsm.io/v1alpha1
+kind: ClusterInformation
+metadata:
+  name: {{ .DataPlaneName }}
+  namespace: ferry-system
+spec:
+  kubeconfig: {{ .DataPlaneKubeconfig | base64 }}
+
+  gateway:
+    reachable: {{ .DataPlaneReachable }}
+    address: {{ .DataPlaneTunnelAddress }}
+
+{{ with .DataPlaneReceptionClusterName }}
+    reception:
+      - clusterName: {{ . }}
+{{ else }}
+    reception: []
+{{ end }}
+
+{{ with .DataPlaneNavigationClusterName }}
+    navigation:
+      - clusterName: {{ . }}
+{{ else }}
+    navigation: []
+{{ end }}
+

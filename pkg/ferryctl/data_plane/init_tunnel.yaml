@@ -1,0 +1,177 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    app: ferry-tunnel
+  name: ferry-tunnel-system
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  labels:
+    app: ferry-tunnel
+  name: ferry-tunnel
+  namespace: ferry-tunnel-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  labels:
+    app: ferry-tunnel
+  name: ferry-tunnel
+  namespace: ferry-tunnel-system
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  verbs:
+  - watch
+  - list
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app: ferry-tunnel
+  name: ferry-tunnel
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - services
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - endpoints
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  labels:
+    app: ferry-tunnel
+  name: ferry-tunnel
+  namespace: ferry-tunnel-system
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: ferry-tunnel
+subjects:
+- kind: ServiceAccount
+  name: ferry-tunnel
+  namespace: ferry-tunnel-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  labels:
+    app: ferry-tunnel
+  name: ferry-tunnel
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: ferry-tunnel
+subjects:
+- kind: ServiceAccount
+  name: ferry-tunnel
+  namespace: ferry-tunnel-system
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ferry-tunnel
+  namespace: ferry-tunnel-system
+spec:
+  clusterIP: None
+  selector:
+    app: ferry-tunnel
+  sessionAffinity: None
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: gateway-ferry-tunnel
+  namespace: ferry-tunnel-system
+spec:
+  ports:
+  - name: tunnel
+    nodePort: 31087
+    port: 31087
+    protocol: TCP
+    targetPort: 31087
+  selector:
+    app: ferry-tunnel
+  sessionAffinity: None
+  type: NodePort
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: ferry-tunnel
+  name: ferry-tunnel
+  namespace: ferry-tunnel-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ferry-tunnel
+  template:
+    metadata:
+      labels:
+        app: ferry-tunnel
+    spec:
+      containers:
+      - env:
+        - name: LABEL_SELECTOR
+          value: ferry-tunnel=true
+        - name: SERVICE_NAME
+          value: ferry-tunnel
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        image: {{ .Image }}
+        imagePullPolicy: IfNotPresent
+        name: tunnel
+        ports:
+        - containerPort: 31087
+          name: tunnel
+          protocol: TCP
+      restartPolicy: Always
+      serviceAccount: ferry-tunnel
+      serviceAccountName: ferry-tunnel
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  labels:
+    app: ferry-tunnel-local
+    ferry-tunnel: "true"
+  name: ferry-tunnel-local
+  namespace: ferry-tunnel-system
+data:
+  tunnel: |
+    [
+      {
+        "bind": [
+          "ssh://127.0.0.1:31088"
+        ],
+        "proxy": [
+          "-"
+        ]
+      }
+    ]

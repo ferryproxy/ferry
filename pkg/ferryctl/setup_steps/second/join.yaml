@@ -1,0 +1,48 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  labels:
+    app: ferry-tunnel
+    ferry-tunnel: "true"
+  name: ferry-tunnel
+  namespace: ferry-tunnel-system
+data:
+  tunnel: |
+    [
+      {
+        "bind": [
+          "ssh://0.0.0.0:31087?authenticate=true&authorized_data={{ .DataPlaneAuthorized }}&hostkey_data={{ .DataPlaneHostkey }}"
+        ],
+        "proxy": [
+          "-"
+        ]
+      }
+    ]
+
+{{ if .ControlPlaneTunnelAddress }}
+  apiserver: |
+    [
+      {
+        "bind": [
+          "0.0.0.0:{{ .DataPlaneApiserverPort }}",
+          "ssh://{{ .ControlPlaneTunnelAddress }}?identity_data={{ .ControlPlaneIdentity }}"
+        ],
+        "proxy": [
+          "kubernetes.default.svc:443"
+        ]
+      }
+    ]
+{{ end }}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  annotations:
+    ferry.zsm.io/ssh-key: default
+  name: ferry-tunnel
+  namespace: ferry-tunnel-system
+type: ferry.zsm.io/ssh-key
+data:
+  identity: {{ .DataPlaneIdentity }}
+  authorized: {{ .DataPlaneAuthorized }}
+  hostkey: {{ .DataPlaneHostkey }}
