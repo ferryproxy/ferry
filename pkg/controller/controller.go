@@ -62,11 +62,11 @@ func (c *Controller) Run(ctx context.Context) error {
 	c.mappingRuleController = mappingRule
 
 	ferryPolicy := ferry_policty.NewFerryPolicyController(ferry_policty.FerryPolicyControllerConfig{
-		Config:                       c.config,
-		Namespace:                    c.namespace,
-		ClusterInformationController: clusterInformation,
-		Logger:                       c.logger.WithName("ferry-policy"),
-		SyncFunc:                     c.try.Try,
+		Config:       c.config,
+		Namespace:    c.namespace,
+		ClusterCache: clusterInformation,
+		Logger:       c.logger.WithName("ferry-policy"),
+		SyncFunc:     c.try.Try,
 	})
 	c.ferryPolicyController = ferryPolicy
 

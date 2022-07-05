@@ -2,7 +2,6 @@ package mapping_rule
 
 import (
 	"context"
-	"sort"
 	"sync"
 	"time"
 
@@ -14,7 +13,6 @@ import (
 	"github.com/ferry-proxy/utils/objref"
 	"github.com/ferry-proxy/utils/trybuffer"
 	"github.com/go-logr/logr"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
@@ -316,18 +314,9 @@ func (d *dataPlaneController) sync(ctx context.Context) error {
 		return err
 	}
 
-	svcs := []*corev1.Service{}
+	svcs := d.clusterInformationController.ListServices(d.exportClusterName)
 
-	d.clusterInformationController.
-		ServiceCache(d.exportClusterName).
-		ForEach(func(svc *corev1.Service) {
-			svcs = append(svcs, svc)
-		})
 	d.logger.Info("Sync", "ServicesCount", len(svcs))
-
-	sort.Slice(svcs, func(i, j int) bool {
-		return svcs[i].CreationTimestamp.Before(&svcs[j].CreationTimestamp)
-	})
 
 	for _, svc := range svcs {
 		origin := objref.KObj(svc)
