@@ -53,11 +53,11 @@ func (c *Controller) Run(ctx context.Context) error {
 	c.clusterInformationController = clusterInformation
 
 	mappingRule := mapping_rule.NewMappingRuleController(&mapping_rule.MappingRuleControllerConfig{
-		Config:                       c.config,
-		Namespace:                    c.namespace,
-		ClusterInformationController: clusterInformation,
-		Logger:                       c.logger.WithName("mapping-rule"),
-		SyncFunc:                     c.try.Try,
+		Config:       c.config,
+		Namespace:    c.namespace,
+		ClusterCache: clusterInformation,
+		Logger:       c.logger.WithName("mapping-rule"),
+		SyncFunc:     c.try.Try,
 	})
 	c.mappingRuleController = mappingRule
 
