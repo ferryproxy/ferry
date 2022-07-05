@@ -114,6 +114,8 @@ func (c *MappingRuleController) updateStatus(name string, phase string) error {
 	fp = fp.DeepCopy()
 
 	fp.Status.LastSynchronizationTimestamp = metav1.Now()
+	fp.Status.Import = fmt.Sprintf("%s.%s.svc.%s", fp.Spec.Import.Service.Name, fp.Spec.Import.Service.Namespace, fp.Spec.Import.ClusterName)
+	fp.Status.Export = fmt.Sprintf("%s.%s.svc.%s", fp.Spec.Export.Service.Name, fp.Spec.Export.Service.Namespace, fp.Spec.Export.ClusterName)
 	fp.Status.Phase = phase
 	_, err := c.clientset.
 		FerryV1alpha1().

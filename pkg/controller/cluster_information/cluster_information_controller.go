@@ -92,23 +92,13 @@ func (c *ClusterInformationController) Run(ctx context.Context) error {
 	return nil
 }
 
-func (c *ClusterInformationController) UpdateStatus(name string, importedFrom []string, exportedTo []string, phase string) error {
-	c.mut.RLock()
-	defer c.mut.RUnlock()
-	return c.updateStatus(name, importedFrom, exportedTo, phase)
-}
-
-func (c *ClusterInformationController) updateStatus(name string, importedFrom []string, exportedTo []string, phase string) error {
+func (c *ClusterInformationController) updateStatus(name string, phase string) error {
 	ci := c.cacheClusterInformation[name]
 	if ci == nil {
 		return fmt.Errorf("not found ClusterInformation %s", name)
 	}
-	sort.Strings(importedFrom)
-	sort.Strings(exportedTo)
 
 	ci = ci.DeepCopy()
-	ci.Status.ImportedFrom = importedFrom
-	ci.Status.ExportedTo = exportedTo
 	ci.Status.LastSynchronizationTimestamp = metav1.Now()
 	ci.Status.Phase = phase
 
@@ -188,8 +178,20 @@ func (c *ClusterInformationController) onAdd(obj interface{}) {
 	clientset, err := client.NewClientsetFromKubeconfig(f.Spec.Kubeconfig)
 	if err != nil {
 		c.logger.Error(err, "NewClientsetFromKubeconfig")
+		err = c.updateStatus(f.Name, "Disconnected")
+		if err != nil {
+			c.logger.Error(err, "UpdateStatus",
+				"ClusterInformation", objref.KObj(f),
+			)
+		}
 	} else {
 		c.cacheClientset[f.Name] = clientset
+		err = c.updateStatus(f.Name, "Connected")
+		if err != nil {
+			c.logger.Error(err, "UpdateStatus",
+				"ClusterInformation", objref.KObj(f),
+			)
+		}
 	}
 
 	c.cacheClusterInformation[f.Name] = f
@@ -206,13 +208,6 @@ func (c *ClusterInformationController) onAdd(obj interface{}) {
 	err = clusterService.Start(c.ctx)
 	if err != nil {
 		c.logger.Error(err, "failed start cluster service cache")
-	}
-
-	err = c.updateStatus(f.Name, []string{}, []string{}, "Pending")
-	if err != nil {
-		c.logger.Error(err, "UpdateStatus",
-			"ClusterInformation", objref.KObj(f),
-		)
 	}
 
 	err = c.updateIdentityKey(f.Name)
@@ -269,11 +264,30 @@ func (c *ClusterInformationController) onUpdate(oldObj, newObj interface{}) {
 		clientset, err := client.NewClientsetFromKubeconfig(f.Spec.Kubeconfig)
 		if err != nil {
 			c.logger.Error(err, "NewClientsetFromKubeconfig")
+			err = c.updateStatus(f.Name, "Disconnected")
+			if err != nil {
+				c.logger.Error(err, "UpdateStatus",
+					"ClusterInformation", objref.KObj(f),
+				)
+			}
 		} else {
 			c.cacheClientset[f.Name] = clientset
 			err := c.cacheService[f.Name].ResetClientset(clientset)
 			if err != nil {
 				c.logger.Error(err, "Reset clientset")
+				err = c.updateStatus(f.Name, "Disconnected")
+				if err != nil {
+					c.logger.Error(err, "UpdateStatus",
+						"ClusterInformation", objref.KObj(f),
+					)
+				}
+			} else {
+				err = c.updateStatus(f.Name, "Connected")
+				if err != nil {
+					c.logger.Error(err, "UpdateStatus",
+						"ClusterInformation", objref.KObj(f),
+					)
+				}
 			}
 		}
 	}

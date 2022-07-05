@@ -3,7 +3,7 @@ module github.com/ferry-proxy/ferry
 go 1.18
 
 require (
-	github.com/ferry-proxy/api v0.1.0
+	github.com/ferry-proxy/api v0.1.1
 	github.com/ferry-proxy/client-go v0.1.0
 	github.com/ferry-proxy/utils v0.0.0-20220224074316-5c078e7e3638
 	github.com/go-logr/logr v1.2.2

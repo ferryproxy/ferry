@@ -103,7 +103,7 @@ func (c *FerryPolicyController) Run(ctx context.Context) error {
 	return nil
 }
 
-func (c *FerryPolicyController) updateStatus(name string, phase string) error {
+func (c *FerryPolicyController) updateStatus(name string, phase string, ruleCount int) error {
 	fp := c.get(name)
 	if fp == nil {
 		return fmt.Errorf("not found FerryPolicy %s", name)
@@ -113,6 +113,7 @@ func (c *FerryPolicyController) updateStatus(name string, phase string) error {
 
 	fp.Status.LastSynchronizationTimestamp = metav1.Now()
 	fp.Status.Phase = phase
+	fp.Status.RuleCount = ruleCount
 
 	_, err := c.clientset.
 		FerryV1alpha1().
@@ -135,7 +136,7 @@ func (c *FerryPolicyController) onAdd(obj interface{}) {
 
 	c.syncFunc()
 
-	err := c.updateStatus(f.Name, "Pending")
+	err := c.updateStatus(f.Name, "Pending", 0)
 	if err != nil {
 		c.logger.Error(err, "failed to update status")
 	}
@@ -160,7 +161,7 @@ func (c *FerryPolicyController) onUpdate(oldObj, newObj interface{}) {
 
 	c.syncFunc()
 
-	err := c.updateStatus(f.Name, "Pending")
+	err := c.updateStatus(f.Name, "Pending", 0)
 	if err != nil {
 		c.logger.Error(err, "failed to update status")
 	}
@@ -194,14 +195,14 @@ func (c *FerryPolicyController) Sync(ctx context.Context) {
 	}
 
 	for _, policy := range ferryPolicies {
-		err := c.updateStatus(policy.Name, "Working")
+		err := c.updateStatus(policy.Name, "Working", len(mappingRules))
 		if err != nil {
 			c.logger.Error(err, "failed to update status")
 		}
 	}
 	defer func() {
 		for _, policy := range ferryPolicies {
-			err := c.updateStatus(policy.Name, "Worked")
+			err := c.updateStatus(policy.Name, "Worked", len(mappingRules))
 			if err != nil {
 				c.logger.Error(err, "failed to update status")
 			}
