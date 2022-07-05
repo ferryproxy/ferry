@@ -194,21 +194,6 @@ func (c *FerryPolicyController) Sync(ctx context.Context) {
 		return
 	}
 
-	for _, policy := range ferryPolicies {
-		err := c.updateStatus(policy.Name, "Working", len(mappingRules))
-		if err != nil {
-			c.logger.Error(err, "failed to update status")
-		}
-	}
-	defer func() {
-		for _, policy := range ferryPolicies {
-			err := c.updateStatus(policy.Name, "Worked", len(mappingRules))
-			if err != nil {
-				c.logger.Error(err, "failed to update status")
-			}
-		}
-	}()
-
 	// Update the cache of mapping rules
 	updated, deleted := utils.CalculatePatchResources(c.cacheFerryPolicyMappingRules, mappingRules)
 	defer func() {
@@ -228,6 +213,13 @@ func (c *FerryPolicyController) Sync(ctx context.Context) {
 		err := mr.Apply(ctx, c.clientset)
 		if err != nil {
 			c.logger.Error(err, "failed to update mapping rule")
+		}
+	}
+
+	for _, policy := range ferryPolicies {
+		err := c.updateStatus(policy.Name, "Worked", len(mappingRules))
+		if err != nil {
+			c.logger.Error(err, "failed to update status")
 		}
 	}
 }
