@@ -162,8 +162,8 @@ github.com/fatih/color v1.9.0/go.mod h1:eQcE1qtQxscV5RaZvpXrrb8Drkc3/DdQ+uUYCNjL
 github.com/fatih/color v1.13.0/go.mod h1:kLAiJbzzSOZDVNGyDpeOxJ47H46qBXwg5ILebYFFOfk=
 github.com/ferry-proxy/api v0.1.1 h1:3WXHmIevkcFdy/B3wfAeJ3edJvF2mClV2d8CvGo9zF0=
 github.com/ferry-proxy/api v0.1.1/go.mod h1:EUHzYhjkDOvlO+0XGtNPOmsLRKq1CPU1G3gpKhjVS+Q=
-github.com/ferry-proxy/client-go v0.1.0 h1:J3bBy6kkHTY/QQem5pSRpZ2Mhc7ql92i1V2/ER39ikI=
-github.com/ferry-proxy/client-go v0.1.0/go.mod h1:5a3FG/+nwuox8GG6J263dR63M7xtOijZAcLd+M9DkSU=
+github.com/ferry-proxy/client-go v0.1.1 h1:IJpFKeHy0Etw0nC+Bhb+n64U1q7x9M7EZnakkgNDTFc=
+github.com/ferry-proxy/client-go v0.1.1/go.mod h1:6RsLF8A/KtiiviRLSa2kTOCGnndI9L6bGVN/Leu3RZ4=
 github.com/form3tech-oss/jwt-go v3.2.2+incompatible/go.mod h1:pbq4aXjuKjdthFRnoDwaVPLA+WlJuPGy+QneDUgJi2k=
 github.com/form3tech-oss/jwt-go v3.2.3+incompatible/go.mod h1:pbq4aXjuKjdthFRnoDwaVPLA+WlJuPGy+QneDUgJi2k=
 github.com/fsnotify/fsnotify v1.4.7/go.mod h1:jwhsz4b93w/PPRr/qN1Yymfu8t87LnFCMoQvtojpjFo=
@@ -541,8 +541,8 @@ github.com/tv42/httpunix v0.0.0-20150427012821-b75d8614f926/go.mod h1:9ESjWnEqri
 github.com/urfave/cli v1.20.0/go.mod h1:70zkFmudgCuE/ngEzBv17Jvp/497gISqfk5gWijbERA=
 github.com/wzshiming/anyproxy v0.7.6 h1:WMC9qvibh0YyMMWD2qQGrr/7wKm33xXHt6uFkNraatQ=
 github.com/wzshiming/anyproxy v0.7.6/go.mod h1:GDbTdcEKzOPdfVrkBOGy5mkgcZr1pm3ofn1kxFq8h7A=
-github.com/wzshiming/bridge v0.8.2 h1:bT2ClFVdWEwSIK4cAuC79dX/HurAweheD0eE30U7fzY=
-github.com/wzshiming/bridge v0.8.2/go.mod h1:lIH43W5eopd8JaepvCFOzq2iTOJ3bOmYsqw/eAgMz8E=
+github.com/wzshiming/bridge v0.8.5 h1:oG8OgaH6wfCej6pchL85D7GTEiNVmnXb4Y1+eqnvnng=
+github.com/wzshiming/bridge v0.8.5/go.mod h1:TbwgBE1oxFuI3Xo+FJaGd9aKgab49HOL9ahZWope5T0=
 github.com/wzshiming/cmux v0.3.0 h1:OsALDnhubCbqI+wqayn/DOD5OX0ebcQdHNN4xgY2h14=
 github.com/wzshiming/cmux v0.3.0/go.mod h1:TGi/uEBvRkO5+INEwBHiBtqdNWK+wS+OvvS7XtIf4bQ=
 github.com/wzshiming/commandproxy v0.2.0 h1:uPVhgIj2YSncRUo6g9smGR6OMzsIg7lwklcMHPPmEeM=

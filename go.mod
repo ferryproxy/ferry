@@ -4,13 +4,13 @@ go 1.18
 
 require (
 	github.com/ferry-proxy/api v0.1.1
-	github.com/ferry-proxy/client-go v0.1.0
+	github.com/ferry-proxy/client-go v0.1.1
 	github.com/go-logr/logr v1.2.2
 	github.com/go-logr/zapr v1.2.2
 	github.com/google/go-cmp v0.5.6
 	github.com/spf13/cobra v1.3.0
 	github.com/wzshiming/anyproxy v0.7.6
-	github.com/wzshiming/bridge v0.8.2
+	github.com/wzshiming/bridge v0.8.5
 	github.com/wzshiming/notify v0.1.1
 	go.uber.org/zap v1.20.0
 	golang.org/x/crypto v0.0.0-20220315160706-3147a52a75dd
