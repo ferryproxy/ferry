@@ -16,8 +16,5 @@ KUBECONFIG_DIR="${ROOT}/kubeconfigs"
 for name in $(ls ${ENVIRONMENT_DIR} | grep -v in-cluster | grep .yaml); do
   name="${name%.*}"
   kubeconfig="${KUBECONFIG_DIR}/${name}.yaml"
-  if [[ "${name}" == "control-plane" ]]; then
-    kubectl --kubeconfig "${kubeconfig}" apply -k https://github.com/ferry-proxy/api/config/crd
-  fi
   kubectl --kubeconfig "${kubeconfig}" apply -k "${ENVIRONMENT_DIR}/${name}"
 done
