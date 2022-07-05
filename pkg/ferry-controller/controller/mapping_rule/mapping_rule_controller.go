@@ -190,13 +190,6 @@ func (c *MappingRuleController) Sync(ctx context.Context) {
 
 	mappingRules := c.list()
 
-	for _, rule := range mappingRules {
-		err := c.updateStatus(rule.Name, "Working")
-		if err != nil {
-			c.logger.Error(err, "failed to update status")
-		}
-	}
-
 	newerMappingRules := groupMappingRules(mappingRules)
 	defer func() {
 		c.cacheMappingRules = newerMappingRules
