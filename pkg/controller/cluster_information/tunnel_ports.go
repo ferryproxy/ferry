@@ -1,4 +1,4 @@
-package controller
+package cluster_information
 
 import (
 	"strconv"
@@ -27,7 +27,7 @@ type tunnelPortsConfig struct {
 	Logger logr.Logger
 }
 
-func newTunnelPorts(conf *tunnelPortsConfig) *tunnelPorts {
+func newTunnelPorts(conf tunnelPortsConfig) *tunnelPorts {
 	return &tunnelPorts{
 		logger:     conf.Logger,
 		portOffset: 40000,
@@ -36,7 +36,7 @@ func newTunnelPorts(conf *tunnelPortsConfig) *tunnelPorts {
 	}
 }
 
-func (d *tunnelPorts) getPort(cluster, namespace, name string, port int32) int32 {
+func (d *tunnelPorts) GetPort(cluster, namespace, name string, port int32) int32 {
 	pp := portPeer{
 		Cluster:   cluster,
 		Namespace: namespace,
@@ -65,7 +65,7 @@ func (d *tunnelPorts) getPort(cluster, namespace, name string, port int32) int32
 	return p
 }
 
-func (d *tunnelPorts) loadPortPeer(list *corev1.ServiceList) {
+func (d *tunnelPorts) LoadPortPeer(list *corev1.ServiceList) {
 	for _, item := range list.Items {
 		d.loadPortPeerForService(&item)
 	}
