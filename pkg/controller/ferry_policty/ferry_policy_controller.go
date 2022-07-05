@@ -57,12 +57,6 @@ func NewFerryPolicyController(conf FerryPolicyControllerConfig) *FerryPolicyCont
 	}
 }
 
-func (c *FerryPolicyController) List() []*v1alpha1.FerryPolicy {
-	c.mut.RLock()
-	defer c.mut.RUnlock()
-	return c.list()
-}
-
 func (c *FerryPolicyController) list() []*v1alpha1.FerryPolicy {
 	var list []*v1alpha1.FerryPolicy
 	for _, v := range c.cache {
@@ -76,12 +70,6 @@ func (c *FerryPolicyController) list() []*v1alpha1.FerryPolicy {
 		return list[i].Name < list[j].Name
 	})
 	return list
-}
-
-func (c *FerryPolicyController) Get(name string) *v1alpha1.FerryPolicy {
-	c.mut.RLock()
-	defer c.mut.RUnlock()
-	return c.get(name)
 }
 
 func (c *FerryPolicyController) get(name string) *v1alpha1.FerryPolicy {
@@ -113,12 +101,6 @@ func (c *FerryPolicyController) Run(ctx context.Context) error {
 
 	informer.Run(ctx.Done())
 	return nil
-}
-
-func (c *FerryPolicyController) UpdateStatus(name string, phase string) error {
-	c.mut.RLock()
-	defer c.mut.RUnlock()
-	return c.updateStatus(name, phase)
 }
 
 func (c *FerryPolicyController) updateStatus(name string, phase string) error {
