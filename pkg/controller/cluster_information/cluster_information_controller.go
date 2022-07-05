@@ -145,22 +145,34 @@ func (c *ClusterInformationController) ListServices(name string) []*corev1.Servi
 	return svcs
 }
 
-func (c *ClusterInformationController) ServiceCache(name string) *clusterServiceCache {
-	c.mut.RLock()
-	defer c.mut.RUnlock()
-	return c.cacheService[name]
-}
-
 func (c *ClusterInformationController) GetIdentity(name string) string {
 	c.mut.Lock()
 	defer c.mut.Unlock()
 	return c.cacheIdentity[name]
 }
 
-func (c *ClusterInformationController) TunnelPorts(name string) *tunnelPorts {
+func (c *ClusterInformationController) RegistryServiceCallback(exportClusterName, importClusterName string, cb func()) {
+	c.mut.Lock()
+	defer c.mut.Unlock()
+	c.cacheService[exportClusterName].RegistryCallback(importClusterName, cb)
+}
+
+func (c *ClusterInformationController) UnregistryServiceCallback(exportClusterName, importClusterName string) {
+	c.mut.Lock()
+	defer c.mut.Unlock()
+	c.cacheService[exportClusterName].UnregistryCallback(importClusterName)
+}
+
+func (c *ClusterInformationController) LoadPortPeer(importClusterName string, list *corev1.ServiceList) {
 	c.mut.RLock()
 	defer c.mut.RUnlock()
-	return c.cacheTunnelPorts[name]
+	c.cacheTunnelPorts[importClusterName].LoadPortPeer(list)
+}
+
+func (c *ClusterInformationController) GetPortPeer(importClusterName string, cluster, namespace, name string, port int32) int32 {
+	c.mut.RLock()
+	defer c.mut.RUnlock()
+	return c.cacheTunnelPorts[importClusterName].GetPort(cluster, namespace, name, port)
 }
 
 func (c *ClusterInformationController) onAdd(obj interface{}) {
@@ -293,36 +305,8 @@ func (c *ClusterInformationController) onDelete(obj interface{}) {
 	c.syncFunc()
 }
 
-func (c *ClusterInformationController) Get(name string) *v1alpha1.ClusterInformation {
+func (c *ClusterInformationController) GetClusterInformation(name string) *v1alpha1.ClusterInformation {
 	c.mut.RLock()
 	defer c.mut.RUnlock()
 	return c.cacheClusterInformation[name]
-}
-
-func (c *ClusterInformationController) proxy(proxy v1alpha1.ClusterInformationSpecGatewayWay) (string, error) {
-	if proxy.Proxy != "" {
-		return proxy.Proxy, nil
-	}
-
-	ci := c.Get(proxy.ClusterName)
-	if ci == nil {
-		return "", fmt.Errorf("failed get cluster information %q", proxy.ClusterName)
-	}
-	if ci.Spec.Gateway.Address == "" {
-		return "", fmt.Errorf("failed get address of cluster information %q", proxy.ClusterName)
-	}
-	address := ci.Spec.Gateway.Address
-	return "ssh://" + address + "?identity_data=" + c.GetIdentity(proxy.ClusterName), nil
-}
-
-func (c *ClusterInformationController) Proxies(proxies v1alpha1.ClusterInformationSpecGatewayWays) ([]string, error) {
-	out := make([]string, 0, len(proxies))
-	for _, proxy := range proxies {
-		p, err := c.proxy(proxy)
-		if err != nil {
-			return nil, err
-		}
-		out = append(out, p)
-	}
-	return out, nil
 }

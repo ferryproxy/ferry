@@ -2,12 +2,12 @@ package mapping_rule
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
 	"github.com/ferry-proxy/api/apis/ferry/v1alpha1"
 	"github.com/ferry-proxy/ferry/pkg/consts"
-	"github.com/ferry-proxy/ferry/pkg/controller/cluster_information"
 	"github.com/ferry-proxy/ferry/pkg/router"
 	"github.com/ferry-proxy/ferry/pkg/utils"
 	"github.com/ferry-proxy/utils/objref"
@@ -19,31 +19,27 @@ import (
 )
 
 type dataPlaneControllerConfig struct {
-	ExportClusterName            string
-	ImportClusterName            string
-	ClusterInformationController *cluster_information.ClusterInformationController
-	ExportCluster                *v1alpha1.ClusterInformation
-	ImportCluster                *v1alpha1.ClusterInformation
-	ExportClientset              *kubernetes.Clientset
-	ImportClientset              *kubernetes.Clientset
-	Logger                       logr.Logger
-	SourceResourceBuilder        router.ResourceBuilders
-	DestinationResourceBuilder   router.ResourceBuilders
+	ExportClusterName          string
+	ImportClusterName          string
+	ClusterCache               ClusterCache
+	ExportClientset            *kubernetes.Clientset
+	ImportClientset            *kubernetes.Clientset
+	Logger                     logr.Logger
+	SourceResourceBuilder      router.ResourceBuilders
+	DestinationResourceBuilder router.ResourceBuilders
 }
 
 func newDataPlaneController(conf dataPlaneControllerConfig) *dataPlaneController {
 	return &dataPlaneController{
-		importClusterName:            conf.ImportClusterName,
-		exportClusterName:            conf.ExportClusterName,
-		exportCluster:                conf.ExportCluster,
-		importCluster:                conf.ImportCluster,
-		exportClientset:              conf.ExportClientset,
-		importClientset:              conf.ImportClientset,
-		logger:                       conf.Logger,
-		clusterInformationController: conf.ClusterInformationController,
-		sourceResourceBuilder:        conf.SourceResourceBuilder,
-		destinationResourceBuilder:   conf.DestinationResourceBuilder,
-		mappings:                     map[objref.ObjectRef][]objref.ObjectRef{},
+		importClusterName:          conf.ImportClusterName,
+		exportClusterName:          conf.ExportClusterName,
+		exportClientset:            conf.ExportClientset,
+		importClientset:            conf.ImportClientset,
+		logger:                     conf.Logger,
+		clusterCache:               conf.ClusterCache,
+		sourceResourceBuilder:      conf.SourceResourceBuilder,
+		destinationResourceBuilder: conf.DestinationResourceBuilder,
+		mappings:                   map[objref.ObjectRef][]objref.ObjectRef{},
 	}
 }
 
@@ -54,12 +50,9 @@ type dataPlaneController struct {
 	exportClusterName string
 	importClusterName string
 
-	exportCluster *v1alpha1.ClusterInformation
-	importCluster *v1alpha1.ClusterInformation
-
 	mappings map[objref.ObjectRef][]objref.ObjectRef
 
-	clusterInformationController *cluster_information.ClusterInformationController
+	clusterCache ClusterCache
 
 	exportClientset            *kubernetes.Clientset
 	importClientset            *kubernetes.Clientset
@@ -81,7 +74,7 @@ func (d *dataPlaneController) Start(ctx context.Context) error {
 	}()
 	d.ctx = ctx
 
-	proxy, err := d.GetProxyInfo(ctx)
+	proxy, err := d.mustGetProxyInfo(ctx)
 	if err != nil {
 		return err
 	}
@@ -99,42 +92,33 @@ func (d *dataPlaneController) Start(ctx context.Context) error {
 		return err
 	}
 
-	d.try = trybuffer.NewTryBuffer(func() {
-		err := d.sync(ctx)
-		if err != nil {
-			d.logger.Error(err, "sync failed")
-		}
-	}, time.Second/2)
+	d.try = trybuffer.NewTryBuffer(d.sync, time.Second/2)
 
-	d.clusterInformationController.
-		ServiceCache(d.exportClusterName).
-		RegistryCallback(d.importClusterName, d.try.Try)
+	d.clusterCache.RegistryServiceCallback(d.exportClusterName, d.importClusterName, d.Sync)
 
 	return nil
 }
 
-func (d *dataPlaneController) Registry(export, impor objref.ObjectRef) {
-	d.mut.Lock()
-	defer d.mut.Unlock()
-
-	for _, v := range d.mappings[export] {
-		if v == impor {
-			return
-		}
-	}
-	d.mappings[export] = append(d.mappings[export], impor)
+func (d *dataPlaneController) Sync() {
+	d.try.Try()
 }
 
-func (d *dataPlaneController) Unregistry(export, impor objref.ObjectRef) {
+func (d *dataPlaneController) SetMappingRules(rules []*v1alpha1.MappingRule) {
+	mappings := map[objref.ObjectRef][]objref.ObjectRef{}
+	for _, rule := range rules {
+		exportRef := objref.ObjectRef{Name: rule.Spec.Export.Service.Name, Namespace: rule.Spec.Export.Service.Namespace}
+		importRef := objref.ObjectRef{Name: rule.Spec.Import.Service.Name, Namespace: rule.Spec.Import.Service.Namespace}
+		for _, v := range mappings[exportRef] {
+			if v == importRef {
+				return
+			}
+		}
+		mappings[exportRef] = append(mappings[exportRef], importRef)
+	}
+
 	d.mut.Lock()
 	defer d.mut.Unlock()
-
-	for i, v := range d.mappings[export] {
-		if v == impor {
-			d.mappings[export] = append(d.mappings[export][:i], d.mappings[export][i+1:]...)
-			return
-		}
-	}
+	d.mappings = mappings
 }
 
 func (d *dataPlaneController) initLastSourceResources(ctx context.Context, proxy *router.Proxy, opt metav1.ListOptions) error {
@@ -173,14 +157,12 @@ func (d *dataPlaneController) initLastDestinationResources(ctx context.Context, 
 		d.lastDestinationResources = append(d.lastDestinationResources, router.Service{item.DeepCopy()})
 	}
 
-	tunnelPorts := d.clusterInformationController.
-		TunnelPorts(d.importClusterName)
-	tunnelPorts.LoadPortPeer(svcList)
+	d.clusterCache.LoadPortPeer(d.importClusterName, svcList)
 	return nil
 }
 
-func (d *dataPlaneController) GetProxyInfo(ctx context.Context) (*router.Proxy, error) {
-	proxy, err := d.getProxyInfo(ctx)
+func (d *dataPlaneController) mustGetProxyInfo(ctx context.Context) (*router.Proxy, error) {
+	proxy, err := d.getProxyInfo()
 	if err != nil {
 		for {
 			d.logger.Error(err, "get proxy info failed")
@@ -188,7 +170,7 @@ func (d *dataPlaneController) GetProxyInfo(ctx context.Context) (*router.Proxy, 
 			case <-ctx.Done():
 				return nil, ctx.Err()
 			case <-time.After(2 * time.Second):
-				proxy, err = d.getProxyInfo(ctx)
+				proxy, err = d.getProxyInfo()
 				if err != nil {
 					continue
 				}
@@ -199,7 +181,7 @@ func (d *dataPlaneController) GetProxyInfo(ctx context.Context) (*router.Proxy, 
 	return proxy, nil
 }
 
-func (d *dataPlaneController) getProxyInfo(ctx context.Context) (*router.Proxy, error) {
+func (d *dataPlaneController) getProxyInfo() (*router.Proxy, error) {
 	exportClusterName := d.exportClusterName
 	importClusterName := d.importClusterName
 
@@ -216,10 +198,10 @@ func (d *dataPlaneController) getProxyInfo(ctx context.Context) (*router.Proxy, 
 		ImportClusterName: importClusterName,
 	}
 
-	exportCluster := d.clusterInformationController.Get(exportClusterName)
+	exportCluster := d.clusterCache.GetClusterInformation(exportClusterName)
 	gateway := exportCluster.Spec.Gateway
 
-	importCluster := d.clusterInformationController.Get(importClusterName)
+	importCluster := d.clusterCache.GetClusterInformation(importClusterName)
 	if importCluster.Spec.Override != nil {
 		gw, ok := importCluster.Spec.Override[exportClusterName]
 		if ok {
@@ -239,14 +221,14 @@ func (d *dataPlaneController) getProxyInfo(ctx context.Context) (*router.Proxy, 
 		}
 
 		proxy.ImportIngressAddress = gatewayReverse.Address
-		proxy.ImportIdentity = d.clusterInformationController.GetIdentity(importClusterName)
+		proxy.ImportIdentity = d.clusterCache.GetIdentity(importClusterName)
 
-		importProxy, err := d.clusterInformationController.Proxies(gatewayReverse.Navigation)
+		importProxy, err := clusterProxies(d.clusterCache, gatewayReverse.Navigation)
 		if err != nil {
 			return nil, err
 		}
 
-		exportProxy, err := d.clusterInformationController.Proxies(gatewayReverse.Reception)
+		exportProxy, err := clusterProxies(d.clusterCache, gatewayReverse.Reception)
 		if err != nil {
 			return nil, err
 		}
@@ -254,14 +236,14 @@ func (d *dataPlaneController) getProxyInfo(ctx context.Context) (*router.Proxy, 
 		proxy.ImportProxy = importProxy
 	} else {
 		proxy.ExportIngressAddress = gateway.Address
-		proxy.ExportIdentity = d.clusterInformationController.GetIdentity(exportClusterName)
+		proxy.ExportIdentity = d.clusterCache.GetIdentity(exportClusterName)
 
-		exportProxy, err := d.clusterInformationController.Proxies(gateway.Navigation)
+		exportProxy, err := clusterProxies(d.clusterCache, gateway.Navigation)
 		if err != nil {
 			return nil, err
 		}
 
-		importProxy, err := d.clusterInformationController.Proxies(gateway.Reception)
+		importProxy, err := clusterProxies(d.clusterCache, gateway.Reception)
 		if err != nil {
 			return nil, err
 		}
@@ -270,9 +252,8 @@ func (d *dataPlaneController) getProxyInfo(ctx context.Context) (*router.Proxy, 
 		proxy.ImportProxy = importProxy
 	}
 
-	ports := d.clusterInformationController.TunnelPorts(importClusterName)
 	proxy.GetPortFunc = func(namespace, name string, port int32) int32 {
-		return ports.GetPort(exportCluster.Name, namespace, name, port)
+		return d.clusterCache.GetPortPeer(importClusterName, exportCluster.Name, namespace, name, port)
 	}
 
 	return proxy, nil
@@ -292,29 +273,31 @@ func mergeGateway(origin, override v1alpha1.ClusterInformationSpecGateway) v1alp
 	return origin
 }
 
-func (d *dataPlaneController) sync(ctx context.Context) error {
+func (d *dataPlaneController) sync() {
 	d.mut.Lock()
 	defer d.mut.Unlock()
 
 	if d.isClose {
-		return nil
+		return
 	}
+	ctx := d.ctx
 
 	if len(d.lastSourceResources) == 0 && len(d.lastDestinationResources) == 0 &&
 		len(d.mappings) == 0 {
 		d.logger.Info("No need to sync")
-		return nil
+		return
 	}
 
 	var ir []router.Resourcer
 	var er []router.Resourcer
 
-	proxy, err := d.GetProxyInfo(ctx)
+	proxy, err := d.mustGetProxyInfo(ctx)
 	if err != nil {
-		return err
+		d.logger.Error(err, "get proxy info failed")
+		return
 	}
 
-	svcs := d.clusterInformationController.ListServices(d.exportClusterName)
+	svcs := d.clusterCache.ListServices(d.exportClusterName)
 
 	d.logger.Info("Sync", "ServicesCount", len(svcs))
 
@@ -325,7 +308,6 @@ func (d *dataPlaneController) sync(ctx context.Context) error {
 			i, err := d.sourceResourceBuilder.Build(proxy, origin, destination, &svc.Spec)
 			if err != nil {
 				d.logger.Error(err, "sourceResourceBuilder", "origin", origin, "destination", destination)
-				return err
 			}
 			ir = append(ir, i...)
 
@@ -347,7 +329,7 @@ func (d *dataPlaneController) sync(ctx context.Context) error {
 	if len(d.lastSourceResources) == 0 && len(d.lastDestinationResources) == 0 &&
 		len(ir) == 0 && len(er) == 0 {
 		d.logger.Info("No need to sync")
-		return nil
+		return
 	}
 
 	sourceUpdate, sourceDelete := utils.CalculatePatchResources(d.lastSourceResources, ir)
@@ -355,7 +337,7 @@ func (d *dataPlaneController) sync(ctx context.Context) error {
 
 	if len(sourceUpdate) == 0 && len(sourceDelete) == 0 && len(destinationUpdate) == 0 && len(destinationDelete) == 0 {
 		d.logger.Info("No need to sync")
-		return nil
+		return
 	}
 
 	d.logger.Info("Sync",
@@ -395,18 +377,19 @@ func (d *dataPlaneController) sync(ctx context.Context) error {
 
 	d.lastSourceResources = ir
 	d.lastDestinationResources = er
-	return nil
+	return
 }
 
 func (d *dataPlaneController) Close() {
 	d.mut.Lock()
 	defer d.mut.Unlock()
-	d.isClose = true
-	d.try.Close()
 
-	d.clusterInformationController.
-		ServiceCache(d.exportClusterName).
-		UnregistryCallback(d.importClusterName)
+	if d.isClose {
+		return
+	}
+	d.isClose = true
+	d.clusterCache.UnregistryServiceCallback(d.exportClusterName, d.importClusterName)
+	d.try.Close()
 
 	ctx := context.Background()
 
@@ -423,4 +406,32 @@ func (d *dataPlaneController) Close() {
 			d.logger.Error(err, "Delete Import")
 		}
 	}
+}
+
+func clusterProxy(clusterCache ClusterCache, proxy v1alpha1.ClusterInformationSpecGatewayWay) (string, error) {
+	if proxy.Proxy != "" {
+		return proxy.Proxy, nil
+	}
+
+	ci := clusterCache.GetClusterInformation(proxy.ClusterName)
+	if ci == nil {
+		return "", fmt.Errorf("failed get cluster information %q", proxy.ClusterName)
+	}
+	if ci.Spec.Gateway.Address == "" {
+		return "", fmt.Errorf("failed get address of cluster information %q", proxy.ClusterName)
+	}
+	address := ci.Spec.Gateway.Address
+	return "ssh://" + address + "?identity_data=" + clusterCache.GetIdentity(proxy.ClusterName), nil
+}
+
+func clusterProxies(clusterCache ClusterCache, proxies v1alpha1.ClusterInformationSpecGatewayWays) ([]string, error) {
+	out := make([]string, 0, len(proxies))
+	for _, proxy := range proxies {
+		p, err := clusterProxy(clusterCache, proxy)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, p)
+	}
+	return out, nil
 }
