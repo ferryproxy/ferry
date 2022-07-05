@@ -235,13 +235,13 @@ func policiesToMappingRules(clusterCache ClusterCache, policies []*v1alpha1.Ferr
 	out := []*v1alpha1.MappingRule{}
 	rules := groupFerryPolicies(policies)
 	controller := true
-	for exportClusterName, i := range rules {
+	for exportClusterName, rule := range rules {
 		svcs := clusterCache.ListServices(exportClusterName)
 		if len(svcs) == 0 {
 			continue
 		}
 
-		for importClusterName, matches := range i {
+		for importClusterName, matches := range rule {
 			for _, match := range matches {
 				for _, svc := range svcs {
 					var (
@@ -281,10 +281,6 @@ func policiesToMappingRules(clusterCache ClusterCache, policies []*v1alpha1.Ferr
 
 					policy := match.Policy
 
-					ports := []uint32{}
-					for _, port := range svc.Spec.Ports {
-						ports = append(ports, uint32(port.Port))
-					}
 					out = append(out, &v1alpha1.MappingRule{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      fmt.Sprintf("%s-%s-%s-%s-%s-%s-%s", policy.Name, exportClusterName, exportNamespace, exportName, importClusterName, importNamespace, importName),
