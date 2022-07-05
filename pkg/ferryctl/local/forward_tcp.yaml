@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    ferry.zsm.io/exported-from-ports: '{{ .TargetPort }}'
+    ferry-tunnel: "true"
+  name: {{ .ServiceName }}
+  namespace: {{ .ServiceNamespace }}
+spec:
+  ports:
+    - port: {{ .Port }}
+      protocol: TCP
+      targetPort: {{ .TargetPort }}
+  type: ClusterIP

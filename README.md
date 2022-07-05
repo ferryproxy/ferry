@@ -6,7 +6,7 @@ Ferry is a multi-cluster communication component of Kubernetes that supports map
 
 ### Download ferryctl (ferry install management tool)
 
-https://github.com/ferry-proxy/ferryctl/releases
+https://github.com/ferry-proxy/ferry/releases
 
 ## Initialize control plane
 

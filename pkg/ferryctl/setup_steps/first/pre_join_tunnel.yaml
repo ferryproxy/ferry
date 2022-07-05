@@ -1,0 +1,41 @@
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    ferry.zsm.io/exported-from: {{ .DataPlaneName }}
+    ferry.zsm.io/exported-from-ports: '{{ .DataPlaneApiserverPort }}'
+  name: {{ .DataPlaneName }}-apiserver
+  namespace: ferry-tunnel-system
+spec:
+  ports:
+    - name: https
+      port: 443
+      protocol: TCP
+      targetPort: {{ .DataPlaneApiserverPort }}
+  selector:
+    app: ferry-tunnel
+  type: ClusterIP
+{{ if .DataPlaneTunnelAddress }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  labels:
+    app: ferry-tunnel
+    ferry-tunnel: "true"
+  name: {{ .DataPlaneName }}-apiserver
+  namespace: ferry-tunnel-system
+data:
+  apiserver: |
+    [
+      {
+        "bind": [
+          "0.0.0.0:{{ .DataPlaneApiserverPort }}"
+        ],
+        "proxy": [
+          "kubernetes.default.svc:443",
+          "ssh://{{ .DataPlaneTunnelAddress }}?identity_data={{ .DataPlaneIdentity }}"
+        ]
+      }
+    ]
+{{ end }}

@@ -1,0 +1,48 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: test
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web-2
+  namespace: test
+  labels:
+    app: web-2
+spec:
+  selector:
+    matchLabels:
+      app: web-2
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: web-2
+    spec:
+      containers:
+        - name: echoserver
+          image: ghcr.io/wzshiming/echoserver/echoserver:v0.0.1
+          env:
+            - name: MESSAGE
+              value: "cluster-2"
+          ports:
+            - containerPort: 8080
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: web-2
+  namespace: test
+  labels:
+    app: web-2
+    ferry.zsm.io/export: "true"
+spec:
+  selector:
+    app: web-2
+  ports:
+    - name: http-8080
+      port: 8080
+    - name: http-80
+      port: 80
+      targetPort: 8080

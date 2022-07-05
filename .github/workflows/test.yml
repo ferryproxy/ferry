@@ -11,9 +11,7 @@ jobs:
   build-ferrctl:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
-      with:
-        repository: ferry-proxy/ferryctl
+    - uses: actions/checkout@v3
 
     - name: Set up Go
       uses: actions/setup-go@v2
@@ -29,31 +27,28 @@ jobs:
         name: test
         path: ferryctl
 
-  build-ferry:
+  build-ferry-controller:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
-      with:
-        repository: ferry-proxy/ferry
+    - uses: actions/checkout@v3
 
     - run: |
-        docker build -t ferry:test . && docker save -o ferry.tar ferry:test
+        docker build -t ferry-controller:test -f ./images/ferry-controller/Dockerfile . && docker save -o ferry-controller.tar ferry-controller:test
 
     - name: Upload ferry
       uses: actions/upload-artifact@v2
       with:
         name: test
-        path: ferry.tar
+        path: ferry-controller.tar
 
   build-ferry-tunnel:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
-      with:
-        repository: ferry-proxy/ferry-tunnel
+    - uses: actions/checkout@v3
 
     - run: |
-        docker build -t ferry-tunnel:test . && docker save -o ferry-tunnel.tar ferry-tunnel:test
+        docker build -t ferry-tunnel:test -f ./images/ferry-tunnel/Dockerfile . && docker save -o ferry-tunnel.tar ferry-tunnel:test
+
     - name: Upload ferry-tunnel
       uses: actions/upload-artifact@v2
       with:
@@ -64,12 +59,10 @@ jobs:
     runs-on: ubuntu-latest
     needs:
     - build-ferrctl
-    - build-ferry
+    - build-ferry-controller
     - build-ferry-tunnel
     steps:
-    - uses: actions/checkout@v2
-      with:
-        repository: ferry-proxy/test
+    - uses: actions/checkout@v3
 
     - name: Download for test
       uses: actions/download-artifact@v2
@@ -79,27 +72,25 @@ jobs:
     - name: Setup
       run: |
         cp ferryctl /usr/local/bin/ferryctl && chmod +x /usr/local/bin/ferryctl
-        docker load -i ferry.tar
+        docker load -i ferry-controller.tar
         docker load -i ferry-tunnel.tar
 
     - name: Start cluster
       run: |
         ulimit -n 4096
-        ./hack/start-environment.sh default
+        ./test/hack/start-environment.sh default
 
     - name: Test both
-      run: ./test/test-both.sh
+      run: ./test/test/test-both.sh
 
   test-reverse:
     runs-on: ubuntu-latest
     needs:
       - build-ferrctl
-      - build-ferry
+      - build-ferry-controller
       - build-ferry-tunnel
     steps:
-      - uses: actions/checkout@v2
-        with:
-          repository: ferry-proxy/test
+      - uses: actions/checkout@v3
 
       - name: Download for test
         uses: actions/download-artifact@v2
@@ -109,27 +100,25 @@ jobs:
       - name: Setup
         run: |
           cp ferryctl /usr/local/bin/ferryctl && chmod +x /usr/local/bin/ferryctl
-          docker load -i ferry.tar
+          docker load -i ferry-controller.tar
           docker load -i ferry-tunnel.tar
 
       - name: Start cluster
         run: |
           ulimit -n 4096
-          ./hack/start-environment.sh reverse
+          ./test/hack/start-environment.sh reverse
 
       - name: Test both
-        run: ./test/test-both.sh
+        run: ./test/test/test-both.sh
 
   test-traversal:
     runs-on: ubuntu-latest
     needs:
     - build-ferrctl
-    - build-ferry
+    - build-ferry-controller
     - build-ferry-tunnel
     steps:
-    - uses: actions/checkout@v2
-      with:
-        repository: ferry-proxy/test
+    - uses: actions/checkout@v3
 
     - name: Download for test
       uses: actions/download-artifact@v2
@@ -139,13 +128,13 @@ jobs:
     - name: Setup
       run: |
         cp ferryctl /usr/local/bin/ferryctl && chmod +x /usr/local/bin/ferryctl
-        docker load -i ferry.tar
+        docker load -i ferry-controller.tar
         docker load -i ferry-tunnel.tar
 
     - name: Start cluster
       run: |
         ulimit -n 4096
-        ./hack/start-environment.sh traversal
+        ./test/hack/start-environment.sh traversal
 
     - name: Test thrin
-      run: ./test/test-thrin.sh
+      run: ./test/test/test-thrin.sh
