@@ -40,7 +40,8 @@ func NewBridge() *Bridge {
 // but this is only used for local development tests.
 
 func (c *Bridge) ForwardDial(ctx context.Context, address string, target string) error {
-	return chain.Bridge(ctx, Std,
+	bridge := chain.NewBridge(Std, false)
+	return bridge.Bridge(ctx,
 		[]string{
 			address,
 		},
@@ -49,12 +50,12 @@ func (c *Bridge) ForwardDial(ctx context.Context, address string, target string)
 			"ssh://127.0.0.1:31088",
 			"cmd: kubectl --kubeconfig " + vars.KubeconfigPath + " exec service/ferry-tunnel -i -n ferry-tunnel-system -- nc %h %p",
 		},
-		false,
 	)
 }
 
 func (c *Bridge) ForwardListen(ctx context.Context, address string, target string) error {
-	return chain.Bridge(ctx, Std,
+	bridge := chain.NewBridge(Std, false)
+	return bridge.Bridge(ctx,
 		[]string{
 			address,
 			"ssh://127.0.0.1:31088",
@@ -63,12 +64,12 @@ func (c *Bridge) ForwardListen(ctx context.Context, address string, target strin
 		[]string{
 			target,
 		},
-		false,
 	)
 }
 
 func (c *Bridge) ForwardProxy(ctx context.Context, address string) error {
-	return chain.Bridge(ctx, Std,
+	bridge := chain.NewBridge(Std, false)
+	return bridge.Bridge(ctx,
 		[]string{
 			address,
 		},
@@ -77,6 +78,5 @@ func (c *Bridge) ForwardProxy(ctx context.Context, address string) error {
 			"ssh://127.0.0.1:31088",
 			"cmd: kubectl --kubeconfig " + vars.KubeconfigPath + " exec service/ferry-tunnel -i -n ferry-tunnel-system -- nc %h %p",
 		},
-		false,
 	)
 }
