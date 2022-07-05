@@ -1,11 +1,3 @@
 
 resources:
 - svc.yaml
-- https://github.com/ferry-proxy/ferry-tunnel/config/default
-- https://github.com/ferry-proxy/ferry/config/default
-
-images:
-- name: ghcr.io/ferry-proxy/ferry
-  newTag: test
-- name: ghcr.io/ferry-proxy/ferry-tunnel
-  newTag: test
