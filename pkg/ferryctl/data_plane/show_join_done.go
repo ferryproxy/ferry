@@ -9,13 +9,13 @@ import (
 )
 
 type ShowJoinDoneConfig struct {
-	ControlPlaneName               string
-	DataPlaneName                  string
-	DataPlaneReachable             bool
-	DataPlaneApiserverAddress      string
-	DataPlaneTunnelAddress         string
-	DataPlaneNavigationClusterName string
-	DataPlaneReceptionClusterName  string
+	ControlPlaneName           string
+	DataPlaneName              string
+	DataPlaneReachable         bool
+	DataPlaneApiserverAddress  string
+	DataPlaneTunnelAddress     string
+	DataPlaneNavigationHubName string
+	DataPlaneReceptionHubName  string
 }
 
 func ShowJoinDone(ctx context.Context, conf ShowJoinDoneConfig) error {
@@ -23,13 +23,13 @@ func ShowJoinDone(ctx context.Context, conf ShowJoinDoneConfig) error {
 	if err != nil {
 		return err
 	}
-	ci, err := third.BuildClusterInformation(third.BuildClusterInformationConfig{
-		DataPlaneName:                  conf.DataPlaneName,
-		DataPlaneReachable:             conf.DataPlaneReachable,
-		DataPlaneTunnelAddress:         conf.DataPlaneTunnelAddress,
-		DataPlaneNavigationClusterName: conf.DataPlaneNavigationClusterName,
-		DataPlaneReceptionClusterName:  conf.DataPlaneReceptionClusterName,
-		DataPlaneKubeconfig:            kubeconfig,
+	ci, err := third.BuildHub(third.BuildHubConfig{
+		DataPlaneName:              conf.DataPlaneName,
+		DataPlaneReachable:         conf.DataPlaneReachable,
+		DataPlaneTunnelAddress:     conf.DataPlaneTunnelAddress,
+		DataPlaneNavigationHubName: conf.DataPlaneNavigationHubName,
+		DataPlaneReceptionHubName:  conf.DataPlaneReceptionHubName,
+		DataPlaneKubeconfig:        kubeconfig,
 	})
 	if err != nil {
 		return err
@@ -43,8 +43,8 @@ func ShowJoinDone(ctx context.Context, conf ShowJoinDoneConfig) error {
 	if conf.DataPlaneTunnelAddress != "" {
 		fmt.Printf("# Tunnel: %s\n", conf.DataPlaneTunnelAddress)
 	}
-	if conf.DataPlaneNavigationClusterName != "" {
-		fmt.Printf("# Proxy: %s\n", conf.DataPlaneNavigationClusterName)
+	if conf.DataPlaneNavigationHubName != "" {
+		fmt.Printf("# Proxy: %s\n", conf.DataPlaneNavigationHubName)
 	}
 	fmt.Printf("# =============================================\n")
 	fmt.Printf("echo %s | base64 --decode | kubectl apply -f -\n", baseCmd)

@@ -1,4 +1,4 @@
-package cluster_information
+package route
 
 import (
 	"github.com/ferry-proxy/ferry/pkg/ferryctl/kubectl"
@@ -6,20 +6,19 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var example = "kubectl get clusterinformations.ferry.zsm.io -n ferry-system\n"
+var example = "kubectl get route.traffic.ferry.zsm.io -n ferry-system\n"
 
 func NewCommand(logger log.Logger) *cobra.Command {
 	cmd := &cobra.Command{
-		Use: "cluster-information",
+		Use: "route",
 		Aliases: []string{
-			"cluster",
-			"ci",
+			"r",
 		},
-		Short:   "Show cluster information",
+		Short:   "Show route",
 		Example: example,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			kctl := kubectl.NewKubectl()
-			return kctl.Wrap(cmd.Context(), "get", "clusterinformations.ferry.zsm.io", "-n", "ferry-system")
+			return kctl.Wrap(cmd.Context(), "get", "route.traffic.ferry.zsm.io", "-n", "ferry-system")
 		},
 	}
 	return cmd

@@ -1,4 +1,4 @@
-package mapping_rule
+package route
 
 import (
 	"context"
@@ -6,7 +6,7 @@ import (
 	"reflect"
 	"sync"
 
-	"github.com/ferry-proxy/api/apis/ferry/v1alpha1"
+	"github.com/ferry-proxy/api/apis/traffic/v1alpha2"
 	versioned "github.com/ferry-proxy/client-go/generated/clientset/versioned"
 	externalversions "github.com/ferry-proxy/client-go/generated/informers/externalversions"
 	"github.com/ferry-proxy/ferry/pkg/ferry-controller/router"
@@ -22,16 +22,16 @@ import (
 
 type ClusterCache interface {
 	ListServices(name string) []*corev1.Service
-	GetClusterInformation(name string) *v1alpha1.ClusterInformation
+	GetHub(name string) *v1alpha2.Hub
 	GetIdentity(name string) string
 	Clientset(name string) *kubernetes.Clientset
-	LoadPortPeer(importClusterName string, list *corev1.ServiceList)
-	GetPortPeer(importClusterName string, cluster, namespace, name string, port int32) int32
-	RegistryServiceCallback(exportClusterName, importClusterName string, cb func())
-	UnregistryServiceCallback(exportClusterName, importClusterName string)
+	LoadPortPeer(importHubName string, list *corev1.ServiceList)
+	GetPortPeer(importHubName string, cluster, namespace, name string, port int32) int32
+	RegistryServiceCallback(exportHubName, importHubName string, cb func())
+	UnregistryServiceCallback(exportHubName, importHubName string)
 }
 
-type MappingRuleControllerConfig struct {
+type RouteControllerConfig struct {
 	Logger       logr.Logger
 	Config       *restclient.Config
 	ClusterCache ClusterCache
@@ -39,35 +39,35 @@ type MappingRuleControllerConfig struct {
 	SyncFunc     func()
 }
 
-type MappingRuleController struct {
+type RouteController struct {
 	ctx                      context.Context
 	mut                      sync.RWMutex
 	config                   *restclient.Config
 	clientset                *versioned.Clientset
 	clusterCache             ClusterCache
-	cache                    map[string]*v1alpha1.MappingRule
+	cache                    map[string]*v1alpha2.Route
 	cacheDataPlaneController map[clusterPair]*dataPlaneController
-	cacheMappingRules        map[clusterPair][]*v1alpha1.MappingRule
+	cacheRoutes              map[clusterPair][]*v1alpha2.Route
 	namespace                string
 	syncFunc                 func()
 	logger                   logr.Logger
 }
 
-func NewMappingRuleController(conf *MappingRuleControllerConfig) *MappingRuleController {
-	return &MappingRuleController{
+func NewRouteController(conf *RouteControllerConfig) *RouteController {
+	return &RouteController{
 		config:                   conf.Config,
 		namespace:                conf.Namespace,
 		clusterCache:             conf.ClusterCache,
 		logger:                   conf.Logger,
 		syncFunc:                 conf.SyncFunc,
-		cache:                    map[string]*v1alpha1.MappingRule{},
+		cache:                    map[string]*v1alpha2.Route{},
 		cacheDataPlaneController: map[clusterPair]*dataPlaneController{},
-		cacheMappingRules:        map[clusterPair][]*v1alpha1.MappingRule{},
+		cacheRoutes:              map[clusterPair][]*v1alpha2.Route{},
 	}
 }
 
-func (c *MappingRuleController) list() []*v1alpha1.MappingRule {
-	var list []*v1alpha1.MappingRule
+func (c *RouteController) list() []*v1alpha2.Route {
+	var list []*v1alpha2.Route
 	for _, v := range c.cache {
 		item := c.cache[v.Name]
 		if item == nil {
@@ -78,9 +78,9 @@ func (c *MappingRuleController) list() []*v1alpha1.MappingRule {
 	return list
 }
 
-func (c *MappingRuleController) Run(ctx context.Context) error {
-	c.logger.Info("MappingRule controller started")
-	defer c.logger.Info("MappingRule controller stopped")
+func (c *RouteController) Run(ctx context.Context) error {
+	c.logger.Info("Route controller started")
+	defer c.logger.Info("Route controller stopped")
 
 	clientset, err := versioned.NewForConfig(c.config)
 	if err != nil {
@@ -91,9 +91,9 @@ func (c *MappingRuleController) Run(ctx context.Context) error {
 	informerFactory := externalversions.NewSharedInformerFactoryWithOptions(clientset, 0,
 		externalversions.WithNamespace(c.namespace))
 	informer := informerFactory.
-		Ferry().
-		V1alpha1().
-		MappingRules().
+		Traffic().
+		V1alpha2().
+		Routes().
 		Informer()
 	informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.onAdd,
@@ -105,30 +105,30 @@ func (c *MappingRuleController) Run(ctx context.Context) error {
 	return nil
 }
 
-func (c *MappingRuleController) updateStatus(name string, phase string) error {
+func (c *RouteController) updateStatus(name string, phase string) error {
 	fp := c.cache[name]
 	if fp == nil {
-		return fmt.Errorf("not found MappingRule %s", name)
+		return fmt.Errorf("not found Route %s", name)
 	}
 
 	fp = fp.DeepCopy()
 
 	fp.Status.LastSynchronizationTimestamp = metav1.Now()
-	fp.Status.Import = fmt.Sprintf("%s.%s.svc.%s", fp.Spec.Import.Service.Name, fp.Spec.Import.Service.Namespace, fp.Spec.Import.ClusterName)
-	fp.Status.Export = fmt.Sprintf("%s.%s.svc.%s", fp.Spec.Export.Service.Name, fp.Spec.Export.Service.Namespace, fp.Spec.Export.ClusterName)
+	fp.Status.Import = fmt.Sprintf("%s.%s/%s", fp.Spec.Import.Service.Name, fp.Spec.Import.Service.Namespace, fp.Spec.Import.HubName)
+	fp.Status.Export = fmt.Sprintf("%s.%s/%s", fp.Spec.Export.Service.Name, fp.Spec.Export.Service.Namespace, fp.Spec.Export.HubName)
 	fp.Status.Phase = phase
 	_, err := c.clientset.
-		FerryV1alpha1().
-		MappingRules(c.namespace).
+		TrafficV1alpha2().
+		Routes(fp.Namespace).
 		UpdateStatus(c.ctx, fp, metav1.UpdateOptions{})
 	return err
 }
 
-func (c *MappingRuleController) onAdd(obj interface{}) {
-	f := obj.(*v1alpha1.MappingRule)
+func (c *RouteController) onAdd(obj interface{}) {
+	f := obj.(*v1alpha2.Route)
 	f = f.DeepCopy()
 	c.logger.Info("onAdd",
-		"MappingRule", objref.KObj(f),
+		"route", objref.KObj(f),
 	)
 
 	c.mut.Lock()
@@ -144,11 +144,11 @@ func (c *MappingRuleController) onAdd(obj interface{}) {
 	}
 }
 
-func (c *MappingRuleController) onUpdate(oldObj, newObj interface{}) {
-	f := newObj.(*v1alpha1.MappingRule)
+func (c *RouteController) onUpdate(oldObj, newObj interface{}) {
+	f := newObj.(*v1alpha2.Route)
 	f = f.DeepCopy()
 	c.logger.Info("onUpdate",
-		"MappingRule", objref.KObj(f),
+		"route", objref.KObj(f),
 	)
 
 	c.mut.Lock()
@@ -163,12 +163,16 @@ func (c *MappingRuleController) onUpdate(oldObj, newObj interface{}) {
 
 	c.syncFunc()
 
+	err := c.updateStatus(f.Name, "Pending")
+	if err != nil {
+		c.logger.Error(err, "failed to update status")
+	}
 }
 
-func (c *MappingRuleController) onDelete(obj interface{}) {
-	f := obj.(*v1alpha1.MappingRule)
+func (c *RouteController) onDelete(obj interface{}) {
+	f := obj.(*v1alpha2.Route)
 	c.logger.Info("onDelete",
-		"MappingRule", objref.KObj(f),
+		"route", objref.KObj(f),
 	)
 
 	c.mut.Lock()
@@ -177,26 +181,21 @@ func (c *MappingRuleController) onDelete(obj interface{}) {
 	delete(c.cache, f.Name)
 
 	c.syncFunc()
-
-	err := c.updateStatus(f.Name, "Pending")
-	if err != nil {
-		c.logger.Error(err, "failed to update status")
-	}
 }
 
-func (c *MappingRuleController) Sync(ctx context.Context) {
+func (c *RouteController) Sync(ctx context.Context) {
 	c.mut.RLock()
 	defer c.mut.RUnlock()
 
-	mappingRules := c.list()
+	routes := c.list()
 
-	newerMappingRules := groupMappingRules(mappingRules)
+	newerRoutes := groupRoutes(routes)
 	defer func() {
-		c.cacheMappingRules = newerMappingRules
+		c.cacheRoutes = newerRoutes
 	}()
 	logger := c.logger.WithName("sync")
 
-	updated, deleted := calculateMappingRulesPatch(c.cacheMappingRules, newerMappingRules)
+	updated, deleted := calculateRoutesPatch(c.cacheRoutes, newerRoutes)
 
 	for _, key := range deleted {
 		logger := logger.WithValues("export", key.Export, "import", key.Import)
@@ -213,11 +212,11 @@ func (c *MappingRuleController) Sync(ctx context.Context) {
 			continue
 		}
 
-		dataPlane.SetMappingRules(newerMappingRules[key])
+		dataPlane.SetRoutes(newerRoutes[key])
 
 		dataPlane.Sync()
 
-		for _, rule := range newerMappingRules[key] {
+		for _, rule := range newerRoutes[key] {
 			err := c.updateStatus(rule.Name, "Worked")
 			if err != nil {
 				c.logger.Error(err, "failed to update status")
@@ -227,7 +226,7 @@ func (c *MappingRuleController) Sync(ctx context.Context) {
 	return
 }
 
-func (c *MappingRuleController) cleanupDataPlane(key clusterPair) {
+func (c *RouteController) cleanupDataPlane(key clusterPair) {
 	dataPlane := c.cacheDataPlaneController[key]
 	if dataPlane != nil {
 		dataPlane.Close()
@@ -235,7 +234,7 @@ func (c *MappingRuleController) cleanupDataPlane(key clusterPair) {
 	}
 }
 
-func (c *MappingRuleController) startDataPlane(ctx context.Context, key clusterPair) (*dataPlaneController, error) {
+func (c *RouteController) startDataPlane(ctx context.Context, key clusterPair) (*dataPlaneController, error) {
 	dataPlane := c.cacheDataPlaneController[key]
 	if dataPlane != nil {
 		return dataPlane, nil
@@ -250,20 +249,20 @@ func (c *MappingRuleController) startDataPlane(ctx context.Context, key clusterP
 		return nil, fmt.Errorf("not found clientset %q", key.Import)
 	}
 
-	exportCluster := c.clusterCache.GetClusterInformation(key.Export)
+	exportCluster := c.clusterCache.GetHub(key.Export)
 	if exportCluster == nil {
 		return nil, fmt.Errorf("not found cluster information %q", key.Export)
 	}
 
-	importCluster := c.clusterCache.GetClusterInformation(key.Import)
+	importCluster := c.clusterCache.GetHub(key.Import)
 	if importCluster == nil {
 		return nil, fmt.Errorf("not found cluster information %q", key.Import)
 	}
 
 	dataPlane = newDataPlaneController(dataPlaneControllerConfig{
 		ClusterCache:               c.clusterCache,
-		ImportClusterName:          key.Import,
-		ExportClusterName:          key.Export,
+		ImportHubName:              key.Import,
+		ExportHubName:              key.Export,
 		ExportClientset:            exportClientset,
 		ImportClientset:            importClientset,
 		SourceResourceBuilder:      router.ResourceBuilders{original.IngressBuilder},
@@ -281,25 +280,25 @@ func (c *MappingRuleController) startDataPlane(ctx context.Context, key clusterP
 	return dataPlane, nil
 }
 
-func groupMappingRules(rules []*v1alpha1.MappingRule) map[clusterPair][]*v1alpha1.MappingRule {
-	mapping := map[clusterPair][]*v1alpha1.MappingRule{}
+func groupRoutes(rules []*v1alpha2.Route) map[clusterPair][]*v1alpha2.Route {
+	mapping := map[clusterPair][]*v1alpha2.Route{}
 
 	for _, spec := range rules {
 		rule := spec.Spec
 		export := rule.Export
 		impor := rule.Import
 
-		if export.ClusterName == "" || impor.ClusterName == "" || impor.ClusterName == export.ClusterName {
+		if export.HubName == "" || impor.HubName == "" || impor.HubName == export.HubName {
 			continue
 		}
 
 		key := clusterPair{
-			Export: rule.Export.ClusterName,
-			Import: rule.Import.ClusterName,
+			Export: rule.Export.HubName,
+			Import: rule.Import.HubName,
 		}
 
 		if _, ok := mapping[key]; !ok {
-			mapping[key] = []*v1alpha1.MappingRule{}
+			mapping[key] = []*v1alpha2.Route{}
 		}
 
 		mapping[key] = append(mapping[key], spec)
@@ -312,7 +311,7 @@ type clusterPair struct {
 	Import string
 }
 
-func calculateMappingRulesPatch(older, newer map[clusterPair][]*v1alpha1.MappingRule) (updated, deleted []clusterPair) {
+func calculateRoutesPatch(older, newer map[clusterPair][]*v1alpha2.Route) (updated, deleted []clusterPair) {
 	exist := map[clusterPair]struct{}{}
 
 	for key := range older {

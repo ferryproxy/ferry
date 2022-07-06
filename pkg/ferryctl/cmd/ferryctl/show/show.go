@@ -3,9 +3,9 @@ package show
 import (
 	"fmt"
 
-	"github.com/ferry-proxy/ferry/pkg/ferryctl/cmd/ferryctl/show/cluster_information"
-	"github.com/ferry-proxy/ferry/pkg/ferryctl/cmd/ferryctl/show/mapping_rule"
+	"github.com/ferry-proxy/ferry/pkg/ferryctl/cmd/ferryctl/show/hub"
 	"github.com/ferry-proxy/ferry/pkg/ferryctl/cmd/ferryctl/show/policy"
+	"github.com/ferry-proxy/ferry/pkg/ferryctl/cmd/ferryctl/show/route"
 	"github.com/ferry-proxy/ferry/pkg/ferryctl/cmd/ferryctl/show/tunnel"
 	"github.com/ferry-proxy/ferry/pkg/ferryctl/log"
 	"github.com/spf13/cobra"
@@ -23,8 +23,8 @@ func NewCommand(logger log.Logger) *cobra.Command {
 		},
 	}
 	cmd.AddCommand(
-		cluster_information.NewCommand(logger),
-		mapping_rule.NewCommand(logger),
+		hub.NewCommand(logger),
+		route.NewCommand(logger),
 		policy.NewCommand(logger),
 		tunnel.NewCommand(logger),
 	)

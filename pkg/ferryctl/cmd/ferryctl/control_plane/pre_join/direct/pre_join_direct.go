@@ -37,16 +37,6 @@ func NewCommand(logger log.Logger) *cobra.Command {
 				return err
 			}
 
-			err = control_plane.ClusterPreJoin(cmd.Context(), control_plane.ClusterPreJoinConfig{
-				DataPlaneName:       dataPlaneName,
-				DataPlaneIdentity:   identity,
-				DataPlaneAuthorized: authorized,
-				DataPlaneHostkey:    identity,
-			})
-			if err != nil {
-				return err
-			}
-
 			err = control_plane.ShowJoinWithDirect(cmd.Context(), control_plane.ShowJoinWithDirectConfig{
 				DataPlaneName:             dataPlaneName,
 				DataPlaneApiserverAddress: dataPlaneApiserverAddress,

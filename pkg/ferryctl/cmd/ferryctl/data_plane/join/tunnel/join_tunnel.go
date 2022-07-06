@@ -31,12 +31,12 @@ func NewCommand(logger log.Logger) *cobra.Command {
 
 			dataPlaneApiserverAddress := fmt.Sprintf("%s-apiserver.ferry-tunnel-system.svc:443", name)
 			err := data_plane.ShowJoinDone(cmd.Context(), data_plane.ShowJoinDoneConfig{
-				ControlPlaneName:               vars.ControlPlaneName,
-				DataPlaneName:                  name,
-				DataPlaneReachable:             dataPlaneReachable,
-				DataPlaneApiserverAddress:      dataPlaneApiserverAddress,
-				DataPlaneNavigationClusterName: vars.ControlPlaneName,
-				DataPlaneReceptionClusterName:  vars.ControlPlaneName,
+				ControlPlaneName:           vars.ControlPlaneName,
+				DataPlaneName:              name,
+				DataPlaneReachable:         dataPlaneReachable,
+				DataPlaneApiserverAddress:  dataPlaneApiserverAddress,
+				DataPlaneNavigationHubName: vars.ControlPlaneName,
+				DataPlaneReceptionHubName:  vars.ControlPlaneName,
 			})
 			if err != nil {
 				return err

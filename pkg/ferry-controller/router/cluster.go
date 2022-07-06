@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/ferry-proxy/api/apis/ferry/v1alpha1"
+	"github.com/ferry-proxy/api/apis/traffic/v1alpha2"
 	versioned "github.com/ferry-proxy/client-go/generated/clientset/versioned"
 	"github.com/ferry-proxy/ferry/pkg/consts"
 	"github.com/ferry-proxy/ferry/pkg/ferry-controller/utils"
@@ -42,8 +42,8 @@ type Proxy struct {
 
 	TunnelNamespace string
 
-	ImportClusterName string
-	ExportClusterName string
+	ImportHubName string
+	ExportHubName string
 
 	Labels map[string]string
 
@@ -65,15 +65,15 @@ type Resourcer interface {
 	Delete(ctx context.Context, clientset *kubernetes.Clientset) (err error)
 }
 
-type MappingRule struct {
-	*v1alpha1.MappingRule
+type Route struct {
+	*v1alpha2.Route
 }
 
-func (rule *MappingRule) Apply(ctx context.Context, clientset *versioned.Clientset) (err error) {
+func (rule *Route) Apply(ctx context.Context, clientset *versioned.Clientset) (err error) {
 	logger := logr.FromContextOrDiscard(ctx)
 	ori, err := clientset.
-		FerryV1alpha1().
-		MappingRules(rule.Namespace).
+		TrafficV1alpha2().
+		Routes(rule.Namespace).
 		Get(ctx, rule.Name, metav1.GetOptions{})
 	if err != nil {
 		if !errors.IsNotFound(err) {
@@ -81,9 +81,9 @@ func (rule *MappingRule) Apply(ctx context.Context, clientset *versioned.Clients
 		}
 		logger.Info("Creating Service", "Service", objref.KObj(rule))
 		_, err = clientset.
-			FerryV1alpha1().
-			MappingRules(rule.Namespace).
-			Create(ctx, rule.MappingRule, metav1.CreateOptions{
+			TrafficV1alpha2().
+			Routes(rule.Namespace).
+			Create(ctx, rule.Route, metav1.CreateOptions{
 				FieldManager: consts.LabelFerryManagedByValue,
 			})
 		if err != nil {
@@ -91,8 +91,8 @@ func (rule *MappingRule) Apply(ctx context.Context, clientset *versioned.Clients
 		}
 	} else {
 		_, err = clientset.
-			FerryV1alpha1().
-			MappingRules(rule.Namespace).
+			TrafficV1alpha2().
+			Routes(rule.Namespace).
 			Update(ctx, ori, metav1.UpdateOptions{
 				FieldManager: consts.LabelFerryManagedByValue,
 			})
@@ -103,13 +103,13 @@ func (rule *MappingRule) Apply(ctx context.Context, clientset *versioned.Clients
 	return nil
 }
 
-func (rule *MappingRule) Delete(ctx context.Context, clientset *versioned.Clientset) (err error) {
+func (rule *Route) Delete(ctx context.Context, clientset *versioned.Clientset) (err error) {
 	logger := logr.FromContextOrDiscard(ctx)
 	logger.Info("Deleting Service", "Service", objref.KObj(rule))
 
 	err = clientset.
-		FerryV1alpha1().
-		MappingRules(rule.Namespace).
+		TrafficV1alpha2().
+		Routes(rule.Namespace).
 		Delete(ctx, rule.Name, metav1.DeleteOptions{})
 	if err != nil && !errors.IsNotFound(err) {
 		return fmt.Errorf("delete mapping rule  %s: %w", objref.KObj(rule), err)

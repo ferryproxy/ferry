@@ -103,7 +103,7 @@ func (clientProxyBuilder) Build(proxy *router.Proxy, origin, destination objref.
 
 	resourcers := []router.Resourcer{}
 
-	name := fmt.Sprintf("%s-%s-%s-%s-%s-%s-tunnel-client", proxy.ImportClusterName, destination.Namespace, destination.Name, proxy.ExportClusterName, origin.Namespace, origin.Name)
+	name := fmt.Sprintf("%s-%s-%s-%s-%s-%s-tunnel-client", proxy.ImportHubName, destination.Namespace, destination.Name, proxy.ExportHubName, origin.Namespace, origin.Name)
 	configMap := corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -118,7 +118,7 @@ func (clientProxyBuilder) Build(proxy *router.Proxy, origin, destination objref.
 			continue
 		}
 		svcPort := proxy.GetPortFunc(origin.Namespace, origin.Name, port.Port)
-		virtualName := fmt.Sprintf("unix:///dev/shm/%s-%s-%s-%s-%s-%s-%d-%d-tunnel.socks", proxy.ImportClusterName, destination.Namespace, destination.Name, proxy.ExportClusterName, origin.Namespace, origin.Name, port.Port, svcPort)
+		virtualName := fmt.Sprintf("unix:///dev/shm/%s-%s-%s-%s-%s-%s-%d-%d-tunnel.socks", proxy.ImportHubName, destination.Namespace, destination.Name, proxy.ExportHubName, origin.Namespace, origin.Name, port.Port, svcPort)
 
 		chain := Chain{
 			Bind: []string{
@@ -151,7 +151,7 @@ func (clientBuilder) Build(proxy *router.Proxy, origin, destination objref.Objec
 
 	resourcers := []router.Resourcer{}
 
-	name := fmt.Sprintf("%s-%s-%s-%s-%s-%s-tunnel-client", proxy.ImportClusterName, destination.Namespace, destination.Name, proxy.ExportClusterName, origin.Namespace, origin.Name)
+	name := fmt.Sprintf("%s-%s-%s-%s-%s-%s-tunnel-client", proxy.ImportHubName, destination.Namespace, destination.Name, proxy.ExportHubName, origin.Namespace, origin.Name)
 	configMap := corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -224,7 +224,7 @@ func (serverProxyBuilder) Build(proxy *router.Proxy, origin, destination objref.
 
 	resourcers := []router.Resourcer{}
 
-	name := fmt.Sprintf("%s-%s-%s-%s-%s-%s-tunnel-server", proxy.ImportClusterName, destination.Namespace, destination.Name, proxy.ExportClusterName, origin.Namespace, origin.Name)
+	name := fmt.Sprintf("%s-%s-%s-%s-%s-%s-tunnel-server", proxy.ImportHubName, destination.Namespace, destination.Name, proxy.ExportHubName, origin.Namespace, origin.Name)
 
 	configMap := corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
@@ -241,7 +241,7 @@ func (serverProxyBuilder) Build(proxy *router.Proxy, origin, destination objref.
 		}
 
 		svcPort := proxy.GetPortFunc(origin.Namespace, origin.Name, port.Port)
-		virtualName := fmt.Sprintf("unix:///dev/shm/%s-%s-%s-%s-%s-%s-%d-%d-tunnel.socks", proxy.ImportClusterName, destination.Namespace, destination.Name, proxy.ExportClusterName, origin.Namespace, origin.Name, port.Port, svcPort)
+		virtualName := fmt.Sprintf("unix:///dev/shm/%s-%s-%s-%s-%s-%s-%d-%d-tunnel.socks", proxy.ImportHubName, destination.Namespace, destination.Name, proxy.ExportHubName, origin.Namespace, origin.Name, port.Port, svcPort)
 
 		chain := Chain{
 			Bind: append([]string{virtualName}, proxy.ExportProxy...),
@@ -274,7 +274,7 @@ func (serverBuilder) Build(proxy *router.Proxy, origin, destination objref.Objec
 
 	resourcers := []router.Resourcer{}
 
-	name := fmt.Sprintf("%s-%s-%s-%s-%s-%s-tunnel-server", proxy.ImportClusterName, destination.Namespace, destination.Name, proxy.ExportClusterName, origin.Namespace, origin.Name)
+	name := fmt.Sprintf("%s-%s-%s-%s-%s-%s-tunnel-server", proxy.ImportHubName, destination.Namespace, destination.Name, proxy.ExportHubName, origin.Namespace, origin.Name)
 
 	configMap := corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
