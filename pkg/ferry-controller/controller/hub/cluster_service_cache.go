@@ -1,4 +1,4 @@
-package cluster_information
+package hub
 
 import (
 	"context"

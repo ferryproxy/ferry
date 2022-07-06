@@ -5,32 +5,28 @@ source "$(dirname "${BASH_SOURCE}")/helpers.sh"
 function check-both() {
   echo "::group::Check both"
   resource-apply control-plane <<EOF
-apiVersion: ferry.zsm.io/v1alpha1
-kind: FerryPolicy
+apiVersion: traffic.ferry.zsm.io/v1alpha2
+kind: RoutePolicy
 metadata:
   name: ferry-test
   namespace: ferry-system
 spec:
-  rules:
-    - exports:
-        - clusterName: cluster-2
-          match:
-            labels:
-              app: web-2
-      imports:
-        - clusterName: cluster-1
-
-    - exports:
-        - clusterName: cluster-1
-          match:
-            labels:
-              app: web-1
-      imports:
-        - clusterName: cluster-2
+  exports:
+    - hubName: cluster-2
+      service:
+        labels:
+          app: web-2
+    - hubName: cluster-1
+      service:
+        labels:
+          app: web-1
+  imports:
+    - hubName: cluster-1
+    - hubName: cluster-2
 EOF
 
   sleep 30
-  fetch-mapping-rule control-plane
+  fetch-route control-plane
 
   fetch-tunnel-config cluster-2
   fetch-tunnel-config cluster-1
@@ -49,24 +45,23 @@ EOF
 function check-2-to-1() {
   echo "::group::Check 2 to 1"
   resource-apply control-plane <<EOF
-apiVersion: ferry.zsm.io/v1alpha1
-kind: FerryPolicy
+apiVersion: traffic.ferry.zsm.io/v1alpha2
+kind: RoutePolicy
 metadata:
   name: ferry-test
   namespace: ferry-system
 spec:
-  rules:
-    - exports:
-        - clusterName: cluster-2
-          match:
-            labels:
-              app: web-2
-      imports:
-        - clusterName: cluster-1
+  exports:
+    - hubName: cluster-2
+      service:
+        labels:
+          app: web-2
+  imports:
+    - hubName: cluster-1
 EOF
 
   sleep 30
-  fetch-mapping-rule control-plane
+  fetch-route control-plane
 
   fetch-tunnel-config cluster-2
   fetch-tunnel-config cluster-1
@@ -85,24 +80,23 @@ EOF
 function check-1-to-2() {
   echo "::group::Check 1 to 2"
   resource-apply control-plane <<EOF
-apiVersion: ferry.zsm.io/v1alpha1
-kind: FerryPolicy
+apiVersion: traffic.ferry.zsm.io/v1alpha2
+kind: RoutePolicy
 metadata:
   name: ferry-test
   namespace: ferry-system
 spec:
-  rules:
-    - exports:
-        - clusterName: cluster-1
-          match:
-            labels:
-              app: web-1
-      imports:
-        - clusterName: cluster-2
+  exports:
+    - hubName: cluster-1
+      service:
+        labels:
+          app: web-1
+  imports:
+    - hubName: cluster-2
 EOF
 
   sleep 30
-  fetch-mapping-rule control-plane
+  fetch-route control-plane
 
   fetch-tunnel-config cluster-2
   fetch-tunnel-config cluster-1
@@ -121,24 +115,23 @@ EOF
 function check-0-to-1() {
   echo "::group::Check 0 to 1"
   resource-apply control-plane <<EOF
-apiVersion: ferry.zsm.io/v1alpha1
-kind: FerryPolicy
+apiVersion: traffic.ferry.zsm.io/v1alpha2
+kind: RoutePolicy
 metadata:
   name: ferry-test
   namespace: ferry-system
 spec:
-  rules:
-    - exports:
-        - clusterName: control-plane
-          match:
-            labels:
-              app: web-0
-      imports:
-        - clusterName: cluster-1
+  exports:
+    - hubName: control-plane
+      service:
+        labels:
+          app: web-0
+  imports:
+    - hubName: cluster-1
 EOF
 
   sleep 30
-  fetch-mapping-rule control-plane
+  fetch-route control-plane
 
   fetch-tunnel-config control-plane
   fetch-tunnel-config cluster-1
@@ -157,24 +150,23 @@ EOF
 function check-1-to-0() {
   echo "::group::Check 1 to 0"
   resource-apply control-plane <<EOF
-apiVersion: ferry.zsm.io/v1alpha1
-kind: FerryPolicy
+apiVersion: traffic.ferry.zsm.io/v1alpha2
+kind: RoutePolicy
 metadata:
   name: ferry-test
   namespace: ferry-system
 spec:
-  rules:
-    - exports:
-        - clusterName: cluster-1
-          match:
-            labels:
-              app: web-1
-      imports:
-        - clusterName: control-plane
+  exports:
+    - hubName: cluster-1
+      service:
+        labels:
+          app: web-1
+  imports:
+    - hubName: control-plane
 EOF
 
   sleep 30
-  fetch-mapping-rule control-plane
+  fetch-route control-plane
 
   fetch-tunnel-config control-plane
   fetch-tunnel-config cluster-1
@@ -193,17 +185,18 @@ EOF
 function check-none() {
   echo "::group::Check none"
   resource-apply control-plane <<EOF
-apiVersion: ferry.zsm.io/v1alpha1
-kind: FerryPolicy
+apiVersion: traffic.ferry.zsm.io/v1alpha2
+kind: RoutePolicy
 metadata:
   name: ferry-test
   namespace: ferry-system
 spec:
-  rules: []
+  exports: []
+  imports: []
 EOF
 
   sleep 10
-  fetch-mapping-rule control-plane
+  fetch-route control-plane
 
   fetch-tunnel-config cluster-2
   fetch-tunnel-config cluster-1
@@ -229,9 +222,9 @@ show-cluster-info control-plane
 show-cluster-info cluster-2
 show-cluster-info cluster-1
 
-show-ferry-info control-plane
-show-ferry-info cluster-2
-show-ferry-info cluster-1
+show-hub control-plane
+show-hub cluster-2
+show-hub cluster-1
 
 fetch-controller-log control-plane &
 fetch-tunnel-log control-plane &

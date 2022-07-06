@@ -1,7 +1,7 @@
 package consts
 
 const (
-	LabelPrefix                        = "ferry.zsm.io/"
+	LabelPrefix                        = "traffic.ferry.zsm.io/"
 	LabelFerryExportedFromKey          = LabelPrefix + "exported-from"
 	LabelFerryExportedFromNamespaceKey = LabelPrefix + "exported-from-namespace"
 	LabelFerryExportedFromNameKey      = LabelPrefix + "exported-from-name"

@@ -5,24 +5,24 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ferry-proxy/ferry/pkg/ferry-controller/controller/cluster_information"
-	"github.com/ferry-proxy/ferry/pkg/ferry-controller/controller/ferry_policty"
-	"github.com/ferry-proxy/ferry/pkg/ferry-controller/controller/mapping_rule"
+	"github.com/ferry-proxy/ferry/pkg/ferry-controller/controller/hub"
+	"github.com/ferry-proxy/ferry/pkg/ferry-controller/controller/route"
+	"github.com/ferry-proxy/ferry/pkg/ferry-controller/controller/route_policty"
 	"github.com/ferry-proxy/ferry/pkg/utils/trybuffer"
 	"github.com/go-logr/logr"
 	restclient "k8s.io/client-go/rest"
 )
 
 type Controller struct {
-	mut                          sync.Mutex
-	ctx                          context.Context
-	logger                       logr.Logger
-	config                       *restclient.Config
-	namespace                    string
-	clusterInformationController *cluster_information.ClusterInformationController
-	mappingRuleController        *mapping_rule.MappingRuleController
-	ferryPolicyController        *ferry_policty.FerryPolicyController
-	try                          *trybuffer.TryBuffer
+	mut                   sync.Mutex
+	ctx                   context.Context
+	logger                logr.Logger
+	config                *restclient.Config
+	namespace             string
+	hubController         *hub.HubController
+	routeController       *route.RouteController
+	routePolicyController *route_policty.RoutePolicyController
+	try                   *trybuffer.TryBuffer
 }
 
 type ControllerConfig struct {
@@ -44,52 +44,52 @@ func (c *Controller) Run(ctx context.Context) error {
 	c.ctx = ctx
 	c.try = trybuffer.NewTryBuffer(c.sync, time.Second/2)
 
-	clusterInformation := cluster_information.NewClusterInformationController(cluster_information.ClusterInformationControllerConfig{
+	hubController := hub.NewHubController(hub.HubControllerConfig{
 		Config:    c.config,
 		Namespace: c.namespace,
-		Logger:    c.logger.WithName("cluster-information"),
+		Logger:    c.logger.WithName("hub"),
 		SyncFunc:  c.try.Try,
 	})
-	c.clusterInformationController = clusterInformation
+	c.hubController = hubController
 
-	mappingRule := mapping_rule.NewMappingRuleController(&mapping_rule.MappingRuleControllerConfig{
+	routeController := route.NewRouteController(&route.RouteControllerConfig{
 		Config:       c.config,
 		Namespace:    c.namespace,
-		ClusterCache: clusterInformation,
-		Logger:       c.logger.WithName("mapping-rule"),
+		ClusterCache: hubController,
+		Logger:       c.logger.WithName("route"),
 		SyncFunc:     c.try.Try,
 	})
-	c.mappingRuleController = mappingRule
+	c.routeController = routeController
 
-	ferryPolicy := ferry_policty.NewFerryPolicyController(ferry_policty.FerryPolicyControllerConfig{
+	routePolicyController := route_policty.NewRoutePolicyController(route_policty.RoutePolicyControllerConfig{
 		Config:       c.config,
 		Namespace:    c.namespace,
-		ClusterCache: clusterInformation,
-		Logger:       c.logger.WithName("ferry-policy"),
+		ClusterCache: hubController,
+		Logger:       c.logger.WithName("route-policy"),
 		SyncFunc:     c.try.Try,
 	})
-	c.ferryPolicyController = ferryPolicy
+	c.routePolicyController = routePolicyController
 
 	go func() {
-		err := clusterInformation.Run(c.ctx)
+		err := hubController.Run(c.ctx)
 		if err != nil {
-			c.logger.Error(err, "Run ClusterInformationController")
+			c.logger.Error(err, "Run HubController")
 		}
 		cancel()
 	}()
 
 	go func() {
-		err := mappingRule.Run(c.ctx)
+		err := routeController.Run(c.ctx)
 		if err != nil {
-			c.logger.Error(err, "Run MappingRuleController")
+			c.logger.Error(err, "Run RouteController")
 		}
 		cancel()
 	}()
 
 	go func() {
-		err := ferryPolicy.Run(c.ctx)
+		err := routePolicyController.Run(c.ctx)
 		if err != nil {
-			c.logger.Error(err, "Run FerryPolicyController")
+			c.logger.Error(err, "Run RoutePolicyController")
 		}
 		cancel()
 	}()
@@ -118,7 +118,7 @@ func (c *Controller) sync() {
 	defer c.mut.Unlock()
 
 	ctx := c.ctx
-	c.ferryPolicyController.Sync(ctx)
+	c.routePolicyController.Sync(ctx)
 
-	c.mappingRuleController.Sync(ctx)
+	c.routeController.Sync(ctx)
 }

@@ -48,20 +48,6 @@ func ClusterInit(ctx context.Context, conf ClusterInitConfig) error {
 	if err != nil {
 		return err
 	}
-	initKey, err := BuildInitKey(BuildInitKeyConfig{
-		ClusterName: conf.ControlPlaneName,
-		Identity:    identity,
-		Authorized:  authorized,
-		Hostkey:     identity,
-	})
-	if err != nil {
-		return err
-	}
-
-	err = kctl.ApplyWithReader(ctx, strings.NewReader(initKey))
-	if err != nil {
-		return err
-	}
 
 	data, err := second.BuildJoin(second.BuildJoinConfig{
 		DataPlaneIdentity:   identity,
@@ -86,7 +72,7 @@ func ClusterInit(ctx context.Context, conf ClusterInitConfig) error {
 	if err != nil {
 		return err
 	}
-	ci, err := third.BuildClusterInformation(third.BuildClusterInformationConfig{
+	ci, err := third.BuildHub(third.BuildHubConfig{
 		DataPlaneName:          conf.ControlPlaneName,
 		DataPlaneReachable:     conf.ControlPlaneReachable,
 		DataPlaneTunnelAddress: conf.ControlPlaneTunnelAddress,

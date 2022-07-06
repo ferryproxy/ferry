@@ -155,7 +155,7 @@ func (c *Kubectl) GetTunnelAddress(ctx context.Context) (string, error) {
 }
 
 func (c *Kubectl) GetUnusedPort(ctx context.Context) (string, error) {
-	data, err := commandRun(ctx, "kubectl", "--kubeconfig", vars.KubeconfigPath, "get", "-A", "svc", "-l", "ferry.zsm.io/exported-from-ports", "-o", "jsonpath={$.items[*].spec.ports[*].targetPort}")
+	data, err := commandRun(ctx, "kubectl", "--kubeconfig", vars.KubeconfigPath, "get", "-A", "svc", "-l", "traffic.ferry.zsm.io/exported-from-ports", "-o", "jsonpath={$.items[*].spec.ports[*].targetPort}")
 	if err != nil {
 		return "", err
 	}

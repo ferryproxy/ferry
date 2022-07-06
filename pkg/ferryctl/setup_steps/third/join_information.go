@@ -6,16 +6,16 @@ import (
 	"github.com/ferry-proxy/ferry/pkg/ferryctl/utils"
 )
 
-type BuildClusterInformationConfig struct {
-	DataPlaneReachable             bool
-	DataPlaneName                  string
-	DataPlaneTunnelAddress         string
-	DataPlaneNavigationClusterName string
-	DataPlaneReceptionClusterName  string
-	DataPlaneKubeconfig            []byte
+type BuildHubConfig struct {
+	DataPlaneReachable         bool
+	DataPlaneName              string
+	DataPlaneTunnelAddress     string
+	DataPlaneNavigationHubName string
+	DataPlaneReceptionHubName  string
+	DataPlaneKubeconfig        []byte
 }
 
-func BuildClusterInformation(conf BuildClusterInformationConfig) (string, error) {
+func BuildHub(conf BuildHubConfig) (string, error) {
 	ci := utils.RenderString(joinInformationYaml, conf)
 	return ci, nil
 }

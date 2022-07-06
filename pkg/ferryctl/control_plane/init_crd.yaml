@@ -2,16 +2,16 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.4.1
+    controller-gen.kubebuilder.io/version: v0.9.2
   creationTimestamp: null
-  name: clusterinformations.ferry.zsm.io
+  name: hubs.traffic.ferry.zsm.io
 spec:
-  group: ferry.zsm.io
+  group: traffic.ferry.zsm.io
   names:
-    kind: ClusterInformation
-    listKind: ClusterInformationList
-    plural: clusterinformations
-    singular: clusterinformation
+    kind: Hub
+    listKind: HubList
+    plural: hubs
+    singular: hub
   scope: Namespaced
   versions:
     - additionalPrinterColumns:
@@ -24,11 +24,10 @@ spec:
         - jsonPath: .metadata.creationTimestamp
           name: age
           type: date
-      name: v1alpha1
+      name: v1alpha2
       schema:
         openAPIV3Schema:
-          description: ClusterInformation is the Schema for the clusterinformations
-            API
+          description: Hub is the Schema for the hubs API
           properties:
             apiVersion:
               description: 'APIVersion defines the versioned schema of this representation
@@ -43,27 +42,27 @@ spec:
             metadata:
               type: object
             spec:
-              description: ClusterInformationSpec defines the desired state of ClusterInformation
+              description: HubSpec defines the desired state of Hub
               properties:
                 gateway:
-                  description: Gateway is the default gateway of the cluster.
+                  description: Gateway is the default gateway of this Hub.
                   properties:
                     address:
                       description: Address is the address of the cluster.
                       type: string
                     navigation:
-                      description: Navigation is the navigation of the cluster.
+                      description: Navigation is the navigation of the Hub.
                       items:
-                        description: ClusterInformationSpecGatewayWay defines the desired
-                          state of ClusterInformationSpecGateway
+                        description: HubSpecGatewayWay defines the desired state of
+                          HubSpecGateway
                         properties:
-                          clusterName:
-                            description: ClusterName is the name of the cluster to proxy
-                              to. cannot be specified together with Proxy.
+                          hubName:
+                            description: HubName is the name of Hub to proxy. cannot
+                              be specified together with Proxy.
                             type: string
                           proxy:
                             description: Proxy is the proxy to use. cannot be specified
-                              together with ClusterName.
+                              together with HubName.
                             type: string
                         type: object
                       type: array
@@ -72,50 +71,44 @@ spec:
                         the default unreachable.
                       type: boolean
                     reception:
-                      description: Reception is the reception of the cluster.
+                      description: Reception is the reception of the Hub.
                       items:
-                        description: ClusterInformationSpecGatewayWay defines the desired
-                          state of ClusterInformationSpecGateway
+                        description: HubSpecGatewayWay defines the desired state of
+                          HubSpecGateway
                         properties:
-                          clusterName:
-                            description: ClusterName is the name of the cluster to proxy
-                              to. cannot be specified together with Proxy.
+                          hubName:
+                            description: HubName is the name of Hub to proxy. cannot
+                              be specified together with Proxy.
                             type: string
                           proxy:
                             description: Proxy is the proxy to use. cannot be specified
-                              together with ClusterName.
+                              together with HubName.
                             type: string
                         type: object
                       type: array
                   required:
                     - reachable
                   type: object
-                kubeconfig:
-                  description: Kubeconfig is the kubeconfig of the cluster, cannot be
-                    specified together with InCluster.
-                  format: byte
-                  type: string
                 override:
                   additionalProperties:
-                    description: ClusterInformationSpecGateway defines the desired state
-                      of ClusterInformation
+                    description: HubSpecGateway defines the desired state of Hub
                     properties:
                       address:
                         description: Address is the address of the cluster.
                         type: string
                       navigation:
-                        description: Navigation is the navigation of the cluster.
+                        description: Navigation is the navigation of the Hub.
                         items:
-                          description: ClusterInformationSpecGatewayWay defines the
-                            desired state of ClusterInformationSpecGateway
+                          description: HubSpecGatewayWay defines the desired state of
+                            HubSpecGateway
                           properties:
-                            clusterName:
-                              description: ClusterName is the name of the cluster to
-                                proxy to. cannot be specified together with Proxy.
+                            hubName:
+                              description: HubName is the name of Hub to proxy. cannot
+                                be specified together with Proxy.
                               type: string
                             proxy:
                               description: Proxy is the proxy to use. cannot be specified
-                                together with ClusterName.
+                                together with HubName.
                               type: string
                           type: object
                         type: array
@@ -124,32 +117,32 @@ spec:
                           the default unreachable.
                         type: boolean
                       reception:
-                        description: Reception is the reception of the cluster.
+                        description: Reception is the reception of the Hub.
                         items:
-                          description: ClusterInformationSpecGatewayWay defines the
-                            desired state of ClusterInformationSpecGateway
+                          description: HubSpecGatewayWay defines the desired state of
+                            HubSpecGateway
                           properties:
-                            clusterName:
-                              description: ClusterName is the name of the cluster to
-                                proxy to. cannot be specified together with Proxy.
+                            hubName:
+                              description: HubName is the name of Hub to proxy. cannot
+                                be specified together with Proxy.
                               type: string
                             proxy:
                               description: Proxy is the proxy to use. cannot be specified
-                                together with ClusterName.
+                                together with HubName.
                               type: string
                           type: object
                         type: array
                     required:
                       - reachable
                     type: object
-                  description: Override is will replace the default gateway that will
-                    reach the target
+                  description: Override will replace the peer default gateway, key is
+                    the peer Hub
                   type: object
               required:
                 - gateway
               type: object
             status:
-              description: ClusterInformationStatus defines the observed state of ClusterInformation
+              description: HubStatus defines the observed state of Hub
               properties:
                 conditions:
                   description: Conditions current service state
@@ -157,13 +150,12 @@ spec:
                     description: "Condition contains details for one aspect of the current
                     state of this API Resource. --- This struct is intended for direct
                     use as an array at the field path .status.conditions.  For example,
-                    type FooStatus struct{     // Represents the observations of a
-                    foo's current state.     // Known .status.conditions.type are:
-                    \"Available\", \"Progressing\", and \"Degraded\"     // +patchMergeKey=type
-                    \    // +patchStrategy=merge     // +listType=map     // +listMapKey=type
-                    \    Conditions []metav1.Condition `json:\"conditions,omitempty\"
-                    patchStrategy:\"merge\" patchMergeKey:\"type\" protobuf:\"bytes,1,rep,name=conditions\"`
-                    \n     // other fields }"
+                    type FooStatus struct{ // Represents the observations of a foo's
+                    current state. // Known .status.conditions.type are: \"Available\",
+                    \"Progressing\", and \"Degraded\" // +patchMergeKey=type // +patchStrategy=merge
+                    // +listType=map // +listMapKey=type Conditions []metav1.Condition
+                    `json:\"conditions,omitempty\" patchStrategy:\"merge\" patchMergeKey:\"type\"
+                    protobuf:\"bytes,1,rep,name=conditions\"` \n // other fields }"
                     properties:
                       lastTransitionTime:
                         description: lastTransitionTime is the last time the condition
@@ -223,11 +215,10 @@ spec:
                   type: array
                 lastSynchronizationTimestamp:
                   description: LastSynchronizationTimestamp is the last time synchronization
-                    to the cluster.
                   format: date-time
                   type: string
                 phase:
-                  description: Phase is the phase of the cluster information.
+                  description: Phase is the phase of the Hub.
                   type: string
               type: object
           type: object
@@ -235,32 +226,26 @@ spec:
       storage: true
       subresources:
         status: {}
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: []
-  storedVersions: []
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.4.1
+    controller-gen.kubebuilder.io/version: v0.9.2
   creationTimestamp: null
-  name: ferrypolicies.ferry.zsm.io
+  name: routepolicies.traffic.ferry.zsm.io
 spec:
-  group: ferry.zsm.io
+  group: traffic.ferry.zsm.io
   names:
-    kind: FerryPolicy
-    listKind: FerryPolicyList
-    plural: ferrypolicies
-    singular: ferrypolicy
+    kind: RoutePolicy
+    listKind: RoutePolicyList
+    plural: routepolicies
+    singular: routepolicy
   scope: Namespaced
   versions:
     - additionalPrinterColumns:
-        - jsonPath: .status.ruleCount
-          name: rule-count
+        - jsonPath: .status.routeCount
+          name: route-count
           type: integer
         - jsonPath: .status.phase
           name: status
@@ -271,10 +256,10 @@ spec:
         - jsonPath: .metadata.creationTimestamp
           name: age
           type: date
-      name: v1alpha1
+      name: v1alpha2
       schema:
         openAPIV3Schema:
-          description: FerryPolicy is the Schema for the ferrypolicies API
+          description: RoutePolicy is the Schema for the routepolicies API
           properties:
             apiVersion:
               description: 'APIVersion defines the versioned schema of this representation
@@ -289,87 +274,68 @@ spec:
             metadata:
               type: object
             spec:
-              description: FerryPolicySpec defines the desired state of FerryPolicy
+              description: RoutePolicySpec defines the desired state of RoutePolicy
               properties:
-                rules:
+                exports:
+                  description: Exports is a list of exports of the RoutePolicy.
                   items:
-                    description: FerryPolicySpecRule defines the desired rule of FerryPolicySpec
-                      Service mapping from Exports cluster to Imports cluster
+                    description: RoutePolicySpecRule defines the desired import of RoutePolicySpec
                     properties:
-                      exports:
-                        description: Exports is a list of exports of the FerryPolicy.
-                        items:
-                          description: FerryPolicySpecRuleExport defines the desired
-                            export of FerryPolicySpecRule
-                          properties:
-                            clusterName:
-                              description: ClusterName is specifies the name of the
-                                cluster
+                      hubName:
+                        description: HubName is specifies the name of the Hub
+                        type: string
+                      service:
+                        description: Service is specifies the service of matched
+                        properties:
+                          labels:
+                            additionalProperties:
                               type: string
-                            match:
-                              description: Match is specifies the service of matched
-                              properties:
-                                labels:
-                                  additionalProperties:
-                                    type: string
-                                  description: Labels is specifies the labels of matched
-                                    cannot be specified together with Name
-                                  type: object
-                                name:
-                                  description: Name is specifies the name of matched
-                                    cannot be specified together with Labels
-                                  type: string
-                                namespace:
-                                  description: Namespace is specifies the namespace
-                                    of matched
-                                  type: string
-                              type: object
-                          required:
-                            - clusterName
-                          type: object
-                        type: array
-                      imports:
-                        description: Imports is a list of imports of the FerryPolicy.
-                        items:
-                          description: FerryPolicySpecRuleImport defines the desired
-                            import of FerryPolicySpecRule
-                          properties:
-                            clusterName:
-                              description: ClusterName is specifies the name of the
-                                cluster
-                              type: string
-                            match:
-                              description: Match is specifies the service of matched
-                              properties:
-                                labels:
-                                  additionalProperties:
-                                    type: string
-                                  description: Labels is specifies the labels of matched
-                                    cannot be specified together with Name
-                                  type: object
-                                name:
-                                  description: Name is specifies the name of matched
-                                    cannot be specified together with Labels
-                                  type: string
-                                namespace:
-                                  description: Namespace is specifies the namespace
-                                    of matched
-                                  type: string
-                              type: object
-                          required:
-                            - clusterName
-                          type: object
-                        type: array
+                            description: Labels is specifies the labels of matched
+                            type: object
+                          name:
+                            description: Name is specifies the name of matched
+                            type: string
+                          namespace:
+                            description: Namespace is specifies the namespace of matched
+                            type: string
+                        type: object
                     required:
-                      - exports
-                      - imports
+                      - hubName
+                    type: object
+                  type: array
+                imports:
+                  description: Imports is a list of imports of the RoutePolicy.
+                  items:
+                    description: RoutePolicySpecRule defines the desired import of RoutePolicySpec
+                    properties:
+                      hubName:
+                        description: HubName is specifies the name of the Hub
+                        type: string
+                      service:
+                        description: Service is specifies the service of matched
+                        properties:
+                          labels:
+                            additionalProperties:
+                              type: string
+                            description: Labels is specifies the labels of matched
+                            type: object
+                          name:
+                            description: Name is specifies the name of matched
+                            type: string
+                          namespace:
+                            description: Namespace is specifies the namespace of matched
+                            type: string
+                        type: object
+                    required:
+                      - hubName
                     type: object
                   type: array
               required:
-                - rules
+                - exports
+                - imports
               type: object
             status:
-              description: FerryPolicyStatus defines the observed state of FerryPolicy
+              description: RoutePolicyStatus defines the observed state of RoutePolicy
               properties:
                 conditions:
                   description: Conditions current service state
@@ -377,13 +343,12 @@ spec:
                     description: "Condition contains details for one aspect of the current
                     state of this API Resource. --- This struct is intended for direct
                     use as an array at the field path .status.conditions.  For example,
-                    type FooStatus struct{     // Represents the observations of a
-                    foo's current state.     // Known .status.conditions.type are:
-                    \"Available\", \"Progressing\", and \"Degraded\"     // +patchMergeKey=type
-                    \    // +patchStrategy=merge     // +listType=map     // +listMapKey=type
-                    \    Conditions []metav1.Condition `json:\"conditions,omitempty\"
-                    patchStrategy:\"merge\" patchMergeKey:\"type\" protobuf:\"bytes,1,rep,name=conditions\"`
-                    \n     // other fields }"
+                    type FooStatus struct{ // Represents the observations of a foo's
+                    current state. // Known .status.conditions.type are: \"Available\",
+                    \"Progressing\", and \"Degraded\" // +patchMergeKey=type // +patchStrategy=merge
+                    // +listType=map // +listMapKey=type Conditions []metav1.Condition
+                    `json:\"conditions,omitempty\" patchStrategy:\"merge\" patchMergeKey:\"type\"
+                    protobuf:\"bytes,1,rep,name=conditions\"` \n // other fields }"
                     properties:
                       lastTransitionTime:
                         description: lastTransitionTime is the last time the condition
@@ -443,14 +408,13 @@ spec:
                   type: array
                 lastSynchronizationTimestamp:
                   description: LastSynchronizationTimestamp is the last time synchronization
-                    to the cluster.
                   format: date-time
                   type: string
                 phase:
-                  description: Phase is the phase of the ferry policy.
+                  description: Phase is the phase of the RoutePolicy.
                   type: string
-                ruleCount:
-                  description: RuleCount is the number of mapping rules in the FerryPolicy
+                routeCount:
+                  description: RouteCount is the number of Route in the RoutePolicy
                   type: integer
               type: object
           type: object
@@ -458,27 +422,21 @@ spec:
       storage: true
       subresources:
         status: {}
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: []
-  storedVersions: []
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.4.1
+    controller-gen.kubebuilder.io/version: v0.9.2
   creationTimestamp: null
-  name: mappingrules.ferry.zsm.io
+  name: routes.traffic.ferry.zsm.io
 spec:
-  group: ferry.zsm.io
+  group: traffic.ferry.zsm.io
   names:
-    kind: MappingRule
-    listKind: MappingRuleList
-    plural: mappingrules
-    singular: mappingrule
+    kind: Route
+    listKind: RouteList
+    plural: routes
+    singular: route
   scope: Namespaced
   versions:
     - additionalPrinterColumns:
@@ -497,10 +455,10 @@ spec:
         - jsonPath: .metadata.creationTimestamp
           name: age
           type: date
-      name: v1alpha1
+      name: v1alpha2
       schema:
         openAPIV3Schema:
-          description: MappingRule is the Schema for the mappingrules API
+          description: Route is the Schema for the routes API
           properties:
             apiVersion:
               description: 'APIVersion defines the versioned schema of this representation
@@ -515,13 +473,13 @@ spec:
             metadata:
               type: object
             spec:
-              description: MappingRuleSpec defines the desired state of MappingRule
+              description: RouteSpec defines the desired state of Route
               properties:
                 export:
-                  description: Export is one of export of the  MappingRule.
+                  description: Export is one of export of the Route.
                   properties:
-                    clusterName:
-                      description: ClusterName is specifies the name of the cluster
+                    hubName:
+                      description: HubName is specifies the name of the Hub
                       type: string
                     service:
                       description: Service is the service
@@ -537,14 +495,14 @@ spec:
                         - namespace
                       type: object
                   required:
-                    - clusterName
+                    - hubName
                     - service
                   type: object
                 import:
-                  description: Import is one of import of the  MappingRule.
+                  description: Import is one of import of the Route.
                   properties:
-                    clusterName:
-                      description: ClusterName is specifies the name of the cluster
+                    hubName:
+                      description: HubName is specifies the name of the Hub
                       type: string
                     service:
                       description: Service is the service
@@ -560,7 +518,7 @@ spec:
                         - namespace
                       type: object
                   required:
-                    - clusterName
+                    - hubName
                     - service
                   type: object
               required:
@@ -568,7 +526,7 @@ spec:
                 - import
               type: object
             status:
-              description: MappingRuleStatus defines the observed state of MappingRule
+              description: RouteStatus defines the observed state of Route
               properties:
                 conditions:
                   description: Conditions current service state
@@ -576,13 +534,12 @@ spec:
                     description: "Condition contains details for one aspect of the current
                     state of this API Resource. --- This struct is intended for direct
                     use as an array at the field path .status.conditions.  For example,
-                    type FooStatus struct{     // Represents the observations of a
-                    foo's current state.     // Known .status.conditions.type are:
-                    \"Available\", \"Progressing\", and \"Degraded\"     // +patchMergeKey=type
-                    \    // +patchStrategy=merge     // +listType=map     // +listMapKey=type
-                    \    Conditions []metav1.Condition `json:\"conditions,omitempty\"
-                    patchStrategy:\"merge\" patchMergeKey:\"type\" protobuf:\"bytes,1,rep,name=conditions\"`
-                    \n     // other fields }"
+                    type FooStatus struct{ // Represents the observations of a foo's
+                    current state. // Known .status.conditions.type are: \"Available\",
+                    \"Progressing\", and \"Degraded\" // +patchMergeKey=type // +patchStrategy=merge
+                    // +listType=map // +listMapKey=type Conditions []metav1.Condition
+                    `json:\"conditions,omitempty\" patchStrategy:\"merge\" patchMergeKey:\"type\"
+                    protobuf:\"bytes,1,rep,name=conditions\"` \n // other fields }"
                     properties:
                       lastTransitionTime:
                         description: lastTransitionTime is the last time the condition
@@ -648,11 +605,10 @@ spec:
                   type: string
                 lastSynchronizationTimestamp:
                   description: LastSynchronizationTimestamp is the last time synchronization
-                    to the cluster.
                   format: date-time
                   type: string
                 phase:
-                  description: Phase is the phase of the mapping rule.
+                  description: Phase is the phase of the Route.
                   type: string
               type: object
           type: object
@@ -660,9 +616,3 @@ spec:
       storage: true
       subresources:
         status: {}
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: []
-  storedVersions: []

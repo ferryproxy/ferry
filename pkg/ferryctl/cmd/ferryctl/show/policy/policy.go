@@ -6,21 +6,20 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var example = "kubectl get ferrypolicy.ferry.zsm.io -n ferry-system\n"
+var example = "kubectl get routepolicy.traffic.ferry.zsm.io -n ferry-system\n"
 
 func NewCommand(logger log.Logger) *cobra.Command {
 	cmd := &cobra.Command{
-		Use: "ferry-policy",
+		Use: "route-policy",
 		Aliases: []string{
-			"ferry",
-			"fp",
-			"f",
+			"policy",
+			"p",
 		},
-		Short:   "Show ferry policy",
+		Short:   "Show route policy",
 		Example: example,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			kctl := kubectl.NewKubectl()
-			return kctl.Wrap(cmd.Context(), "get", "ferrypolicy.ferry.zsm.io", "-n", "ferry-system")
+			return kctl.Wrap(cmd.Context(), "get", "routepolicy.traffic.ferry.zsm.io", "-n", "ferry-system")
 		},
 	}
 	return cmd

@@ -47,42 +47,40 @@ All rules in control plane
 example1
 ``` yaml
 # Mapping services of match label app=web-1 of cluster-1 to the control-plane
-apiVersion: ferry.zsm.io/v1alpha1
-kind: FerryPolicy
+apiVersion: traffic.ferry.zsm.io/v1alpha2
+kind: RoutePolicy
 metadata:
   name: ferry-test
   namespace: ferry-system
 spec:
-  rules:
-    - exports:
-        - clusterName: cluster-1
-          match:
-            labels:
-              app: web-1
-      imports:
-        - clusterName: control-plane
+  exports:
+    - hubName: cluster-1
+      service:
+        labels:
+          app: web-1
+  imports:
+    - hubName: control-plane
 ```
 
 example2
 ``` yaml
 # Mapping web-1.test.svc of cluster-1 to the xxx-1.default.svc of control-plane
-apiVersion: ferry.zsm.io/v1alpha1
-kind: FerryPolicy
+apiVersion: traffic.ferry.zsm.io/v1alpha2
+kind: RoutePolicy
 metadata:
   name: ferry-test
   namespace: ferry-system
 spec:
-  rules:
-    - exports:
-        - clusterName: cluster-1
-          match:
-            namespace: test
-            name: web-1
-      imports:
-        - clusterName: control-plane
-          match:
-            namespace: default
-            name: xxx-1
+  exports:
+    - hubName: cluster-1
+      service:
+        namespace: test
+        name: web-1
+  imports:
+    - hubName: control-plane
+      service:
+        namespace: default
+        name: xxx-1
 ```
 
 

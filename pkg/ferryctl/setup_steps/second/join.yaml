@@ -38,10 +38,10 @@ apiVersion: v1
 kind: Secret
 metadata:
   annotations:
-    ferry.zsm.io/ssh-key: default
+    traffic.ferry.zsm.io/ssh-key: default
   name: ferry-tunnel
   namespace: ferry-tunnel-system
-type: ferry.zsm.io/ssh-key
+type: traffic.ferry.zsm.io/ssh-key
 data:
   identity: {{ .DataPlaneIdentity }}
   authorized: {{ .DataPlaneAuthorized }}

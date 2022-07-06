@@ -2,8 +2,8 @@ apiVersion: v1
 kind: Service
 metadata:
   labels:
-    ferry.zsm.io/exported-from: {{ .DataPlaneName }}
-    ferry.zsm.io/exported-from-ports: '{{ .DataPlaneApiserverPort }}'
+    traffic.ferry.zsm.io/exported-from: {{ .DataPlaneName }}
+    traffic.ferry.zsm.io/exported-from-ports: '{{ .DataPlaneApiserverPort }}'
   name: {{ .DataPlaneName }}-apiserver
   namespace: ferry-tunnel-system
 spec:

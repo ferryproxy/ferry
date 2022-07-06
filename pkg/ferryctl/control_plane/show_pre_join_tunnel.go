@@ -9,7 +9,6 @@ import (
 	"github.com/ferry-proxy/ferry/pkg/ferryctl/kubectl"
 	"github.com/ferry-proxy/ferry/pkg/ferryctl/setup_steps/first"
 	"github.com/ferry-proxy/ferry/pkg/ferryctl/setup_steps/second"
-	"github.com/ferry-proxy/ferry/pkg/ferryctl/vars"
 )
 
 type ShowJoinWithTunnelConfig struct {
@@ -42,7 +41,7 @@ func ShowJoinWithTunnel(ctx context.Context, conf ShowJoinWithTunnelConfig) erro
 		return err
 	}
 
-	controlPlaneIdentity, err := kctl.GetSecretIdentity(ctx, vars.FerryNamespace, conf.ControlPlaneName)
+	controlPlaneIdentity, err := kctl.GetSecretIdentity(ctx, "ferry-tunnel-system", "ferry-tunnel")
 	if err != nil {
 		return err
 	}

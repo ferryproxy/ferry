@@ -48,16 +48,6 @@ func NewCommand(logger log.Logger) *cobra.Command {
 					return err
 				}
 
-				err = control_plane.ClusterPreJoin(cmd.Context(), control_plane.ClusterPreJoinConfig{
-					DataPlaneName:       dataPlaneName,
-					DataPlaneIdentity:   identity,
-					DataPlaneAuthorized: authorized,
-					DataPlaneHostkey:    identity,
-				})
-				if err != nil {
-					return err
-				}
-
 				err = control_plane.ShowJoinWithTunnel(cmd.Context(), control_plane.ShowJoinWithTunnelConfig{
 					ControlPlaneName:          vars.ControlPlaneName,
 					ControlPlaneTunnelAddress: controlPlaneTunnelAddress,
@@ -73,16 +63,6 @@ func NewCommand(logger log.Logger) *cobra.Command {
 			} else {
 				dataPlaneApiserverAddress := fmt.Sprintf("%s-apiserver.ferry-tunnel-system.svc:443", dataPlaneName)
 				identity, authorized, err := utils.GetKey()
-				if err != nil {
-					return err
-				}
-
-				err = control_plane.ClusterPreJoin(cmd.Context(), control_plane.ClusterPreJoinConfig{
-					DataPlaneName:       dataPlaneName,
-					DataPlaneIdentity:   identity,
-					DataPlaneAuthorized: authorized,
-					DataPlaneHostkey:    identity,
-				})
 				if err != nil {
 					return err
 				}

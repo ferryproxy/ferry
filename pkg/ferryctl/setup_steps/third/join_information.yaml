@@ -1,25 +1,34 @@
-apiVersion: ferry.zsm.io/v1alpha1
-kind: ClusterInformation
+apiVersion: v1
+kind: Secret
+metadata:
+  annotations:
+    traffic.ferry.zsm.io/ssh-key: default
+  name: {{ .DataPlaneName }}
+  namespace: ferry-system
+type: traffic.ferry.zsm.io/kubeconfig-key
+data:
+  kubeconfig: {{ .DataPlaneKubeconfig | base64 }}
+---
+apiVersion: traffic.ferry.zsm.io/v1alpha2
+kind: Hub
 metadata:
   name: {{ .DataPlaneName }}
   namespace: ferry-system
 spec:
-  kubeconfig: {{ .DataPlaneKubeconfig | base64 }}
-
   gateway:
     reachable: {{ .DataPlaneReachable }}
     address: {{ .DataPlaneTunnelAddress }}
 
-{{ with .DataPlaneReceptionClusterName }}
+{{ with .DataPlaneReceptionHubName }}
     reception:
-      - clusterName: {{ . }}
+      - hubName: {{ . }}
 {{ else }}
     reception: []
 {{ end }}
 
-{{ with .DataPlaneNavigationClusterName }}
+{{ with .DataPlaneNavigationHubName }}
     navigation:
-      - clusterName: {{ . }}
+      - hubName: {{ . }}
 {{ else }}
     navigation: []
 {{ end }}
