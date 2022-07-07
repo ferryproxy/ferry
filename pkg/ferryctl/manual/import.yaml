@@ -1,0 +1,43 @@
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: ferry-tunnel
+    ferry-tunnel: "true"
+    traffic.ferry.zsm.io/exported-from: {{ .ExportHubName }}
+    traffic.ferry.zsm.io/exported-from-ports: '{{ .BindPort }}'
+  name: {{ .ImportServiceName }}
+  namespace: {{ .ImportNamespace }}
+spec:
+  ports:
+    - name: {{ .ImportName }}
+      port: {{ .ExportPort }}
+      protocol: TCP
+      targetPort: {{ .BindPort }}
+  selector:
+    app: ferry-tunnel
+  type: ClusterIP
+{{ if .ExportTunnelHost }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  labels:
+    app: ferry-tunnel
+    ferry-tunnel: "true"
+  name: {{ .ImportName }}
+  namespace: {{ .ImportNamespace }}
+data:
+  tunnel: |
+    [
+      {
+        "bind": [
+          "0.0.0.0:{{ .BindPort }}"
+        ],
+        "proxy": [
+          "{{ .ExportHost }}:{{ .ExportPort }}",
+          "ssh://{{ .ExportTunnelHost }}:{{ .ExportTunnelPort }}?identity_data={{ .ExportTunnelIdentity }}"
+        ]
+      }
+    ]
+{{ end }}

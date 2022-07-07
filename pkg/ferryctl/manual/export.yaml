@@ -1,0 +1,23 @@
+{{ if .ImportTunnelHost }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  labels:
+    app: ferry-tunnel
+    ferry-tunnel: "true"
+  name: {{ .ExportName }}
+  namespace: {{ .ExportNamespace }}
+data:
+  tunnel: |
+    [
+      {
+        "bind": [
+          "0.0.0.0:{{ .BindPort }}",
+          "ssh://{{ .ImportTunnelHost }}:{{ .ImportTunnelPort }}?identity_data={{ .ImportTunnelIdentity }}"
+        ],
+        "proxy": [
+          "{{ .ExportHost }}:{{ .ExportPort }}"
+        ]
+      }
+    ]
+{{ end }}

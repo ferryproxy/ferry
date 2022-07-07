@@ -89,16 +89,16 @@ func (c *Kubectl) GetKubeconfig(ctx context.Context, address string) (string, er
 	})
 }
 
-func (c *Kubectl) GetSecretIdentity(ctx context.Context, namespaces, name string) (string, error) {
-	out, err := commandRun(ctx, "kubectl", "--kubeconfig", vars.KubeconfigPath, "get", "secret", "-n", namespaces, name, "-o", "jsonpath={$.data.identity}")
+func (c *Kubectl) GetSecretIdentity(ctx context.Context) (string, error) {
+	out, err := commandRun(ctx, "kubectl", "--kubeconfig", vars.KubeconfigPath, "get", "secret", "-n", "ferry-tunnel-system", "ferry-tunnel", "-o", "jsonpath={$.data.identity}")
 	if err != nil {
 		return "", err
 	}
 	return string(out), nil
 }
 
-func (c *Kubectl) GetSecretAuthorized(ctx context.Context, namespaces, name string) (string, error) {
-	out, err := commandRun(ctx, "kubectl", "--kubeconfig", vars.KubeconfigPath, "get", "secret", "-n", namespaces, name, "-o", "jsonpath={$.data.authorized}")
+func (c *Kubectl) GetSecretAuthorized(ctx context.Context) (string, error) {
+	out, err := commandRun(ctx, "kubectl", "--kubeconfig", vars.KubeconfigPath, "get", "secret", "-n", "ferry-tunnel-system", "ferry-tunnel", "-o", "jsonpath={$.data.authorized}")
 	if err != nil {
 		return "", err
 	}

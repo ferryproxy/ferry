@@ -156,7 +156,6 @@ jobs:
     runs-on: ubuntu-latest
     needs:
     - build-ferrctl
-    - build-ferry-controller
     - build-ferry-tunnel
     steps:
       - uses: actions/checkout@v2
@@ -169,7 +168,6 @@ jobs:
       - name: Setup
         run: |
           cp ferryctl /usr/local/bin/ferryctl && chmod +x /usr/local/bin/ferryctl
-          docker load -i ferry-controller.tar
           docker load -i ferry-tunnel.tar
 
       - name: Start cluster
@@ -179,3 +177,29 @@ jobs:
 
       - name: Test forward
         run: ./test/test/test-forward.sh
+
+  test-manual:
+    runs-on: ubuntu-latest
+    needs:
+      - build-ferrctl
+      - build-ferry-tunnel
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Download for test
+        uses: actions/download-artifact@v2
+        with:
+          name: test
+
+      - name: Setup
+        run: |
+          cp ferryctl /usr/local/bin/ferryctl && chmod +x /usr/local/bin/ferryctl
+          docker load -i ferry-tunnel.tar
+
+      - name: Start cluster
+        run: |
+          ulimit -n 4096
+          ./test/hack/start-environment.sh manual
+
+      - name: Test forward
+        run: ./test/test/test-manual.sh

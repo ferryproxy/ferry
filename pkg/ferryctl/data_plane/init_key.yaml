@@ -1,0 +1,33 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  annotations:
+    traffic.ferry.zsm.io/ssh-key: default
+  name: ferry-tunnel
+  namespace: ferry-tunnel-system
+type: traffic.ferry.zsm.io/ssh-key
+data:
+  identity: {{ .Identity }}
+  authorized: {{ .Authorized }}
+  hostkey: {{ .Hostkey }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  labels:
+    app: ferry-tunnel
+    ferry-tunnel: "true"
+  name: ferry-tunnel
+  namespace: ferry-tunnel-system
+data:
+  tunnel: |
+    [
+      {
+        "bind": [
+          "ssh://0.0.0.0:31087?authenticate=true&authorized_data={{ .Authorized }}&hostkey_data={{ .Hostkey }}"
+        ],
+        "proxy": [
+          "-"
+        ]
+      }
+    ]
