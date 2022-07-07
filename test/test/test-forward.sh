@@ -22,13 +22,15 @@ function check-forward-listen() {
   local pid
 
   echo "::group::Check forward listen"
-  check-should-failed cluster-0 web-0 local.test.svc:80 "MESSAGE: local"
+  check-should-failed cluster-0 web-0 local.test.svc:80
+  check-should-failed "" "" 127.0.0.1:28080
 
   docker run --name ferry-test-forward-listen -d -p 28080:8080 -e "MESSAGE=local" ghcr.io/wzshiming/echoserver/echoserver:v0.0.1
   ferryctl local forward listen local.test.svc:80 127.0.0.1:28080 &
   pid=$!
-  sleep 20
+  sleep 30
 
+  check "" "" 127.0.0.1:28080 "MESSAGE: local"
   check cluster-0 web-0 local.test.svc:80 "MESSAGE: local"
   kill "${pid}"
   docker rm -f ferry-test-forward-listen
@@ -38,7 +40,7 @@ function check-forward-listen() {
 check-forward-dial
 stats
 
-sleep 5
+sleep 10
 
 check-forward-listen
 stats
