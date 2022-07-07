@@ -2,23 +2,24 @@ package vars
 
 import (
 	_ "embed"
-	"github.com/ferry-proxy/ferry/pkg/utils/env"
 	"os"
 	"path/filepath"
+
+	"github.com/ferry-proxy/ferry/pkg/utils/env"
 )
 
 var (
-	FerryNamespace   = "ferry-system"
 	ControlPlaneName = "control-plane"
 	home, _          = os.UserHomeDir()
 	KubeconfigPath   = env.GetEnv("KUBECONFIG", filepath.Join(home, ".kube/config"))
 
-	//go:embed ferry_controller_image.txt
-	ferryControllerImage string
-	FerryControllerImage = env.GetEnv("FERRY_CONTROLLER_IMAGE", ferryControllerImage)
-	//go:embed ferry_tunnel_image.txt
-	ferryTunnelImage string
-	FerryTunnelImage = env.GetEnv("FERRY_TUNNEL_IMAGE", ferryTunnelImage)
+	FerryImagePrefix = env.GetEnv("FERRY_IMAGE_PREFIX", "ghcr.io/ferry-proxy/ferry")
+
+	FerryVersion = env.GetEnv("FERRY_VERSION", "v0.3.0")
+
+	FerryControllerImage = env.GetEnv("FERRY_CONTROLLER_IMAGE", FerryImagePrefix+"/ferry-controller:"+FerryVersion)
+
+	FerryTunnelImage = env.GetEnv("FERRY_TUNNEL_IMAGE", FerryImagePrefix+"/ferry-tunnel:"+FerryVersion)
 
 	AutoPlaceholders = "AUTO"
 )
