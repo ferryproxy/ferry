@@ -13,6 +13,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/cache"
 )
 
 type ConfigWatcher struct {
@@ -46,14 +47,18 @@ func NewConfigWatcher(conf *ConfigWatcherConfig) *ConfigWatcher {
 }
 
 func (c *ConfigWatcher) Run(ctx context.Context) error {
-	infor := informers.NewSharedInformerFactoryWithOptions(c.clientset, 0,
+	informer := informers.NewSharedInformerFactoryWithOptions(c.clientset, 0,
 		informers.WithNamespace(c.namespace),
 		informers.WithTweakListOptions(func(options *metav1.ListOptions) {
 			options.LabelSelector = c.labelSelector
 		}),
 	).Core().V1().ConfigMaps().Informer()
-	infor.AddEventHandler(c)
-	infor.Run(ctx.Done())
+	informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    c.onAdd,
+		UpdateFunc: c.onUpdate,
+		DeleteFunc: c.onDelete,
+	})
+	informer.Run(ctx.Done())
 	return nil
 }
 
@@ -143,19 +148,19 @@ func (c *ConfigWatcher) delete(cm *corev1.ConfigMap) {
 	delete(c.cache, cm.Name)
 }
 
-func (c *ConfigWatcher) OnAdd(obj interface{}) {
+func (c *ConfigWatcher) onAdd(obj interface{}) {
 	cm := obj.(*corev1.ConfigMap)
 	c.logger.Info("add configmap", "configmap", objref.KObj(cm))
 	c.update(cm)
 }
 
-func (c *ConfigWatcher) OnUpdate(oldObj, newObj interface{}) {
+func (c *ConfigWatcher) onUpdate(oldObj, newObj interface{}) {
 	cm := newObj.(*corev1.ConfigMap)
 	c.logger.Info("update configmap", "configmap", objref.KObj(cm))
 	c.update(cm)
 }
 
-func (c *ConfigWatcher) OnDelete(obj interface{}) {
+func (c *ConfigWatcher) onDelete(obj interface{}) {
 	cm := obj.(*corev1.ConfigMap)
 	c.logger.Info("delete configmap", "configmap", objref.KObj(cm))
 	c.delete(cm)

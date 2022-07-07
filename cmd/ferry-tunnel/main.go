@@ -20,7 +20,7 @@ var (
 	log               logr.Logger
 	serviceName       = env.GetEnv("SERVICE_NAME", "ferry-tunnel")
 	namespace         = env.GetEnv("NAMESPACE", "ferry-tunnel-system")
-	labelSelector     = env.GetEnv("LABEL_SELECTOR", "ferry-tunnel=true")
+	labelSelector     = env.GetEnv("LABEL_SELECTOR", "tunnel.ferry.zsm.io/service=inject")
 	master            = env.GetEnv("MASTER", "")
 	kubeconfig        = env.GetEnv("KUBECONFIG", "")
 	conf              = "./bridge.conf"

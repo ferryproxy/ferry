@@ -3,7 +3,7 @@ kind: ConfigMap
 metadata:
   labels:
     app: ferry-tunnel
-    ferry-tunnel: "true"
+    tunnel.ferry.zsm.io/service: inject
   name: ferry-tunnel
   namespace: ferry-tunnel-system
 data:

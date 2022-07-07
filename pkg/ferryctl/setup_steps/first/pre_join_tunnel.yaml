@@ -22,7 +22,7 @@ kind: ConfigMap
 metadata:
   labels:
     app: ferry-tunnel
-    ferry-tunnel: "true"
+    tunnel.ferry.zsm.io/service: inject
   name: {{ .DataPlaneName }}-apiserver
   namespace: ferry-tunnel-system
 data:
