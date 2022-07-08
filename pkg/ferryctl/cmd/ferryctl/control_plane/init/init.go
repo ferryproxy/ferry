@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/ferry-proxy/ferry/pkg/ferryctl/control_plane"
+	"github.com/ferry-proxy/ferry/pkg/ferryctl/data_plane"
 	"github.com/ferry-proxy/ferry/pkg/ferryctl/kubectl"
 	"github.com/ferry-proxy/ferry/pkg/ferryctl/log"
 	"github.com/ferry-proxy/ferry/pkg/ferryctl/vars"
@@ -17,7 +18,8 @@ func NewCommand(logger log.Logger) *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use: "init",
+		Use:  "init",
+		Args: cobra.NoArgs,
 		Aliases: []string{
 			"i",
 		},
@@ -37,10 +39,18 @@ func NewCommand(logger log.Logger) *cobra.Command {
 				}
 			}
 
+			err = data_plane.ClusterInit(cmd.Context(), data_plane.ClusterInitConfig{
+				FerryTunnelImage: vars.FerryTunnelImage,
+			})
+			if err != nil {
+				return err
+			}
+
 			err = control_plane.ClusterInit(cmd.Context(), control_plane.ClusterInitConfig{
 				ControlPlaneName:          vars.ControlPlaneName,
 				ControlPlaneReachable:     controlPlaneReachable,
 				ControlPlaneTunnelAddress: controlPlaneTunnelAddress,
+				FerryControllerImage:      vars.FerryControllerImage,
 			})
 			if err != nil {
 				return err

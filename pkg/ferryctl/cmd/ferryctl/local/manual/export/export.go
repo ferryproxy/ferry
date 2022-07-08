@@ -1,13 +1,17 @@
 package export
 
 import (
+	"encoding/base64"
 	"fmt"
+	"net"
+	"strings"
+
 	"github.com/ferry-proxy/ferry/pkg/ferryctl/kubectl"
 	"github.com/ferry-proxy/ferry/pkg/ferryctl/log"
 	"github.com/ferry-proxy/ferry/pkg/ferryctl/manual"
+	"github.com/ferry-proxy/ferry/pkg/ferryctl/utils"
 	"github.com/ferry-proxy/ferry/pkg/ferryctl/vars"
 	"github.com/spf13/cobra"
-	"net"
 )
 
 func NewCommand(logger log.Logger) *cobra.Command {
@@ -59,7 +63,7 @@ func NewCommand(logger log.Logger) *cobra.Command {
 			isImport := false
 
 			if first {
-				return manual.First(cmd.Context(), manual.FirstConfig{
+				second, err := manual.First(cmd.Context(), manual.FirstConfig{
 					Next:              next,
 					Reachable:         reachable,
 					BindPort:          bindPort,
@@ -70,8 +74,18 @@ func NewCommand(logger log.Logger) *cobra.Command {
 					ImportServiceName: importServiceName,
 					PeerTunnelAddress: peerTunnelAddress,
 				})
+				if err != nil {
+					return err
+				}
+
+				utils.Prompt(
+					"peer tunnel",
+					"ferryctl data-plane init",
+					second,
+				)
+				return nil
 			}
-			return manual.Second(cmd.Context(), manual.SecondConfig{
+			applyResource, otherResource, importAddress, err := manual.Second(cmd.Context(), manual.SecondConfig{
 				IsImport:             isImport,
 				ImportServiceName:    importServiceName,
 				BindPort:             bindPort,
@@ -84,6 +98,27 @@ func NewCommand(logger log.Logger) *cobra.Command {
 				ExportTunnelAddress:  exportTunnelAddress,
 				ExportTunnelIdentity: exportTunnelIdentity,
 			})
+
+			if applyResource != "" {
+				err = kctl.ApplyWithReader(cmd.Context(), strings.NewReader(applyResource))
+				if err != nil {
+					return fmt.Errorf("failed to apply reousrce: %v", err)
+				}
+			}
+
+			if otherResource != "" {
+				baseCmd := base64.StdEncoding.EncodeToString([]byte(otherResource))
+				utils.Prompt(
+					"peer tunnel",
+					fmt.Sprintf("echo %s | base64 --decode | kubectl apply -f -\n", baseCmd),
+				)
+				fmt.Printf("# The service will be available after executing the above on the peer tunnel:\n")
+				fmt.Printf("# Service: %s\n", importAddress)
+			} else {
+				fmt.Printf("# This service is already available:\n")
+				fmt.Printf("# Service: %s\n", importAddress)
+			}
+			return nil
 		},
 	}
 

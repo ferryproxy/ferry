@@ -4,8 +4,6 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
-
-	"github.com/ferry-proxy/ferry/pkg/ferryctl/setup_steps/third"
 )
 
 type ShowJoinDoneConfig struct {
@@ -14,16 +12,16 @@ type ShowJoinDoneConfig struct {
 	DataPlaneReachable         bool
 	DataPlaneApiserverAddress  string
 	DataPlaneTunnelAddress     string
-	DataPlaneNavigationHubName string
-	DataPlaneReceptionHubName  string
+	DataPlaneNavigationHubName []string
+	DataPlaneReceptionHubName  []string
 }
 
-func ShowJoinDone(ctx context.Context, conf ShowJoinDoneConfig) error {
+func ShowJoinDone(ctx context.Context, conf ShowJoinDoneConfig) (next string, err error) {
 	kubeconfig, err := GetKubeconfig(ctx, conf.DataPlaneApiserverAddress)
 	if err != nil {
-		return err
+		return "", err
 	}
-	ci, err := third.BuildHub(third.BuildHubConfig{
+	ci, err := BuildHub(BuildHubConfig{
 		DataPlaneName:              conf.DataPlaneName,
 		DataPlaneReachable:         conf.DataPlaneReachable,
 		DataPlaneTunnelAddress:     conf.DataPlaneTunnelAddress,
@@ -32,22 +30,10 @@ func ShowJoinDone(ctx context.Context, conf ShowJoinDoneConfig) error {
 		DataPlaneKubeconfig:        kubeconfig,
 	})
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	baseCmd := base64.StdEncoding.EncodeToString([]byte(ci))
 
-	fmt.Printf("# ++++ Seccussfully generated control kubeconfig for %s\n", conf.DataPlaneName)
-	fmt.Printf("# ++++ Please run the following command to join the %s cluster:\n", conf.ControlPlaneName)
-	fmt.Printf("# Apiserver: %s\n", conf.DataPlaneApiserverAddress)
-	if conf.DataPlaneTunnelAddress != "" {
-		fmt.Printf("# Tunnel: %s\n", conf.DataPlaneTunnelAddress)
-	}
-	if conf.DataPlaneNavigationHubName != "" {
-		fmt.Printf("# Proxy: %s\n", conf.DataPlaneNavigationHubName)
-	}
-	fmt.Printf("# =============================================\n")
-	fmt.Printf("echo %s | base64 --decode | kubectl apply -f -\n", baseCmd)
-	fmt.Printf("# =============================================\n")
-	return nil
+	return fmt.Sprintf("echo %s | base64 --decode | kubectl apply -f -", baseCmd), nil
 }

@@ -8,14 +8,17 @@ import (
 
 	"github.com/ferry-proxy/ferry/pkg/ferryctl/kubectl"
 	"github.com/ferry-proxy/ferry/pkg/ferryctl/utils"
-	"github.com/ferry-proxy/ferry/pkg/ferryctl/vars"
 )
 
-func ClusterInit(ctx context.Context) error {
+type ClusterInitConfig struct {
+	FerryTunnelImage string
+}
+
+func ClusterInit(ctx context.Context, conf ClusterInitConfig) error {
 	kctl := kubectl.NewKubectl()
-	fmt.Fprintf(os.Stderr, "ferry tunnel image: %s\n", vars.FerryTunnelImage)
+	fmt.Fprintf(os.Stderr, "ferry tunnel image: %s\n", conf.FerryTunnelImage)
 	tunnel, err := BuildInitTunnel(BuildInitTunnelConfig{
-		Image: vars.FerryTunnelImage,
+		Image: conf.FerryTunnelImage,
 	})
 	if err != nil {
 		return err

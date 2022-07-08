@@ -2,12 +2,8 @@ package manual
 
 import (
 	"context"
-	"encoding/base64"
 	"fmt"
 	"net"
-	"strings"
-
-	"github.com/ferry-proxy/ferry/pkg/ferryctl/kubectl"
 )
 
 type SecondConfig struct {
@@ -24,7 +20,7 @@ type SecondConfig struct {
 	ExportTunnelIdentity string
 }
 
-func Second(ctx context.Context, config SecondConfig) error {
+func Second(ctx context.Context, config SecondConfig) (applyResource, otherResource, importAddress string, err error) {
 	conf := BuildManualPortConfig{
 		ImportServiceName: config.ImportServiceName,
 		BindPort:          config.BindPort,
@@ -36,7 +32,7 @@ func Second(ctx context.Context, config SecondConfig) error {
 	if config.Reachable == config.IsImport {
 		importTunnelHost, importTunnelPort, err := net.SplitHostPort(config.ImportTunnelAddress)
 		if err != nil {
-			return fmt.Errorf("invalid service and port: %v", err)
+			return "", "", "", fmt.Errorf("invalid service and port: %v", err)
 		}
 		conf.ImportTunnelHost = importTunnelHost
 		conf.ImportTunnelPort = importTunnelPort
@@ -44,7 +40,7 @@ func Second(ctx context.Context, config SecondConfig) error {
 	} else {
 		exportTunnelHost, exportTunnelPort, err := net.SplitHostPort(config.ExportTunnelAddress)
 		if err != nil {
-			return fmt.Errorf("invalid service and port: %v", err)
+			return "", "", "", fmt.Errorf("invalid service and port: %v", err)
 		}
 		conf.ExportTunnelHost = exportTunnelHost
 		conf.ExportTunnelPort = exportTunnelPort
@@ -53,11 +49,8 @@ func Second(ctx context.Context, config SecondConfig) error {
 
 	exportPortResource, importPortResource, importAddress, err := BuildManualPort(conf)
 	if err != nil {
-		return fmt.Errorf("failed to build manual port: %v", err)
+		return "", "", "", fmt.Errorf("failed to build manual port: %v", err)
 	}
-
-	applyResource := ""
-	otherResource := ""
 
 	if config.IsImport {
 		applyResource = importPortResource
@@ -66,25 +59,6 @@ func Second(ctx context.Context, config SecondConfig) error {
 		applyResource = exportPortResource
 		otherResource = importPortResource
 	}
-	if applyResource != "" {
-		kctl := kubectl.NewKubectl()
-		err = kctl.ApplyWithReader(ctx, strings.NewReader(applyResource))
-		if err != nil {
-			return fmt.Errorf("failed to apply reousrce: %v", err)
-		}
-	}
 
-	if otherResource != "" {
-		baseCmd := base64.StdEncoding.EncodeToString([]byte(otherResource))
-		fmt.Printf("# ++++ Please run the following command to peer tunnel:\n")
-		fmt.Printf("# =============================================\n")
-		fmt.Printf("echo %s | base64 --decode | kubectl apply -f -\n", baseCmd)
-		fmt.Printf("# =============================================\n")
-		fmt.Printf("# The service will be available after executing the above on the peer tunnel:\n")
-		fmt.Printf("# Service: %s\n", importAddress)
-	} else {
-		fmt.Printf("# This service is already available:\n")
-		fmt.Printf("# Service: %s\n", importAddress)
-	}
-	return nil
+	return applyResource, otherResource, importAddress, nil
 }

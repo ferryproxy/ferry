@@ -8,16 +8,13 @@ import (
 
 	"github.com/ferry-proxy/ferry/pkg/ferryctl/data_plane"
 	"github.com/ferry-proxy/ferry/pkg/ferryctl/kubectl"
-	"github.com/ferry-proxy/ferry/pkg/ferryctl/setup_steps/second"
-	"github.com/ferry-proxy/ferry/pkg/ferryctl/setup_steps/third"
-	"github.com/ferry-proxy/ferry/pkg/ferryctl/utils"
-	"github.com/ferry-proxy/ferry/pkg/ferryctl/vars"
 )
 
 type ClusterInitConfig struct {
 	ControlPlaneName          string
 	ControlPlaneReachable     bool
 	ControlPlaneTunnelAddress string
+	FerryControllerImage      string
 }
 
 func ClusterInit(ctx context.Context, conf ClusterInitConfig) error {
@@ -27,38 +24,14 @@ func ClusterInit(ctx context.Context, conf ClusterInitConfig) error {
 		return err
 	}
 
-	fmt.Fprintf(os.Stderr, "ferry controller image: %s\n", vars.FerryControllerImage)
+	fmt.Fprintf(os.Stderr, "ferry controller image: %s\n", conf.FerryControllerImage)
 	ferry, err := BuildInitFerry(BuildInitFerryConfig{
-		Image: vars.FerryControllerImage,
+		Image: conf.FerryControllerImage,
 	})
 	if err != nil {
 		return err
 	}
 	err = kctl.ApplyWithReader(ctx, strings.NewReader(ferry))
-	if err != nil {
-		return err
-	}
-
-	err = data_plane.ClusterInit(ctx)
-	if err != nil {
-		return err
-	}
-
-	identity, authorized, err := utils.GetKey()
-	if err != nil {
-		return err
-	}
-
-	data, err := second.BuildJoin(second.BuildJoinConfig{
-		DataPlaneIdentity:   identity,
-		DataPlaneAuthorized: authorized,
-		DataPlaneHostkey:    identity,
-	})
-	if err != nil {
-		return err
-	}
-
-	err = kctl.ApplyWithReader(ctx, strings.NewReader(data))
 	if err != nil {
 		return err
 	}
@@ -72,7 +45,7 @@ func ClusterInit(ctx context.Context, conf ClusterInitConfig) error {
 	if err != nil {
 		return err
 	}
-	ci, err := third.BuildHub(third.BuildHubConfig{
+	hub, err := data_plane.BuildHub(data_plane.BuildHubConfig{
 		DataPlaneName:          conf.ControlPlaneName,
 		DataPlaneReachable:     conf.ControlPlaneReachable,
 		DataPlaneTunnelAddress: conf.ControlPlaneTunnelAddress,
@@ -81,7 +54,7 @@ func ClusterInit(ctx context.Context, conf ClusterInitConfig) error {
 	if err != nil {
 		return err
 	}
-	err = kctl.ApplyWithReader(ctx, strings.NewReader(ci))
+	err = kctl.ApplyWithReader(ctx, strings.NewReader(hub))
 	if err != nil {
 		return err
 	}

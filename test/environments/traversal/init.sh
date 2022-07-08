@@ -24,11 +24,11 @@ echo ferryctl control-plane init "--control-plane-tunnel-address=${HOST_IP}:3100
 ferryctl control-plane init "--control-plane-tunnel-address=${HOST_IP}:31000"
 echo "::endgroup::"
 
-echo "::group::Data plane cluster-1 pre-join"
+echo "::group::Data plane cluster-1 join"
 KUBECONFIG="${KUBECONFIG_DIR}/control-plane.yaml"
 echo "KUBECONFIG=${KUBECONFIG}"
-echo ferryctl control-plane pre-join tunnel cluster-1 "--control-plane-tunnel-address=${HOST_IP}:31000"
-SEND_TO_CLUSTER_1="$(ferryctl control-plane pre-join tunnel cluster-1 "--control-plane-tunnel-address=${HOST_IP}:31000" 2>/dev/null)"
+echo ferryctl control-plane join cluster-1 "--control-plane-tunnel-address=${HOST_IP}:31000" --data-plane-reachable=false
+SEND_TO_CLUSTER_1="$(ferryctl control-plane join cluster-1 "--control-plane-tunnel-address=${HOST_IP}:31000" --data-plane-reachable=false 2>/dev/null)"
 echo "::endgroup::"
 
 echo "::group::Data plane cluster-1 join"
@@ -45,11 +45,11 @@ echo "${SEND_TO_CONTROL_PLANE}"
 eval "${SEND_TO_CONTROL_PLANE}"
 echo "::endgroup::"
 
-echo "::group::Data plane cluster-2 pre-join"
+echo "::group::Data plane cluster-2 join"
 KUBECONFIG="${KUBECONFIG_DIR}/control-plane.yaml"
 echo "KUBECONFIG=${KUBECONFIG}"
-echo ferryctl control-plane join tunnel cluster-2 "--control-plane-tunnel-address=${HOST_IP}:31000"
-SEND_TO_CLUSTER_2="$(ferryctl control-plane join tunnel cluster-2 "--control-plane-tunnel-address=${HOST_IP}:31000" 2>/dev/null)"
+echo ferryctl control-plane join cluster-2 "--control-plane-tunnel-address=${HOST_IP}:31000" --data-plane-reachable=false
+SEND_TO_CLUSTER_2="$(ferryctl control-plane join cluster-2 "--control-plane-tunnel-address=${HOST_IP}:31000" --data-plane-reachable=false 2>/dev/null)"
 echo "::endgroup::"
 
 echo "::group::Data plane cluster-2 join"
