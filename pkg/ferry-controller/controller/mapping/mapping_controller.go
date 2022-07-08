@@ -1,4 +1,4 @@
-package route
+package mapping
 
 import (
 	"context"
@@ -8,29 +8,43 @@ import (
 
 	"github.com/ferry-proxy/api/apis/traffic/v1alpha2"
 	"github.com/ferry-proxy/ferry/pkg/consts"
-	"github.com/ferry-proxy/ferry/pkg/ferry-controller/router"
+	"github.com/ferry-proxy/ferry/pkg/ferry-controller/router/resource"
 	"github.com/ferry-proxy/ferry/pkg/ferry-controller/utils"
 	"github.com/ferry-proxy/ferry/pkg/utils/objref"
 	"github.com/ferry-proxy/ferry/pkg/utils/trybuffer"
 	"github.com/go-logr/logr"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
 )
 
-type dataPlaneControllerConfig struct {
+type ClusterCache interface {
+	ListServices(name string) []*corev1.Service
+	GetHub(name string) *v1alpha2.Hub
+	GetIdentity(name string) string
+	Clientset(name string) *kubernetes.Clientset
+	LoadPortPeer(importHubName string, list *corev1.ServiceList)
+	GetPortPeer(importHubName string, cluster, namespace, name string, port int32) int32
+	RegistryServiceCallback(exportHubName, importHubName string, cb func())
+	UnregistryServiceCallback(exportHubName, importHubName string)
+}
+
+type MappingControllerConfig struct {
+	Namespace                  string
 	ExportHubName              string
 	ImportHubName              string
 	ClusterCache               ClusterCache
 	ExportClientset            *kubernetes.Clientset
 	ImportClientset            *kubernetes.Clientset
 	Logger                     logr.Logger
-	SourceResourceBuilder      router.ResourceBuilders
-	DestinationResourceBuilder router.ResourceBuilders
+	SourceResourceBuilder      resource.ResourceBuilders
+	DestinationResourceBuilder resource.ResourceBuilders
 }
 
-func newDataPlaneController(conf dataPlaneControllerConfig) *dataPlaneController {
-	return &dataPlaneController{
+func NewMappingController(conf MappingControllerConfig) *MappingController {
+	return &MappingController{
+		namespace:                  conf.Namespace,
 		importHubName:              conf.ImportHubName,
 		exportHubName:              conf.ExportHubName,
 		exportClientset:            conf.ExportClientset,
@@ -43,9 +57,12 @@ func newDataPlaneController(conf dataPlaneControllerConfig) *dataPlaneController
 	}
 }
 
-type dataPlaneController struct {
+type MappingController struct {
 	mut sync.Mutex
 	ctx context.Context
+
+	namespace string
+	labels    map[string]string
 
 	exportHubName string
 	importHubName string
@@ -56,10 +73,10 @@ type dataPlaneController struct {
 
 	exportClientset            *kubernetes.Clientset
 	importClientset            *kubernetes.Clientset
-	sourceResourceBuilder      router.ResourceBuilders
-	destinationResourceBuilder router.ResourceBuilders
-	lastSourceResources        []router.Resourcer
-	lastDestinationResources   []router.Resourcer
+	sourceResourceBuilder      resource.ResourceBuilders
+	destinationResourceBuilder resource.ResourceBuilders
+	lastSourceResources        []resource.Resourcer
+	lastDestinationResources   []resource.Resourcer
 	logger                     logr.Logger
 
 	try *trybuffer.TryBuffer
@@ -67,27 +84,23 @@ type dataPlaneController struct {
 	isClose bool
 }
 
-func (d *dataPlaneController) Start(ctx context.Context) error {
+func (d *MappingController) Start(ctx context.Context) error {
 	d.logger.Info("DataPlane controller started")
 	defer func() {
 		d.logger.Info("DataPlane controller stopped")
 	}()
 	d.ctx = ctx
 
-	proxy, err := d.mustGetProxyInfo(ctx)
-	if err != nil {
-		return err
-	}
 	// Mark managed by ferry
 	opt := metav1.ListOptions{
-		LabelSelector: labels.SelectorFromSet(proxy.Labels).String(),
+		LabelSelector: labels.SelectorFromSet(d.getLabel()).String(),
 	}
 
-	err = d.initLastSourceResources(ctx, proxy, opt)
+	err := d.initLastSourceResources(ctx, opt)
 	if err != nil {
 		return err
 	}
-	err = d.initLastDestinationResources(ctx, proxy, opt)
+	err = d.initLastDestinationResources(ctx, opt)
 	if err != nil {
 		return err
 	}
@@ -99,11 +112,11 @@ func (d *dataPlaneController) Start(ctx context.Context) error {
 	return nil
 }
 
-func (d *dataPlaneController) Sync() {
+func (d *MappingController) Sync() {
 	d.try.Try()
 }
 
-func (d *dataPlaneController) SetRoutes(rules []*v1alpha2.Route) {
+func (d *MappingController) SetRoutes(rules []*v1alpha2.Route) {
 	mappings := map[objref.ObjectRef][]objref.ObjectRef{}
 	for _, rule := range rules {
 		exportRef := objref.ObjectRef{Name: rule.Spec.Export.Service.Name, Namespace: rule.Spec.Export.Service.Namespace}
@@ -121,30 +134,30 @@ func (d *dataPlaneController) SetRoutes(rules []*v1alpha2.Route) {
 	d.mappings = mappings
 }
 
-func (d *dataPlaneController) initLastSourceResources(ctx context.Context, proxy *router.Proxy, opt metav1.ListOptions) error {
+func (d *MappingController) initLastSourceResources(ctx context.Context, opt metav1.ListOptions) error {
 	cmList, err := d.exportClientset.
 		CoreV1().
-		ConfigMaps(proxy.TunnelNamespace).
+		ConfigMaps(d.namespace).
 		List(ctx, opt)
 	if err != nil {
 		return err
 	}
 	for _, item := range cmList.Items {
-		d.lastSourceResources = append(d.lastSourceResources, router.ConfigMap{item.DeepCopy()})
+		d.lastSourceResources = append(d.lastSourceResources, resource.ConfigMap{item.DeepCopy()})
 	}
 	return nil
 }
 
-func (d *dataPlaneController) initLastDestinationResources(ctx context.Context, proxy *router.Proxy, opt metav1.ListOptions) error {
+func (d *MappingController) initLastDestinationResources(ctx context.Context, opt metav1.ListOptions) error {
 	cmList, err := d.importClientset.
 		CoreV1().
-		ConfigMaps(proxy.TunnelNamespace).
+		ConfigMaps(d.namespace).
 		List(ctx, opt)
 	if err != nil {
 		return err
 	}
 	for _, item := range cmList.Items {
-		d.lastDestinationResources = append(d.lastDestinationResources, router.ConfigMap{item.DeepCopy()})
+		d.lastDestinationResources = append(d.lastDestinationResources, resource.ConfigMap{item.DeepCopy()})
 	}
 	svcList, err := d.importClientset.
 		CoreV1().
@@ -154,45 +167,33 @@ func (d *dataPlaneController) initLastDestinationResources(ctx context.Context, 
 		return err
 	}
 	for _, item := range svcList.Items {
-		d.lastDestinationResources = append(d.lastDestinationResources, router.Service{item.DeepCopy()})
+		d.lastDestinationResources = append(d.lastDestinationResources, resource.Service{item.DeepCopy()})
 	}
 
 	d.clusterCache.LoadPortPeer(d.importHubName, svcList)
 	return nil
 }
 
-func (d *dataPlaneController) mustGetProxyInfo(ctx context.Context) (*router.Proxy, error) {
-	proxy, err := d.getProxyInfo()
-	if err != nil {
-		for {
-			d.logger.Error(err, "get proxy info failed")
-			select {
-			case <-ctx.Done():
-				return nil, ctx.Err()
-			case <-time.After(2 * time.Second):
-				proxy, err = d.getProxyInfo()
-				if err != nil {
-					continue
-				}
-				return proxy, nil
-			}
-		}
+func (d *MappingController) getLabel() map[string]string {
+	if d.labels != nil {
+		return d.labels
 	}
-	return proxy, nil
+	d.labels = map[string]string{
+		consts.LabelFerryManagedByKey:    consts.LabelFerryManagedByValue,
+		consts.LabelFerryExportedFromKey: d.exportHubName,
+		consts.LabelFerryImportedToKey:   d.importHubName,
+	}
+	return d.labels
 }
 
-func (d *dataPlaneController) getProxyInfo() (*router.Proxy, error) {
+func (d *MappingController) getProxyInfo() (*resource.Proxy, error) {
 	exportHubName := d.exportHubName
 	importHubName := d.importHubName
 
-	proxy := &router.Proxy{
-		Labels: map[string]string{
-			consts.LabelFerryManagedByKey:    consts.LabelFerryManagedByValue,
-			consts.LabelFerryExportedFromKey: exportHubName,
-			consts.LabelFerryImportedToKey:   importHubName,
-		},
-		RemotePrefix:    "ferry",
-		TunnelNamespace: "ferry-tunnel-system",
+	proxy := &resource.Proxy{
+		Labels:          d.getLabel(),
+		RemotePrefix:    consts.FerryName,
+		TunnelNamespace: d.namespace,
 
 		ExportHubName: exportHubName,
 		ImportHubName: importHubName,
@@ -273,7 +274,7 @@ func mergeGateway(origin, override v1alpha2.HubSpecGateway) v1alpha2.HubSpecGate
 	return origin
 }
 
-func (d *dataPlaneController) sync() {
+func (d *MappingController) sync() {
 	d.mut.Lock()
 	defer d.mut.Unlock()
 
@@ -288,10 +289,10 @@ func (d *dataPlaneController) sync() {
 		return
 	}
 
-	var ir []router.Resourcer
-	var er []router.Resourcer
+	var ir []resource.Resourcer
+	var er []resource.Resourcer
 
-	proxy, err := d.mustGetProxyInfo(ctx)
+	proxy, err := d.getProxyInfo()
 	if err != nil {
 		d.logger.Error(err, "get proxy info failed")
 		return
@@ -380,7 +381,7 @@ func (d *dataPlaneController) sync() {
 	return
 }
 
-func (d *dataPlaneController) Close() {
+func (d *MappingController) Close() {
 	d.mut.Lock()
 	defer d.mut.Unlock()
 

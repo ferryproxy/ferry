@@ -1,4 +1,4 @@
-package router
+package resource
 
 import (
 	"context"

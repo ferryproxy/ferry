@@ -5,6 +5,7 @@ import (
 	"os"
 	"syscall"
 
+	"github.com/ferry-proxy/ferry/pkg/consts"
 	"github.com/ferry-proxy/ferry/pkg/ferry-tunnel/controller"
 	"github.com/ferry-proxy/ferry/pkg/utils/env"
 	"github.com/go-logr/logr"
@@ -18,8 +19,8 @@ import (
 var (
 	ctx, globalCancel = context.WithCancel(context.Background())
 	log               logr.Logger
-	serviceName       = env.GetEnv("SERVICE_NAME", "ferry-tunnel")
-	namespace         = env.GetEnv("NAMESPACE", "ferry-tunnel-system")
+	serviceName       = env.GetEnv("SERVICE_NAME", consts.FerryTunnelName)
+	namespace         = env.GetEnv("NAMESPACE", consts.FerryTunnelNamespace)
 	labelSelector     = env.GetEnv("LABEL_SELECTOR", "tunnel.ferry.zsm.io/service=inject")
 	master            = env.GetEnv("MASTER", "")
 	kubeconfig        = env.GetEnv("KUBECONFIG", "")

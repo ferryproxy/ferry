@@ -21,6 +21,7 @@ import (
 	"os"
 	"syscall"
 
+	"github.com/ferry-proxy/ferry/pkg/consts"
 	"github.com/ferry-proxy/ferry/pkg/ferry-controller/controller"
 	"github.com/ferry-proxy/ferry/pkg/utils/env"
 	"github.com/go-logr/logr"
@@ -35,7 +36,7 @@ var (
 	log               = logr.Discard()
 	master            = env.GetEnv("MASTER", "")
 	kubeconfig        = env.GetEnv("KUBECONFIG", "")
-	namespace         = env.GetEnv("NAMESPACE", "ferry-system")
+	namespace         = env.GetEnv("NAMESPACE", consts.FerryNamespace)
 )
 
 func init() {

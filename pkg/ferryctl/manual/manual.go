@@ -3,6 +3,8 @@ package manual
 import (
 	"fmt"
 	"strings"
+
+	"github.com/ferry-proxy/ferry/pkg/consts"
 )
 
 type BuildManualPortConfig struct {
@@ -24,7 +26,7 @@ type BuildManualPortConfig struct {
 }
 
 func BuildManualPort(conf BuildManualPortConfig) (exportPortResource, importPortResource, importAddress string, err error) {
-	namespace := "ferry-tunnel-system"
+	namespace := consts.FerryTunnelNamespace
 	exportName := fmt.Sprintf("%s-%s", conf.ImportServiceName, "export")
 	importName := fmt.Sprintf("%s-%s", conf.ImportServiceName, "import")
 	exportPortResource, err = buildExport(buildExportConfig{

@@ -9,60 +9,49 @@ import (
 	"github.com/ferry-proxy/api/apis/traffic/v1alpha2"
 	versioned "github.com/ferry-proxy/client-go/generated/clientset/versioned"
 	externalversions "github.com/ferry-proxy/client-go/generated/informers/externalversions"
-	"github.com/ferry-proxy/ferry/pkg/ferry-controller/router"
+	"github.com/ferry-proxy/ferry/pkg/consts"
+	"github.com/ferry-proxy/ferry/pkg/ferry-controller/controller/mapping"
+	"github.com/ferry-proxy/ferry/pkg/ferry-controller/router/resource"
 	original "github.com/ferry-proxy/ferry/pkg/ferry-controller/router/tunnel"
 	"github.com/ferry-proxy/ferry/pkg/utils/objref"
 	"github.com/go-logr/logr"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
 	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 )
 
-type ClusterCache interface {
-	ListServices(name string) []*corev1.Service
-	GetHub(name string) *v1alpha2.Hub
-	GetIdentity(name string) string
-	Clientset(name string) *kubernetes.Clientset
-	LoadPortPeer(importHubName string, list *corev1.ServiceList)
-	GetPortPeer(importHubName string, cluster, namespace, name string, port int32) int32
-	RegistryServiceCallback(exportHubName, importHubName string, cb func())
-	UnregistryServiceCallback(exportHubName, importHubName string)
-}
-
 type RouteControllerConfig struct {
 	Logger       logr.Logger
 	Config       *restclient.Config
-	ClusterCache ClusterCache
+	ClusterCache mapping.ClusterCache
 	Namespace    string
 	SyncFunc     func()
 }
 
 type RouteController struct {
-	ctx                      context.Context
-	mut                      sync.RWMutex
-	config                   *restclient.Config
-	clientset                *versioned.Clientset
-	clusterCache             ClusterCache
-	cache                    map[string]*v1alpha2.Route
-	cacheDataPlaneController map[clusterPair]*dataPlaneController
-	cacheRoutes              map[clusterPair][]*v1alpha2.Route
-	namespace                string
-	syncFunc                 func()
-	logger                   logr.Logger
+	ctx                    context.Context
+	mut                    sync.RWMutex
+	config                 *restclient.Config
+	clientset              *versioned.Clientset
+	clusterCache           mapping.ClusterCache
+	cache                  map[string]*v1alpha2.Route
+	cacheMappingController map[clusterPair]*mapping.MappingController
+	cacheRoutes            map[clusterPair][]*v1alpha2.Route
+	namespace              string
+	syncFunc               func()
+	logger                 logr.Logger
 }
 
 func NewRouteController(conf *RouteControllerConfig) *RouteController {
 	return &RouteController{
-		config:                   conf.Config,
-		namespace:                conf.Namespace,
-		clusterCache:             conf.ClusterCache,
-		logger:                   conf.Logger,
-		syncFunc:                 conf.SyncFunc,
-		cache:                    map[string]*v1alpha2.Route{},
-		cacheDataPlaneController: map[clusterPair]*dataPlaneController{},
-		cacheRoutes:              map[clusterPair][]*v1alpha2.Route{},
+		config:                 conf.Config,
+		namespace:              conf.Namespace,
+		clusterCache:           conf.ClusterCache,
+		logger:                 conf.Logger,
+		syncFunc:               conf.SyncFunc,
+		cache:                  map[string]*v1alpha2.Route{},
+		cacheMappingController: map[clusterPair]*mapping.MappingController{},
+		cacheRoutes:            map[clusterPair][]*v1alpha2.Route{},
 	}
 }
 
@@ -199,22 +188,22 @@ func (c *RouteController) Sync(ctx context.Context) {
 
 	for _, key := range deleted {
 		logger := logger.WithValues("export", key.Export, "import", key.Import)
-		logger.Info("Delete data plane")
-		c.cleanupDataPlane(key)
+		logger.Info("Delete mapping controller")
+		c.cleanupMappingController(key)
 	}
 
 	for _, key := range updated {
 		logger := logger.WithValues("export", key.Export, "import", key.Import)
-		logger.Info("Update data plane")
-		dataPlane, err := c.startDataPlane(ctx, key)
+		logger.Info("Update mapping controller")
+		mc, err := c.startMappingController(ctx, key)
 		if err != nil {
-			logger.Error(err, "start data plane")
+			logger.Error(err, "start mapping controller")
 			continue
 		}
 
-		dataPlane.SetRoutes(newerRoutes[key])
+		mc.SetRoutes(newerRoutes[key])
 
-		dataPlane.Sync()
+		mc.Sync()
 
 		for _, rule := range newerRoutes[key] {
 			err := c.updateStatus(rule.Name, "Worked")
@@ -226,18 +215,18 @@ func (c *RouteController) Sync(ctx context.Context) {
 	return
 }
 
-func (c *RouteController) cleanupDataPlane(key clusterPair) {
-	dataPlane := c.cacheDataPlaneController[key]
-	if dataPlane != nil {
-		dataPlane.Close()
-		delete(c.cacheDataPlaneController, key)
+func (c *RouteController) cleanupMappingController(key clusterPair) {
+	mc := c.cacheMappingController[key]
+	if mc != nil {
+		mc.Close()
+		delete(c.cacheMappingController, key)
 	}
 }
 
-func (c *RouteController) startDataPlane(ctx context.Context, key clusterPair) (*dataPlaneController, error) {
-	dataPlane := c.cacheDataPlaneController[key]
-	if dataPlane != nil {
-		return dataPlane, nil
+func (c *RouteController) startMappingController(ctx context.Context, key clusterPair) (*mapping.MappingController, error) {
+	mc := c.cacheMappingController[key]
+	if mc != nil {
+		return mc, nil
 	}
 
 	exportClientset := c.clusterCache.Clientset(key.Export)
@@ -259,25 +248,26 @@ func (c *RouteController) startDataPlane(ctx context.Context, key clusterPair) (
 		return nil, fmt.Errorf("not found cluster information %q", key.Import)
 	}
 
-	dataPlane = newDataPlaneController(dataPlaneControllerConfig{
+	mc = mapping.NewMappingController(mapping.MappingControllerConfig{
+		Namespace:                  consts.FerryTunnelNamespace,
 		ClusterCache:               c.clusterCache,
 		ImportHubName:              key.Import,
 		ExportHubName:              key.Export,
 		ExportClientset:            exportClientset,
 		ImportClientset:            importClientset,
-		SourceResourceBuilder:      router.ResourceBuilders{original.IngressBuilder},
-		DestinationResourceBuilder: router.ResourceBuilders{original.EgressBuilder, original.ServiceEgressDiscoveryBuilder},
+		SourceResourceBuilder:      resource.ResourceBuilders{original.IngressBuilder},
+		DestinationResourceBuilder: resource.ResourceBuilders{original.EgressBuilder, original.ServiceEgressDiscoveryBuilder},
 		Logger: c.logger.WithName("data-plane").
 			WithName(key.Import).
 			WithValues("export", key.Export, "import", key.Import),
 	})
-	c.cacheDataPlaneController[key] = dataPlane
+	c.cacheMappingController[key] = mc
 
-	err := dataPlane.Start(ctx)
+	err := mc.Start(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return dataPlane, nil
+	return mc, nil
 }
 
 func groupRoutes(rules []*v1alpha2.Route) map[clusterPair][]*v1alpha2.Route {
