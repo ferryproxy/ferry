@@ -21,14 +21,18 @@ spec:
 
 {{ with .DataPlaneReceptionHubName }}
     reception:
+{{ range . }}
       - hubName: {{ . }}
+{{ end}}
 {{ else }}
     reception: []
 {{ end }}
 
 {{ with .DataPlaneNavigationHubName }}
     navigation:
+{{ range . }}
       - hubName: {{ . }}
+{{ end}}
 {{ else }}
     navigation: []
 {{ end }}

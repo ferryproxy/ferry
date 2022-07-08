@@ -24,11 +24,11 @@ echo ferryctl control-plane init --control-plane-reachable=false
 ferryctl control-plane init --control-plane-reachable=false
 echo "::endgroup::"
 
-echo "::group::Data plane cluster-1 pre-join"
+echo "::group::Data plane cluster-1 join"
 KUBECONFIG="${KUBECONFIG_DIR}/control-plane.yaml"
 echo "KUBECONFIG=${KUBECONFIG}"
-echo ferryctl control-plane pre-join tunnel cluster-1 "--data-plane-tunnel-address=${HOST_IP}:31001"
-SEND_TO_CLUSTER_1="$(ferryctl control-plane pre-join tunnel cluster-1 "--data-plane-tunnel-address=${HOST_IP}:31001" 2>/dev/null)"
+echo ferryctl control-plane join cluster-1 "--data-plane-tunnel-address=${HOST_IP}:31001" --control-plane-reachable=false
+SEND_TO_CLUSTER_1="$(ferryctl control-plane join cluster-1 "--data-plane-tunnel-address=${HOST_IP}:31001" --control-plane-reachable=false 2>/dev/null)"
 echo "::endgroup::"
 
 echo "::group::Data plane cluster-1 join"

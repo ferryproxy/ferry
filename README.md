@@ -17,16 +17,11 @@ ferryctl control-plane init
 
 ## Other data plane join
 
-### Data plane pre-join
+### Data plane join
 
 ``` bash
-# execute on control plane to pre-join other data plane
-ferryctl control-plane pre-join direct <other-data-plane-name>
-```
-or
-``` bash 
-# execute on control plane to pre-join other data plane with tunnel mode
-ferryctl control-plane pre-join tunnel <other-data-plane-name>
+# execute on control plane to join other data plane
+ferryctl control-plane join <other-data-plane-name>
 ```
 
 PS: The `<other-data-plane-name>` is the same as FerryPoliy used below

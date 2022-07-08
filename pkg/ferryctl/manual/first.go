@@ -19,7 +19,7 @@ type FirstConfig struct {
 	PeerTunnelAddress string
 }
 
-func First(ctx context.Context, conf FirstConfig) error {
+func First(ctx context.Context, conf FirstConfig) (next string, err error) {
 	tunnelAddress := conf.TunnelAddress
 	tunnelIdentity := conf.TunnelIdentity
 	exportHost := conf.ExportHost
@@ -48,13 +48,8 @@ func First(ctx context.Context, conf FirstConfig) error {
 	args = append(args, "--import-service-name="+importServiceName)
 	args = append(args, "--tunnel-address="+peerTunnelAddress)
 
-	fmt.Printf("# ++++ Please run the following command to peer tunnel:\n")
-	fmt.Printf("# =============================================\n")
-	fmt.Printf("ferryctl data-plane init\n")
-	fmt.Printf("ferryctl local manual %s %s\n",
+	return fmt.Sprintf("ferryctl local manual %s %s\n",
 		conf.Next,
 		strings.Join(args, " "),
-	)
-	fmt.Printf("# =============================================\n")
-	return nil
+	), nil
 }

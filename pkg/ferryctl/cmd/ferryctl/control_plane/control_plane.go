@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	initcmd "github.com/ferry-proxy/ferry/pkg/ferryctl/cmd/ferryctl/control_plane/init"
-	"github.com/ferry-proxy/ferry/pkg/ferryctl/cmd/ferryctl/control_plane/pre_join"
+	"github.com/ferry-proxy/ferry/pkg/ferryctl/cmd/ferryctl/control_plane/join"
 	"github.com/ferry-proxy/ferry/pkg/ferryctl/log"
 	"github.com/spf13/cobra"
 )
@@ -25,7 +25,7 @@ func NewCommand(logger log.Logger) *cobra.Command {
 
 	cmd.AddCommand(
 		initcmd.NewCommand(logger),
-		pre_join.NewCommand(logger),
+		join.NewCommand(logger),
 	)
 	return cmd
 }
