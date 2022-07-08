@@ -3,7 +3,7 @@ kind: Service
 metadata:
   labels:
     traffic.ferry.zsm.io/exported-from-ports: '{{ .TargetPort }}'
-    ferry-tunnel: "true"
+    tunnel.ferry.zsm.io/service: inject
   name: {{ .ServiceName }}
   namespace: {{ .ServiceNamespace }}
 spec:

@@ -137,7 +137,7 @@ spec:
       containers:
       - env:
         - name: LABEL_SELECTOR
-          value: ferry-tunnel=true
+          value: tunnel.ferry.zsm.io/service=inject
         - name: SERVICE_NAME
           value: ferry-tunnel
         - name: NAMESPACE
@@ -160,7 +160,7 @@ kind: ConfigMap
 metadata:
   labels:
     app: ferry-tunnel-local
-    ferry-tunnel: "true"
+    tunnel.ferry.zsm.io/service: inject
   name: ferry-tunnel-local
   namespace: ferry-tunnel-system
 data:

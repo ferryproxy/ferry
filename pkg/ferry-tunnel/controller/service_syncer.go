@@ -12,6 +12,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/cache"
 )
 
 type ServiceSyncer struct {
@@ -49,7 +50,11 @@ func (s *ServiceSyncer) Run(ctx context.Context) error {
 		Services().
 		Informer()
 	s.ctx = ctx
-	informer.AddEventHandler(s)
+	informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    s.onAdd,
+		UpdateFunc: s.onUpdate,
+		DeleteFunc: s.onDelete,
+	})
 	informer.Run(ctx.Done())
 	return nil
 }
@@ -120,7 +125,7 @@ func (s *ServiceSyncer) Delete(svc *corev1.Service) {
 	}
 }
 
-func (s *ServiceSyncer) OnAdd(obj interface{}) {
+func (s *ServiceSyncer) onAdd(obj interface{}) {
 	svc := obj.(*corev1.Service)
 	if len(svc.Spec.Selector) != 0 {
 		return
@@ -131,7 +136,7 @@ func (s *ServiceSyncer) OnAdd(obj interface{}) {
 	s.Update(svc)
 }
 
-func (s *ServiceSyncer) OnUpdate(oldObj, newObj interface{}) {
+func (s *ServiceSyncer) onUpdate(oldObj, newObj interface{}) {
 	svc := newObj.(*corev1.Service)
 	if len(svc.Spec.Selector) != 0 {
 		return
@@ -142,7 +147,7 @@ func (s *ServiceSyncer) OnUpdate(oldObj, newObj interface{}) {
 	s.Update(svc)
 }
 
-func (s *ServiceSyncer) OnDelete(obj interface{}) {
+func (s *ServiceSyncer) onDelete(obj interface{}) {
 	svc := obj.(*corev1.Service)
 	if len(svc.Spec.Selector) != 0 {
 		return

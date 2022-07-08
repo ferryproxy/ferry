@@ -10,6 +10,6 @@ const (
 	LabelFerryManagedByKey             = LabelPrefix + "managed-by"
 	LabelFerryManagedByValue           = "ferry-controller"
 
-	LabelFerryTunnelKey   = "ferry-tunnel"
-	LabelFerryTunnelValue = "true"
+	LabelFerryTunnelKey   = "tunnel.ferry.zsm.io/service"
+	LabelFerryTunnelValue = "inject"
 )
