@@ -4,7 +4,7 @@ kind: ConfigMap
 metadata:
   labels:
     app: ferry-tunnel
-    ferry-tunnel: "true"
+    tunnel.ferry.zsm.io/service: inject
   name: {{ .ExportName }}
   namespace: {{ .ExportNamespace }}
 data:
