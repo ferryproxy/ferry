@@ -3,7 +3,7 @@ kind: Service
 metadata:
   labels:
     app: ferry-tunnel
-    ferry-tunnel: "true"
+    tunnel.ferry.zsm.io/service: inject
     traffic.ferry.zsm.io/exported-from: {{ .ExportHubName }}
     traffic.ferry.zsm.io/exported-from-ports: '{{ .BindPort }}'
   name: {{ .ImportServiceName }}
@@ -24,7 +24,7 @@ kind: ConfigMap
 metadata:
   labels:
     app: ferry-tunnel
-    ferry-tunnel: "true"
+    tunnel.ferry.zsm.io/service: inject
   name: {{ .ImportName }}
   namespace: {{ .ImportNamespace }}
 data:
