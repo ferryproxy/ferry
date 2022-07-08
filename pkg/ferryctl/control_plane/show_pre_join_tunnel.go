@@ -41,7 +41,7 @@ func ShowJoinWithTunnel(ctx context.Context, conf ShowJoinWithTunnelConfig) erro
 		return err
 	}
 
-	controlPlaneIdentity, err := kctl.GetSecretIdentity(ctx, "ferry-tunnel-system", "ferry-tunnel")
+	controlPlaneIdentity, err := kctl.GetSecretIdentity(ctx)
 	if err != nil {
 		return err
 	}
