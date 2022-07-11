@@ -12,7 +12,7 @@ import (
 	"github.com/ferry-proxy/ferry/pkg/consts"
 	"github.com/ferry-proxy/ferry/pkg/ferry-controller/controller/mapping"
 	"github.com/ferry-proxy/ferry/pkg/ferry-controller/router/resource"
-	original "github.com/ferry-proxy/ferry/pkg/ferry-controller/router/tunnel"
+	"github.com/ferry-proxy/ferry/pkg/ferry-controller/router/tunnel"
 	"github.com/ferry-proxy/ferry/pkg/utils/objref"
 	"github.com/go-logr/logr"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -255,8 +255,8 @@ func (c *RouteController) startMappingController(ctx context.Context, key cluste
 		ExportHubName:              key.Export,
 		ExportClientset:            exportClientset,
 		ImportClientset:            importClientset,
-		SourceResourceBuilder:      resource.ResourceBuilders{original.IngressBuilder},
-		DestinationResourceBuilder: resource.ResourceBuilders{original.EgressBuilder, original.ServiceEgressDiscoveryBuilder},
+		SourceResourceBuilder:      resource.ResourceBuilders{tunnel.IngressBuilder},
+		DestinationResourceBuilder: resource.ResourceBuilders{tunnel.EgressBuilder, tunnel.ServiceEgressDiscoveryBuilder},
 		Logger: c.logger.WithName("data-plane").
 			WithName(key.Import).
 			WithValues("export", key.Export, "import", key.Import),

@@ -39,6 +39,7 @@ func (r ResourceBuilders) Build(proxy *Proxy, origin, destination objref.ObjectR
 type Proxy struct {
 	RemotePrefix string
 	Reverse      bool
+	Repeater     bool
 
 	TunnelNamespace string
 
