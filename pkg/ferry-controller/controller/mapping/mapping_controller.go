@@ -23,7 +23,7 @@ type ClusterCache interface {
 	ListServices(name string) []*corev1.Service
 	GetHub(name string) *v1alpha2.Hub
 	GetIdentity(name string) string
-	Clientset(name string) *kubernetes.Clientset
+	Clientset(name string) kubernetes.Interface
 	LoadPortPeer(importHubName string, list *corev1.ServiceList)
 	GetPortPeer(importHubName string, cluster, namespace, name string, port int32) int32
 	RegistryServiceCallback(exportHubName, importHubName string, cb func())
@@ -35,8 +35,8 @@ type MappingControllerConfig struct {
 	ExportHubName              string
 	ImportHubName              string
 	ClusterCache               ClusterCache
-	ExportClientset            *kubernetes.Clientset
-	ImportClientset            *kubernetes.Clientset
+	ExportClientset            kubernetes.Interface
+	ImportClientset            kubernetes.Interface
 	Logger                     logr.Logger
 	SourceResourceBuilder      resource.ResourceBuilders
 	DestinationResourceBuilder resource.ResourceBuilders
@@ -71,8 +71,8 @@ type MappingController struct {
 
 	clusterCache ClusterCache
 
-	exportClientset            *kubernetes.Clientset
-	importClientset            *kubernetes.Clientset
+	exportClientset            kubernetes.Interface
+	importClientset            kubernetes.Interface
 	sourceResourceBuilder      resource.ResourceBuilders
 	destinationResourceBuilder resource.ResourceBuilders
 	lastSourceResources        []resource.Resourcer

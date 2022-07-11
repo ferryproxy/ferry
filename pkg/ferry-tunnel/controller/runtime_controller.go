@@ -27,7 +27,7 @@ type RuntimeController struct {
 	namespace     string
 	labelSelector string
 	logger        logr.Logger
-	clientset     *kubernetes.Clientset
+	clientset     kubernetes.Interface
 }
 
 type RuntimeControllerConfig struct {
@@ -35,7 +35,7 @@ type RuntimeControllerConfig struct {
 	Namespace     string
 	LabelSelector string
 	Logger        logr.Logger
-	Clientset     *kubernetes.Clientset
+	Clientset     kubernetes.Interface
 }
 
 func NewRuntimeController(conf *RuntimeControllerConfig) *RuntimeController {

@@ -20,14 +20,14 @@ type EndpointWatcher struct {
 	try       *trybuffer.TryBuffer
 	name      string
 	namespace string
-	clientset *kubernetes.Clientset
+	clientset kubernetes.Interface
 	syncFunc  func(ips []string)
 }
 
 type EndpointWatcherConfig struct {
 	Name      string
 	Namespace string
-	Clientset *kubernetes.Clientset
+	Clientset kubernetes.Interface
 	SyncFunc  func(ips []string)
 }
 

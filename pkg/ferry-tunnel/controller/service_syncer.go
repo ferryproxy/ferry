@@ -19,7 +19,7 @@ type ServiceSyncer struct {
 	mut           sync.Mutex
 	ctx           context.Context
 	ips           []string
-	clientset     *kubernetes.Clientset
+	clientset     kubernetes.Interface
 	labelSelector string
 	cache         map[objref.ObjectRef]*corev1.Service
 	logger        logr.Logger
@@ -28,7 +28,7 @@ type ServiceSyncer struct {
 type ServiceSyncerConfig struct {
 	LabelSelector string
 	Logger        logr.Logger
-	Clientset     *kubernetes.Clientset
+	Clientset     kubernetes.Interface
 }
 
 func NewServiceSyncer(conf *ServiceSyncerConfig) *ServiceSyncer {

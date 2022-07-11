@@ -61,8 +61,8 @@ type Proxy struct {
 
 type Resourcer interface {
 	utils.KMetadata
-	Apply(ctx context.Context, clientset *kubernetes.Clientset) (err error)
-	Delete(ctx context.Context, clientset *kubernetes.Clientset) (err error)
+	Apply(ctx context.Context, clientset kubernetes.Interface) (err error)
+	Delete(ctx context.Context, clientset kubernetes.Interface) (err error)
 }
 
 type Route struct {
@@ -121,7 +121,7 @@ type Service struct {
 	*corev1.Service
 }
 
-func (s Service) Apply(ctx context.Context, clientset *kubernetes.Clientset) (err error) {
+func (s Service) Apply(ctx context.Context, clientset kubernetes.Interface) (err error) {
 	logger := logr.FromContextOrDiscard(ctx)
 	ori, err := clientset.
 		CoreV1().
@@ -167,7 +167,7 @@ func (s Service) Apply(ctx context.Context, clientset *kubernetes.Clientset) (er
 	return nil
 }
 
-func (s Service) Delete(ctx context.Context, clientset *kubernetes.Clientset) (err error) {
+func (s Service) Delete(ctx context.Context, clientset kubernetes.Interface) (err error) {
 	logger := logr.FromContextOrDiscard(ctx)
 	logger.Info("Deleting Service", "Service", objref.KObj(s))
 
@@ -185,7 +185,7 @@ type ConfigMap struct {
 	*corev1.ConfigMap
 }
 
-func (s ConfigMap) Apply(ctx context.Context, clientset *kubernetes.Clientset) (err error) {
+func (s ConfigMap) Apply(ctx context.Context, clientset kubernetes.Interface) (err error) {
 	logger := logr.FromContextOrDiscard(ctx)
 
 	ori, err := clientset.
@@ -234,7 +234,7 @@ func (s ConfigMap) Apply(ctx context.Context, clientset *kubernetes.Clientset) (
 	return nil
 }
 
-func (s ConfigMap) Delete(ctx context.Context, clientset *kubernetes.Clientset) (err error) {
+func (s ConfigMap) Delete(ctx context.Context, clientset kubernetes.Interface) (err error) {
 	logger := logr.FromContextOrDiscard(ctx)
 	logger.Info("Deleting ConfigMap", "ConfigMap", objref.KObj(s))
 

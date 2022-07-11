@@ -19,7 +19,7 @@ type clusterServiceCache struct {
 	ctx       context.Context
 	cancel    context.CancelFunc
 
-	clientset *kubernetes.Clientset
+	clientset kubernetes.Interface
 	cache     map[objref.ObjectRef]*corev1.Service
 	callback  map[string]func()
 
@@ -30,7 +30,7 @@ type clusterServiceCache struct {
 }
 
 type clusterServiceCacheConfig struct {
-	Clientset *kubernetes.Clientset
+	Clientset kubernetes.Interface
 	Logger    logr.Logger
 }
 
@@ -44,7 +44,7 @@ func newClusterServiceCache(conf clusterServiceCacheConfig) *clusterServiceCache
 	return c
 }
 
-func (c *clusterServiceCache) ResetClientset(clientset *kubernetes.Clientset) error {
+func (c *clusterServiceCache) ResetClientset(clientset kubernetes.Interface) error {
 	c.mut.Lock()
 	defer c.mut.Unlock()
 
