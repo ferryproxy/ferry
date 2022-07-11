@@ -13,6 +13,7 @@ import (
 	versioned "github.com/ferry-proxy/client-go/generated/clientset/versioned"
 	externalversions "github.com/ferry-proxy/client-go/generated/informers/externalversions"
 	"github.com/ferry-proxy/ferry/pkg/client"
+	"github.com/ferry-proxy/ferry/pkg/consts"
 	"github.com/ferry-proxy/ferry/pkg/utils/objref"
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
@@ -250,13 +251,13 @@ func (c *HubController) onAdd(obj interface{}) {
 func (c *HubController) updateIdentity(name string) error {
 	secret, err := c.cacheClientset[name].
 		CoreV1().
-		Secrets("ferry-tunnel-system").
-		Get(c.ctx, "ferry-tunnel", metav1.GetOptions{})
+		Secrets(consts.FerryTunnelNamespace).
+		Get(c.ctx, consts.FerryTunnelName, metav1.GetOptions{})
 	if err != nil {
 		return err
 	}
 	if secret.Data == nil {
-		return fmt.Errorf("hub %q secret ferry-tunnel.ferry-tunnel-system is empty", name)
+		return fmt.Errorf("hub %q secret %s.%s is empty", name, consts.FerryTunnelName, consts.FerryTunnelNamespace)
 	}
 	identity := secret.Data["identity"]
 	if len(identity) == 0 {

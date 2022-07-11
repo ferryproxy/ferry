@@ -1,12 +1,15 @@
 package tunnel
 
 import (
+	"strings"
+
+	"github.com/ferry-proxy/ferry/pkg/consts"
 	"github.com/ferry-proxy/ferry/pkg/ferryctl/kubectl"
 	"github.com/ferry-proxy/ferry/pkg/ferryctl/log"
 	"github.com/spf13/cobra"
 )
 
-var example = "kubectl exec deploy/ferry-tunnel -n ferry-tunnel-system -- cat bridge.conf\n"
+var example = []string{"exec", "deploy/" + consts.FerryTunnelName, "-n", consts.FerryTunnelNamespace, "--", "cat", "bridge.conf"}
 
 func NewCommand(logger log.Logger) *cobra.Command {
 	cmd := &cobra.Command{
@@ -15,10 +18,10 @@ func NewCommand(logger log.Logger) *cobra.Command {
 			"t",
 		},
 		Short:   "Tunnel rules",
-		Example: example,
+		Example: "kubectl " + strings.Join(example, " "),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			kctl := kubectl.NewKubectl()
-			return kctl.Wrap(cmd.Context(), "exec", "deploy/ferry-tunnel", "-n", "ferry-tunnel-system", "--", "cat", "bridge.conf")
+			return kctl.Wrap(cmd.Context(), example...)
 		},
 	}
 	return cmd

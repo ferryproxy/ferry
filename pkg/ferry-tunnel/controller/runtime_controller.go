@@ -74,7 +74,7 @@ func (r *RuntimeController) Run(ctx context.Context) error {
 		r.cmd.Process.Signal(syscall.SIGTERM)
 	})
 
-	r.logger.Info("Start ferry-tunnel")
+	r.logger.Info("Start ferry tunnel")
 	for ctx.Err() == nil {
 		err := r.runtime(ctx)
 		if err != nil {

@@ -1,6 +1,11 @@
 package consts
 
 const (
+	FerryName            = "ferry"
+	FerryNamespace       = FerryName + "-system"
+	FerryTunnelName      = FerryName + "-tunnel"
+	FerryTunnelNamespace = FerryTunnelName + "-system"
+
 	LabelPrefix                        = "traffic.ferry.zsm.io/"
 	LabelFerryExportedFromKey          = LabelPrefix + "exported-from"
 	LabelFerryExportedFromNamespaceKey = LabelPrefix + "exported-from-namespace"

@@ -2,6 +2,7 @@ package bridge
 
 import (
 	"context"
+	"fmt"
 	"log"
 
 	_ "github.com/wzshiming/bridge/protocols/command"
@@ -18,6 +19,7 @@ import (
 	_ "github.com/wzshiming/anyproxy/proxies/socks5"
 	_ "github.com/wzshiming/anyproxy/proxies/sshproxy"
 
+	"github.com/ferry-proxy/ferry/pkg/consts"
 	"github.com/ferry-proxy/ferry/pkg/ferryctl/vars"
 	"github.com/go-logr/logr/funcr"
 	"github.com/wzshiming/bridge/chain"
@@ -48,7 +50,7 @@ func (c *Bridge) ForwardDial(ctx context.Context, address string, target string)
 		[]string{
 			target,
 			"ssh://127.0.0.1:31088",
-			"cmd: kubectl --kubeconfig " + vars.KubeconfigPath + " exec service/ferry-tunnel -i -n ferry-tunnel-system -- nc %h %p",
+			fmt.Sprintf("cmd: kubectl --kubeconfig=%s exec service/%s -i -n %s -- nc %%h %%p", vars.KubeconfigPath, consts.FerryTunnelName, consts.FerryTunnelNamespace),
 		},
 	)
 }
@@ -59,7 +61,7 @@ func (c *Bridge) ForwardListen(ctx context.Context, address string, target strin
 		[]string{
 			address,
 			"ssh://127.0.0.1:31088",
-			"cmd: kubectl --kubeconfig " + vars.KubeconfigPath + " exec service/ferry-tunnel -i -n ferry-tunnel-system -- nc %h %p",
+			fmt.Sprintf("cmd: kubectl --kubeconfig=%s exec service/%s -i -n %s -- nc %%h %%p", vars.KubeconfigPath, consts.FerryTunnelName, consts.FerryTunnelNamespace),
 		},
 		[]string{
 			target,
@@ -76,7 +78,7 @@ func (c *Bridge) ForwardProxy(ctx context.Context, address string) error {
 		[]string{
 			"-",
 			"ssh://127.0.0.1:31088",
-			"cmd: kubectl --kubeconfig " + vars.KubeconfigPath + " exec service/ferry-tunnel -i -n ferry-tunnel-system -- nc %h %p",
+			fmt.Sprintf("cmd: kubectl --kubeconfig=%s exec service/%s -i -n %s -- nc %%h %%p", vars.KubeconfigPath, consts.FerryTunnelName, consts.FerryTunnelNamespace),
 		},
 	)
 }

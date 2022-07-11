@@ -10,7 +10,7 @@ import (
 	"github.com/ferry-proxy/api/apis/traffic/v1alpha2"
 	versioned "github.com/ferry-proxy/client-go/generated/clientset/versioned"
 	externalversions "github.com/ferry-proxy/client-go/generated/informers/externalversions"
-	"github.com/ferry-proxy/ferry/pkg/ferry-controller/router"
+	"github.com/ferry-proxy/ferry/pkg/ferry-controller/router/resource"
 	"github.com/ferry-proxy/ferry/pkg/ferry-controller/utils"
 	"github.com/ferry-proxy/ferry/pkg/utils/objref"
 	"github.com/go-logr/logr"
@@ -201,7 +201,7 @@ func (c *RoutePolicyController) Sync(ctx context.Context) {
 	}()
 
 	for _, r := range deleted {
-		mr := router.Route{r}
+		mr := resource.Route{r}
 		err := mr.Delete(ctx, c.clientset)
 		if err != nil {
 			c.logger.Error(err, "failed to delete mapping rule")
@@ -209,7 +209,7 @@ func (c *RoutePolicyController) Sync(ctx context.Context) {
 	}
 
 	for _, r := range updated {
-		mr := router.Route{r}
+		mr := resource.Route{r}
 		err := mr.Apply(ctx, c.clientset)
 		if err != nil {
 			c.logger.Error(err, "failed to update mapping rule")
