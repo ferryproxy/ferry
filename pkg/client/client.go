@@ -9,7 +9,7 @@ import (
 	"k8s.io/client-go/util/flowcontrol"
 )
 
-func NewClientsetFromKubeconfig(kubeconfig []byte) (*kubernetes.Clientset, error) {
+func NewClientsetFromKubeconfig(kubeconfig []byte) (kubernetes.Interface, error) {
 	cfg, err := clientcmd.BuildConfigFromKubeconfigGetter("", func() (conf *clientcmdapi.Config, err error) {
 		return clientcmd.Load(kubeconfig)
 	})

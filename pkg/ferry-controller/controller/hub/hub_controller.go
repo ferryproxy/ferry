@@ -36,9 +36,9 @@ type HubController struct {
 	logger           logr.Logger
 	config           *restclient.Config
 	clientset        *versioned.Clientset
-	kubeClientset    *kubernetes.Clientset
+	kubeClientset    kubernetes.Interface
 	cacheHub         map[string]*v1alpha2.Hub
-	cacheClientset   map[string]*kubernetes.Clientset
+	cacheClientset   map[string]kubernetes.Interface
 	cacheService     map[string]*clusterServiceCache
 	cacheTunnelPorts map[string]*tunnelPorts
 	cacheIdentity    map[string]string
@@ -54,7 +54,7 @@ func NewHubController(conf HubControllerConfig) *HubController {
 		logger:           conf.Logger,
 		syncFunc:         conf.SyncFunc,
 		cacheHub:         map[string]*v1alpha2.Hub{},
-		cacheClientset:   map[string]*kubernetes.Clientset{},
+		cacheClientset:   map[string]kubernetes.Interface{},
 		cacheService:     map[string]*clusterServiceCache{},
 		cacheTunnelPorts: map[string]*tunnelPorts{},
 		cacheIdentity:    map[string]string{},
@@ -113,7 +113,7 @@ func (c *HubController) updateStatus(name string, phase string) error {
 	return err
 }
 
-func (c *HubController) Clientset(name string) *kubernetes.Clientset {
+func (c *HubController) Clientset(name string) kubernetes.Interface {
 	c.mut.RLock()
 	defer c.mut.RUnlock()
 	return c.cacheClientset[name]

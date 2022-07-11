@@ -17,7 +17,7 @@ import (
 )
 
 type ConfigWatcher struct {
-	clientset     *kubernetes.Clientset
+	clientset     kubernetes.Interface
 	namespace     string
 	labelSelector string
 	logger        logr.Logger
@@ -27,7 +27,7 @@ type ConfigWatcher struct {
 }
 
 type ConfigWatcherConfig struct {
-	Clientset     *kubernetes.Clientset
+	Clientset     kubernetes.Interface
 	Logger        logr.Logger
 	Namespace     string
 	LabelSelector string
