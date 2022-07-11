@@ -2,6 +2,7 @@ package control_plane
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"os"
 	"strings"
@@ -49,7 +50,7 @@ func ClusterInit(ctx context.Context, conf ClusterInitConfig) error {
 		DataPlaneName:          conf.ControlPlaneName,
 		DataPlaneReachable:     conf.ControlPlaneReachable,
 		DataPlaneTunnelAddress: conf.ControlPlaneTunnelAddress,
-		DataPlaneKubeconfig:    kubeconfig,
+		DataPlaneKubeconfig:    base64.StdEncoding.EncodeToString(kubeconfig),
 	})
 	if err != nil {
 		return err

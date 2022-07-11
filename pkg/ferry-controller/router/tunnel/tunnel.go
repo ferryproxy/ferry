@@ -77,7 +77,7 @@ var EgressBuilder = egressBuilder{}
 type egressBuilder struct{}
 
 func (egressBuilder) Build(proxy *resource.Proxy, origin, destination objref.ObjectRef, spec *corev1.ServiceSpec) ([]resource.Resourcer, error) {
-	if len(proxy.ImportProxy) != 0 {
+	if proxy.Repeater {
 		var clientProxyBuilder clientProxyBuilder
 		return clientProxyBuilder.Build(proxy, origin, destination, spec)
 	}
@@ -175,11 +175,15 @@ func (clientBuilder) Build(proxy *resource.Proxy, origin, destination objref.Obj
 			},
 		}
 		if proxy.Reverse {
-			bind := "ssh://" + proxy.ImportIngressAddress + "?identity_data=" + proxy.ImportIdentity
-			chain.Bind = append(chain.Bind, bind)
+			b := "ssh://" + proxy.ImportIngressAddress + "?identity_data=" + proxy.ImportIdentity
+			chain.Bind = append(chain.Bind, b)
+			chain.Bind = append(chain.Bind, proxy.ExportProxy...)
+			chain.Bind = append(chain.Bind, proxy.ImportProxy...)
 		} else {
-			proxy := "ssh://" + proxy.ExportIngressAddress + "?identity_data=" + proxy.ExportIdentity
-			chain.Proxy = append(chain.Proxy, proxy)
+			p := "ssh://" + proxy.ExportIngressAddress + "?identity_data=" + proxy.ExportIdentity
+			chain.Proxy = append(chain.Proxy, p)
+			chain.Proxy = append(chain.Proxy, proxy.ExportProxy...)
+			chain.Proxy = append(chain.Proxy, proxy.ImportProxy...)
 		}
 		data, err := json.MarshalIndent([]Chain{chain}, "", "  ")
 		if err != nil {
@@ -198,7 +202,7 @@ var IngressBuilder = ingressBuilder{}
 type ingressBuilder struct{}
 
 func (ingressBuilder) Build(proxy *resource.Proxy, origin, destination objref.ObjectRef, spec *corev1.ServiceSpec) ([]resource.Resourcer, error) {
-	if len(proxy.ExportProxy) != 0 {
+	if proxy.Repeater {
 		var serverProxyBuilder serverProxyBuilder
 		return serverProxyBuilder.Build(proxy, origin, destination, spec)
 	}

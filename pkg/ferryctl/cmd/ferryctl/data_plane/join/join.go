@@ -13,12 +13,12 @@ import (
 
 func NewCommand(logger log.Logger) *cobra.Command {
 	var (
-		controlPlaneHubName        = vars.ControlPlaneName
-		dataPlaneTunnelAddress     = vars.AutoPlaceholders
-		dataPlaneApiserverAddress  = vars.AutoPlaceholders
-		dataPlaneReachable         = true
-		dataPlaneNavigationHubName = []string{}
-		dataPlaneReceptionHubName  = []string{}
+		controlPlaneHubName       = vars.ControlPlaneName
+		dataPlaneTunnelAddress    = vars.AutoPlaceholders
+		dataPlaneApiserverAddress = vars.AutoPlaceholders
+		dataPlaneReachable        = true
+		dataPlaneNavigation       = []string{}
+		dataPlaneReception        = []string{}
 	)
 
 	cmd := &cobra.Command{
@@ -53,13 +53,13 @@ func NewCommand(logger log.Logger) *cobra.Command {
 			}
 
 			next, err := data_plane.ShowJoinDone(cmd.Context(), data_plane.ShowJoinDoneConfig{
-				ControlPlaneName:           controlPlaneHubName,
-				DataPlaneName:              name,
-				DataPlaneReachable:         dataPlaneReachable,
-				DataPlaneApiserverAddress:  dataPlaneApiserverAddress,
-				DataPlaneTunnelAddress:     dataPlaneTunnelAddress,
-				DataPlaneNavigationHubName: dataPlaneNavigationHubName,
-				DataPlaneReceptionHubName:  dataPlaneNavigationHubName,
+				ControlPlaneName:          controlPlaneHubName,
+				DataPlaneName:             name,
+				DataPlaneReachable:        dataPlaneReachable,
+				DataPlaneApiserverAddress: dataPlaneApiserverAddress,
+				DataPlaneTunnelAddress:    dataPlaneTunnelAddress,
+				DataPlaneNavigation:       dataPlaneNavigation,
+				DataPlaneReception:        dataPlaneNavigation,
 			})
 			if err != nil {
 				return err
@@ -77,7 +77,7 @@ func NewCommand(logger log.Logger) *cobra.Command {
 	flags.StringVar(&dataPlaneTunnelAddress, "data-plane-tunnel-address", dataPlaneTunnelAddress, "Tunnel address of the data plane connected to another cluster")
 	flags.StringVar(&dataPlaneApiserverAddress, "data-plane-apiserver-address", dataPlaneApiserverAddress, "Apiserver address of the data plane for control plane")
 	flags.BoolVar(&dataPlaneReachable, "data-plane-reachable", dataPlaneReachable, "Whether the data plane is reachable")
-	flags.StringSliceVar(&dataPlaneNavigationHubName, "data-plane-navigation-hub-name", dataPlaneNavigationHubName, "Navigation hub name of the data plane connected to another cluster")
-	flags.StringSliceVar(&dataPlaneReceptionHubName, "data-plane-reception-hub-name", dataPlaneReceptionHubName, "Reception hub name of the data plane connected to another cluster")
+	flags.StringSliceVar(&dataPlaneNavigation, "data-plane-navigation", dataPlaneNavigation, "Navigation hub name of the data plane connected to another cluster")
+	flags.StringSliceVar(&dataPlaneReception, "data-plane-reception", dataPlaneReception, "Reception hub name of the data plane connected to another cluster")
 	return cmd
 }

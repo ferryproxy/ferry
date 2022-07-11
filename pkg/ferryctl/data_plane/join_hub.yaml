@@ -7,7 +7,7 @@ metadata:
   namespace: ferry-system
 type: traffic.ferry.zsm.io/kubeconfig-key
 data:
-  kubeconfig: {{ .DataPlaneKubeconfig | base64 }}
+  kubeconfig: {{ .DataPlaneKubeconfig }}
 ---
 apiVersion: traffic.ferry.zsm.io/v1alpha2
 kind: Hub
@@ -19,7 +19,7 @@ spec:
     reachable: {{ .DataPlaneReachable }}
     address: {{ .DataPlaneTunnelAddress }}
 
-{{ with .DataPlaneReceptionHubName }}
+{{ with .DataPlaneReception }}
     reception:
 {{ range . }}
       - hubName: {{ . }}
@@ -28,7 +28,7 @@ spec:
     reception: []
 {{ end }}
 
-{{ with .DataPlaneNavigationHubName }}
+{{ with .DataPlaneNavigation }}
     navigation:
 {{ range . }}
       - hubName: {{ . }}

@@ -7,13 +7,13 @@ import (
 )
 
 type ShowJoinDoneConfig struct {
-	ControlPlaneName           string
-	DataPlaneName              string
-	DataPlaneReachable         bool
-	DataPlaneApiserverAddress  string
-	DataPlaneTunnelAddress     string
-	DataPlaneNavigationHubName []string
-	DataPlaneReceptionHubName  []string
+	ControlPlaneName          string
+	DataPlaneName             string
+	DataPlaneReachable        bool
+	DataPlaneApiserverAddress string
+	DataPlaneTunnelAddress    string
+	DataPlaneNavigation       []string
+	DataPlaneReception        []string
 }
 
 func ShowJoinDone(ctx context.Context, conf ShowJoinDoneConfig) (next string, err error) {
@@ -22,12 +22,12 @@ func ShowJoinDone(ctx context.Context, conf ShowJoinDoneConfig) (next string, er
 		return "", err
 	}
 	ci, err := BuildHub(BuildHubConfig{
-		DataPlaneName:              conf.DataPlaneName,
-		DataPlaneReachable:         conf.DataPlaneReachable,
-		DataPlaneTunnelAddress:     conf.DataPlaneTunnelAddress,
-		DataPlaneNavigationHubName: conf.DataPlaneNavigationHubName,
-		DataPlaneReceptionHubName:  conf.DataPlaneReceptionHubName,
-		DataPlaneKubeconfig:        kubeconfig,
+		DataPlaneName:          conf.DataPlaneName,
+		DataPlaneReachable:     conf.DataPlaneReachable,
+		DataPlaneTunnelAddress: conf.DataPlaneTunnelAddress,
+		DataPlaneNavigation:    conf.DataPlaneNavigation,
+		DataPlaneReception:     conf.DataPlaneReception,
+		DataPlaneKubeconfig:    base64.StdEncoding.EncodeToString(kubeconfig),
 	})
 	if err != nil {
 		return "", err
