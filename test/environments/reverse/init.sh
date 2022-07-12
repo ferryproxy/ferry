@@ -11,11 +11,6 @@ HOST_IP="$(${ROOT}/hack/host-docker-internal.sh)"
 echo "Host IP: ${HOST_IP}"
 
 export KUBECONFIG
-export FERRY_CONTROLLER_IMAGE
-export FERRY_TUNNEL_IMAGE
-
-FERRY_CONTROLLER_IMAGE=ferry-controller:test
-FERRY_TUNNEL_IMAGE=ferry-tunnel:test
 
 echo "::group::Control plane initialization"
 KUBECONFIG="${KUBECONFIG_DIR}/control-plane.yaml"

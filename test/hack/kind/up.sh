@@ -16,9 +16,13 @@ KIND_IMAGE="docker.io/kindest/node:v1.22.5"
 
 images=(
   "ghcr.io/wzshiming/echoserver/echoserver:v0.0.1"
-  "ferry-controller:test"
-  "ferry-tunnel:test"
 )
+
+ferry_image="$(ferryctl --help | grep ' image (default ' | grep -o '".\+"' | tr -d '"')"
+
+for image in ${ferry_image}; do
+  images+=("${image}")
+done
 
 HOST_IP="$(${ROOT}/hack/host-docker-internal.sh)"
 echo "Host IP: ${HOST_IP}"
