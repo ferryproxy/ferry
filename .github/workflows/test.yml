@@ -100,7 +100,7 @@ jobs:
     - name: Test both
       run: ./test/test/test-both.sh
 
-  test-reverse:
+  test-control-plane-unreachable:
     runs-on: ubuntu-latest
     needs:
       - build-ferrctl
@@ -123,38 +123,66 @@ jobs:
       - name: Start cluster
         run: |
           ulimit -n 4096
-          ./test/hack/start-environment.sh reverse
+          ./test/hack/start-environment.sh control-plane-unreachable
 
       - name: Test both
         run: ./test/test/test-both.sh
 
-  test-traversal:
+  test-data-plane-unreachable:
     runs-on: ubuntu-latest
     needs:
-    - build-ferrctl
-    - build-ferry-controller
-    - build-ferry-tunnel
+      - build-ferrctl
+      - build-ferry-controller
+      - build-ferry-tunnel
     steps:
-    - uses: actions/checkout@v3
+      - uses: actions/checkout@v3
 
-    - name: Download for test
-      uses: actions/download-artifact@v2
-      with:
-        name: test
+      - name: Download for test
+        uses: actions/download-artifact@v2
+        with:
+          name: test
 
-    - name: Setup
-      run: |
-        cp ferryctl /usr/local/bin/ferryctl && chmod +x /usr/local/bin/ferryctl
-        docker load -i ferry-controller.tar
-        docker load -i ferry-tunnel.tar
+      - name: Setup
+        run: |
+          cp ferryctl /usr/local/bin/ferryctl && chmod +x /usr/local/bin/ferryctl
+          docker load -i ferry-controller.tar
+          docker load -i ferry-tunnel.tar
 
-    - name: Start cluster
-      run: |
-        ulimit -n 4096
-        ./test/hack/start-environment.sh traversal
+      - name: Start cluster
+        run: |
+          ulimit -n 4096
+          ./test/hack/start-environment.sh data-plane-unreachable
 
-    - name: Test thrin
-      run: ./test/test/test-thrin.sh
+      - name: Test both
+        run: ./test/test/test-both.sh
+
+  test-data-plane-unreachable-3-clusters:
+    runs-on: ubuntu-latest
+    needs:
+      - build-ferrctl
+      - build-ferry-controller
+      - build-ferry-tunnel
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Download for test
+        uses: actions/download-artifact@v2
+        with:
+          name: test
+
+      - name: Setup
+        run: |
+          cp ferryctl /usr/local/bin/ferryctl && chmod +x /usr/local/bin/ferryctl
+          docker load -i ferry-controller.tar
+          docker load -i ferry-tunnel.tar
+
+      - name: Start cluster
+        run: |
+          ulimit -n 4096
+          ./test/hack/start-environment.sh data-plane-unreachable-3-clusters
+
+      - name: Test thrin
+        run: ./test/test/test-thrin.sh
 
   test-forward:
     runs-on: ubuntu-latest
