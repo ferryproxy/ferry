@@ -5,10 +5,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ferry-proxy/ferry/pkg/ferry-controller/controller/hub"
-	"github.com/ferry-proxy/ferry/pkg/ferry-controller/controller/route"
-	"github.com/ferry-proxy/ferry/pkg/ferry-controller/controller/route_policty"
-	"github.com/ferry-proxy/ferry/pkg/utils/trybuffer"
+	"github.com/ferryproxy/ferry/pkg/ferry-controller/controller/hub"
+	"github.com/ferryproxy/ferry/pkg/ferry-controller/controller/route"
+	"github.com/ferryproxy/ferry/pkg/ferry-controller/controller/route_policty"
+	"github.com/ferryproxy/ferry/pkg/utils/trybuffer"
 	"github.com/go-logr/logr"
 	restclient "k8s.io/client-go/rest"
 )

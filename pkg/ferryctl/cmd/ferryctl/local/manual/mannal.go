@@ -3,9 +3,9 @@ package manual
 import (
 	"fmt"
 
-	"github.com/ferry-proxy/ferry/pkg/ferryctl/cmd/ferryctl/local/manual/export"
-	import_cmd "github.com/ferry-proxy/ferry/pkg/ferryctl/cmd/ferryctl/local/manual/import"
-	"github.com/ferry-proxy/ferry/pkg/ferryctl/log"
+	"github.com/ferryproxy/ferry/pkg/ferryctl/cmd/ferryctl/local/manual/export"
+	import_cmd "github.com/ferryproxy/ferry/pkg/ferryctl/cmd/ferryctl/local/manual/import"
+	"github.com/ferryproxy/ferry/pkg/ferryctl/log"
 	"github.com/spf13/cobra"
 )
 

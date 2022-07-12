@@ -3,9 +3,9 @@ package tunnel
 import (
 	"strings"
 
-	"github.com/ferry-proxy/ferry/pkg/consts"
-	"github.com/ferry-proxy/ferry/pkg/ferryctl/kubectl"
-	"github.com/ferry-proxy/ferry/pkg/ferryctl/log"
+	"github.com/ferryproxy/ferry/pkg/consts"
+	"github.com/ferryproxy/ferry/pkg/ferryctl/kubectl"
+	"github.com/ferryproxy/ferry/pkg/ferryctl/log"
 	"github.com/spf13/cobra"
 )
 

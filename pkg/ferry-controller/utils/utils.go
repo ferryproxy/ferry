@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/ferry-proxy/ferry/pkg/utils/objref"
+	"github.com/ferryproxy/ferry/pkg/utils/objref"
 )
 
 type KMetadata = objref.KMetadata

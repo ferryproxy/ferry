@@ -19,8 +19,8 @@ import (
 	_ "github.com/wzshiming/anyproxy/proxies/socks5"
 	_ "github.com/wzshiming/anyproxy/proxies/sshproxy"
 
-	"github.com/ferry-proxy/ferry/pkg/consts"
-	"github.com/ferry-proxy/ferry/pkg/ferryctl/vars"
+	"github.com/ferryproxy/ferry/pkg/consts"
+	"github.com/ferryproxy/ferry/pkg/ferryctl/vars"
 	"github.com/go-logr/logr/funcr"
 	"github.com/wzshiming/bridge/chain"
 )

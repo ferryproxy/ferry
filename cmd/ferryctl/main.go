@@ -6,7 +6,7 @@ import (
 	"os"
 	"syscall"
 
-	"github.com/ferry-proxy/ferry/pkg/ferryctl/cmd/ferryctl"
+	"github.com/ferryproxy/ferry/pkg/ferryctl/cmd/ferryctl"
 	"github.com/wzshiming/notify"
 )
 

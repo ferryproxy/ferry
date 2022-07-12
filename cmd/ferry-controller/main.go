@@ -1,5 +1,5 @@
 /*
-Copyright 2021 Shiming Zhang.
+Copyright 2021 FerryProxy.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -21,9 +21,9 @@ import (
 	"os"
 	"syscall"
 
-	"github.com/ferry-proxy/ferry/pkg/consts"
-	"github.com/ferry-proxy/ferry/pkg/ferry-controller/controller"
-	"github.com/ferry-proxy/ferry/pkg/utils/env"
+	"github.com/ferryproxy/ferry/pkg/consts"
+	"github.com/ferryproxy/ferry/pkg/ferry-controller/controller"
+	"github.com/ferryproxy/ferry/pkg/utils/env"
 	"github.com/go-logr/logr"
 	"github.com/go-logr/zapr"
 	"github.com/wzshiming/notify"

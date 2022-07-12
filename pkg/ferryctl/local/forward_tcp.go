@@ -3,7 +3,7 @@ package local
 import (
 	_ "embed"
 
-	"github.com/ferry-proxy/ferry/pkg/ferryctl/utils"
+	"github.com/ferryproxy/ferry/pkg/ferryctl/utils"
 )
 
 type BuildForwardTCPConfig struct {

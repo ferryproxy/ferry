@@ -5,7 +5,7 @@ import (
 	"reflect"
 	"sync"
 
-	"github.com/ferry-proxy/ferry/pkg/utils/objref"
+	"github.com/ferryproxy/ferry/pkg/utils/objref"
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"

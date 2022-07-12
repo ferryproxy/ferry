@@ -3,9 +3,9 @@ package control_plane
 import (
 	"fmt"
 
-	initcmd "github.com/ferry-proxy/ferry/pkg/ferryctl/cmd/ferryctl/control_plane/init"
-	"github.com/ferry-proxy/ferry/pkg/ferryctl/cmd/ferryctl/control_plane/join"
-	"github.com/ferry-proxy/ferry/pkg/ferryctl/log"
+	initcmd "github.com/ferryproxy/ferry/pkg/ferryctl/cmd/ferryctl/control_plane/init"
+	"github.com/ferryproxy/ferry/pkg/ferryctl/cmd/ferryctl/control_plane/join"
+	"github.com/ferryproxy/ferry/pkg/ferryctl/log"
 	"github.com/spf13/cobra"
 )
 

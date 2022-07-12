@@ -6,11 +6,11 @@ import (
 	"net"
 	"strings"
 
-	"github.com/ferry-proxy/ferry/pkg/ferryctl/kubectl"
-	"github.com/ferry-proxy/ferry/pkg/ferryctl/log"
-	"github.com/ferry-proxy/ferry/pkg/ferryctl/manual"
-	"github.com/ferry-proxy/ferry/pkg/ferryctl/utils"
-	"github.com/ferry-proxy/ferry/pkg/ferryctl/vars"
+	"github.com/ferryproxy/ferry/pkg/ferryctl/kubectl"
+	"github.com/ferryproxy/ferry/pkg/ferryctl/log"
+	"github.com/ferryproxy/ferry/pkg/ferryctl/manual"
+	"github.com/ferryproxy/ferry/pkg/ferryctl/utils"
+	"github.com/ferryproxy/ferry/pkg/ferryctl/vars"
 	"github.com/spf13/cobra"
 )
 

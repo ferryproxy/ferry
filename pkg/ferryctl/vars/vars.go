@@ -5,7 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/ferry-proxy/ferry/pkg/utils/env"
+	"github.com/ferryproxy/ferry/pkg/utils/env"
 )
 
 var (
@@ -13,7 +13,7 @@ var (
 	home, _          = os.UserHomeDir()
 	KubeconfigPath   = env.GetEnv("KUBECONFIG", filepath.Join(home, ".kube/config"))
 
-	FerryImagePrefix = env.GetEnv("FERRY_IMAGE_PREFIX", "ghcr.io/ferry-proxy/ferry")
+	FerryImagePrefix = env.GetEnv("FERRY_IMAGE_PREFIX", "ghcr.io/ferryproxy/ferry")
 
 	FerryVersion = env.GetEnv("FERRY_VERSION", "v0.3.0")
 

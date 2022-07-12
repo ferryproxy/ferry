@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/ferry-proxy/ferry/pkg/consts"
+	"github.com/ferryproxy/ferry/pkg/consts"
 )
 
 type BuildManualPortConfig struct {

@@ -5,8 +5,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ferry-proxy/ferry/pkg/utils/objref"
-	"github.com/ferry-proxy/ferry/pkg/utils/trybuffer"
+	"github.com/ferryproxy/ferry/pkg/utils/objref"
+	"github.com/ferryproxy/ferry/pkg/utils/trybuffer"
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/informers"

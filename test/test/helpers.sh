@@ -14,7 +14,7 @@ function resource-apply() {
 
 function fetch-route() {
   local cluster=$1
-  kubectl --kubeconfig="${KUBECONFIG_DIR}/${cluster}.yaml" get route.traffic.ferry.zsm.io -n ferry-system
+  kubectl --kubeconfig="${KUBECONFIG_DIR}/${cluster}.yaml" get route.traffic.ferryproxy.io -n ferry-system
 }
 
 function fetch-tunnel-config() {
@@ -132,7 +132,7 @@ function show-cluster-info() {
 function show-hub() {
   local cluster=$1
   echo "==== Fetch ${cluster} ferry information ===="
-  kubectl --kubeconfig="${KUBECONFIG_DIR}/${cluster}.yaml" get hub.traffic.ferry.zsm.io,routepolicies.traffic.ferry.zsm.io -A
+  kubectl --kubeconfig="${KUBECONFIG_DIR}/${cluster}.yaml" get hub.traffic.ferryproxy.io,routepolicies.traffic.ferryproxy.io -A
 }
 
 function stats() {

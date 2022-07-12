@@ -4,7 +4,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/ferry-proxy/ferry/pkg/consts"
+	"github.com/ferryproxy/ferry/pkg/consts"
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 )

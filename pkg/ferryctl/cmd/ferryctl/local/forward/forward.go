@@ -3,9 +3,9 @@ package forward
 import (
 	"fmt"
 
-	"github.com/ferry-proxy/ferry/pkg/ferryctl/cmd/ferryctl/local/forward/dial"
-	"github.com/ferry-proxy/ferry/pkg/ferryctl/cmd/ferryctl/local/forward/listen"
-	"github.com/ferry-proxy/ferry/pkg/ferryctl/log"
+	"github.com/ferryproxy/ferry/pkg/ferryctl/cmd/ferryctl/local/forward/dial"
+	"github.com/ferryproxy/ferry/pkg/ferryctl/cmd/ferryctl/local/forward/listen"
+	"github.com/ferryproxy/ferry/pkg/ferryctl/log"
 	"github.com/spf13/cobra"
 )
 

@@ -3,11 +3,11 @@ package router
 import (
 	"fmt"
 
-	"github.com/ferry-proxy/api/apis/traffic/v1alpha2"
-	"github.com/ferry-proxy/ferry/pkg/consts"
-	"github.com/ferry-proxy/ferry/pkg/ferry-controller/router/resource"
-	"github.com/ferry-proxy/ferry/pkg/ferry-controller/router/tunnel"
-	"github.com/ferry-proxy/ferry/pkg/utils/objref"
+	"github.com/ferryproxy/api/apis/traffic/v1alpha2"
+	"github.com/ferryproxy/ferry/pkg/consts"
+	"github.com/ferryproxy/ferry/pkg/ferry-controller/router/resource"
+	"github.com/ferryproxy/ferry/pkg/ferry-controller/router/tunnel"
+	"github.com/ferryproxy/ferry/pkg/utils/objref"
 	corev1 "k8s.io/api/core/v1"
 )
 

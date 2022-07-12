@@ -6,8 +6,8 @@ import (
 	"net"
 	"strings"
 
-	"github.com/ferry-proxy/ferry/pkg/ferryctl/bridge"
-	"github.com/ferry-proxy/ferry/pkg/ferryctl/kubectl"
+	"github.com/ferryproxy/ferry/pkg/ferryctl/bridge"
+	"github.com/ferryproxy/ferry/pkg/ferryctl/kubectl"
 )
 
 func ForwardDial(ctx context.Context, local string, remote string) error {

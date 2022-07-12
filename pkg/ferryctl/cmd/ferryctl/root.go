@@ -3,12 +3,12 @@ package ferryctl
 import (
 	"fmt"
 
-	"github.com/ferry-proxy/ferry/pkg/ferryctl/cmd/ferryctl/control_plane"
-	"github.com/ferry-proxy/ferry/pkg/ferryctl/cmd/ferryctl/data_plane"
-	"github.com/ferry-proxy/ferry/pkg/ferryctl/cmd/ferryctl/local"
-	"github.com/ferry-proxy/ferry/pkg/ferryctl/cmd/ferryctl/show"
-	"github.com/ferry-proxy/ferry/pkg/ferryctl/log"
-	"github.com/ferry-proxy/ferry/pkg/ferryctl/vars"
+	"github.com/ferryproxy/ferry/pkg/ferryctl/cmd/ferryctl/control_plane"
+	"github.com/ferryproxy/ferry/pkg/ferryctl/cmd/ferryctl/data_plane"
+	"github.com/ferryproxy/ferry/pkg/ferryctl/cmd/ferryctl/local"
+	"github.com/ferryproxy/ferry/pkg/ferryctl/cmd/ferryctl/show"
+	"github.com/ferryproxy/ferry/pkg/ferryctl/log"
+	"github.com/ferryproxy/ferry/pkg/ferryctl/vars"
 	"github.com/spf13/cobra"
 )
 

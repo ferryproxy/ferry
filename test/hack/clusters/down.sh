@@ -17,7 +17,7 @@ for name in $(ls ${ENVIRONMENT_DIR} | grep -v in-cluster | grep .yaml); do
   kubeconfig="${KUBECONFIG_DIR}/${name}.yaml"
   kubectl --kubeconfig "${kubeconfig}" delete -k "${ENVIRONMENT_DIR}/${name}"
   if [[ "${name}" == "control-plane" ]]; then
-    kubectl --kubeconfig "${kubeconfig}" delete -k https://github.com/ferry-proxy/api/config/crd
+    kubectl --kubeconfig "${kubeconfig}" delete -k https://github.com/ferryproxy/api/config/crd
   fi
 done
 

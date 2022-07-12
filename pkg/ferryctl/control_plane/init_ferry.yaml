@@ -22,7 +22,7 @@ metadata:
   namespace: ferry-system
 rules:
 - apiGroups:
-  - traffic.ferry.zsm.io
+  - traffic.ferryproxy.io
   resources:
   - '*'
   verbs:
