@@ -28,24 +28,30 @@ func ClusterInit(ctx context.Context, conf ClusterInitConfig) error {
 		return err
 	}
 
-	ident, err := kctl.GetSecretIdentity(ctx)
-	if err != nil || ident == "" {
-		identity, authorized, err := utils.GetKey()
+	var authorized string
+	identity, _ := kctl.GetSecretIdentity(ctx)
+	if identity != "" {
+		authorized, _ = kctl.GetSecretAuthorized(ctx)
+	}
+
+	if identity == "" || authorized == "" {
+		identity, authorized, err = utils.GetKey()
 		if err != nil {
 			return err
 		}
-		key, err := BuildInitKey(BuildInitKeyConfig{
-			Identity:   identity,
-			Authorized: authorized,
-			Hostkey:    identity,
-		})
-		if err != nil {
-			return err
-		}
-		err = kctl.ApplyWithReader(ctx, strings.NewReader(key))
-		if err != nil {
-			return err
-		}
+	}
+
+	key, err := BuildInitKey(BuildInitKeyConfig{
+		Identity:   identity,
+		Authorized: authorized,
+		Hostkey:    identity,
+	})
+	if err != nil {
+		return err
+	}
+	err = kctl.ApplyWithReader(ctx, strings.NewReader(key))
+	if err != nil {
+		return err
 	}
 	return nil
 }
