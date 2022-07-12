@@ -11,9 +11,6 @@ HOST_IP="$(${ROOT}/hack/host-docker-internal.sh)"
 echo "Host IP: ${HOST_IP}"
 
 export KUBECONFIG
-export FERRY_TUNNEL_IMAGE
-
-FERRY_TUNNEL_IMAGE=ferry-tunnel:test
 
 echo "::group::Cluster cluster-0 export web-0 80"
 KUBECONFIG="${KUBECONFIG_DIR}/cluster-0.yaml"

@@ -7,6 +7,10 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
+env:
+  FERRY_CONTROLLER_IMAGE: ferry-controller:test
+  FERRY_TUNNEL_IMAGE: ferry-tunnel:test
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -24,79 +28,51 @@ jobs:
   build-ferrctl:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
+      - uses: actions/checkout@v3
 
-    - name: Set up Go
-      uses: actions/setup-go@v2
-      with:
-        go-version: 1.18
+      - name: Set up Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: 1.18
 
-    - run: |
-        go build -o ferryctl ./cmd/ferryctl
+      - run: |
+          go build -o ferryctl ./cmd/ferryctl
 
-    - name: Upload ferryctl
-      uses: actions/upload-artifact@v2
-      with:
-        name: test
-        path: ferryctl
+      - name: Upload ferryctl
+        uses: actions/upload-artifact@v2
+        with:
+          name: test
+          path: ferryctl
 
   build-ferry-controller:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
+      - uses: actions/checkout@v3
 
-    - run: |
-        docker build -t ferry-controller:test -f ./images/ferry-controller/Dockerfile . && docker save -o ferry-controller.tar ferry-controller:test
+      - run: |
+          docker build -t ${FERRY_CONTROLLER_IMAGE} -f ./images/ferry-controller/Dockerfile . && docker save -o ferry-controller.tar ${FERRY_CONTROLLER_IMAGE}
 
-    - name: Upload ferry
-      uses: actions/upload-artifact@v2
-      with:
-        name: test
-        path: ferry-controller.tar
+      - name: Upload ferry
+        uses: actions/upload-artifact@v2
+        with:
+          name: test
+          path: ferry-controller.tar
 
   build-ferry-tunnel:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
+      - uses: actions/checkout@v3
 
-    - run: |
-        docker build -t ferry-tunnel:test -f ./images/ferry-tunnel/Dockerfile . && docker save -o ferry-tunnel.tar ferry-tunnel:test
+      - run: |
+          docker build -t ${FERRY_TUNNEL_IMAGE} -f ./images/ferry-tunnel/Dockerfile . && docker save -o ferry-tunnel.tar ${FERRY_TUNNEL_IMAGE}
 
-    - name: Upload ferry-tunnel
-      uses: actions/upload-artifact@v2
-      with:
-        name: test
-        path: ferry-tunnel.tar
+      - name: Upload ferry-tunnel
+        uses: actions/upload-artifact@v2
+        with:
+          name: test
+          path: ferry-tunnel.tar
 
   test-default:
-    runs-on: ubuntu-latest
-    needs:
-    - build-ferrctl
-    - build-ferry-controller
-    - build-ferry-tunnel
-    steps:
-    - uses: actions/checkout@v3
-
-    - name: Download for test
-      uses: actions/download-artifact@v2
-      with:
-        name: test
-
-    - name: Setup
-      run: |
-        cp ferryctl /usr/local/bin/ferryctl && chmod +x /usr/local/bin/ferryctl
-        docker load -i ferry-controller.tar
-        docker load -i ferry-tunnel.tar
-
-    - name: Start cluster
-      run: |
-        ulimit -n 4096
-        ./test/hack/start-environment.sh default
-
-    - name: Test both
-      run: ./test/test/test-both.sh
-
-  test-reverse:
     runs-on: ubuntu-latest
     needs:
       - build-ferrctl
@@ -119,44 +95,100 @@ jobs:
       - name: Start cluster
         run: |
           ulimit -n 4096
-          ./test/hack/start-environment.sh reverse
+          ./test/hack/start-environment.sh default
 
       - name: Test both
         run: ./test/test/test-both.sh
 
-  test-traversal:
+  test-control-plane-unreachable:
     runs-on: ubuntu-latest
     needs:
-    - build-ferrctl
-    - build-ferry-controller
-    - build-ferry-tunnel
+      - build-ferrctl
+      - build-ferry-controller
+      - build-ferry-tunnel
     steps:
-    - uses: actions/checkout@v3
+      - uses: actions/checkout@v3
 
-    - name: Download for test
-      uses: actions/download-artifact@v2
-      with:
-        name: test
+      - name: Download for test
+        uses: actions/download-artifact@v2
+        with:
+          name: test
 
-    - name: Setup
-      run: |
-        cp ferryctl /usr/local/bin/ferryctl && chmod +x /usr/local/bin/ferryctl
-        docker load -i ferry-controller.tar
-        docker load -i ferry-tunnel.tar
+      - name: Setup
+        run: |
+          cp ferryctl /usr/local/bin/ferryctl && chmod +x /usr/local/bin/ferryctl
+          docker load -i ferry-controller.tar
+          docker load -i ferry-tunnel.tar
 
-    - name: Start cluster
-      run: |
-        ulimit -n 4096
-        ./test/hack/start-environment.sh traversal
+      - name: Start cluster
+        run: |
+          ulimit -n 4096
+          ./test/hack/start-environment.sh control-plane-unreachable
 
-    - name: Test thrin
-      run: ./test/test/test-thrin.sh
+      - name: Test both
+        run: ./test/test/test-both.sh
+
+  test-data-plane-unreachable:
+    runs-on: ubuntu-latest
+    needs:
+      - build-ferrctl
+      - build-ferry-controller
+      - build-ferry-tunnel
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Download for test
+        uses: actions/download-artifact@v2
+        with:
+          name: test
+
+      - name: Setup
+        run: |
+          cp ferryctl /usr/local/bin/ferryctl && chmod +x /usr/local/bin/ferryctl
+          docker load -i ferry-controller.tar
+          docker load -i ferry-tunnel.tar
+
+      - name: Start cluster
+        run: |
+          ulimit -n 4096
+          ./test/hack/start-environment.sh data-plane-unreachable
+
+      - name: Test both
+        run: ./test/test/test-both.sh
+
+  test-data-plane-unreachable-3-clusters:
+    runs-on: ubuntu-latest
+    needs:
+      - build-ferrctl
+      - build-ferry-controller
+      - build-ferry-tunnel
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Download for test
+        uses: actions/download-artifact@v2
+        with:
+          name: test
+
+      - name: Setup
+        run: |
+          cp ferryctl /usr/local/bin/ferryctl && chmod +x /usr/local/bin/ferryctl
+          docker load -i ferry-controller.tar
+          docker load -i ferry-tunnel.tar
+
+      - name: Start cluster
+        run: |
+          ulimit -n 4096
+          ./test/hack/start-environment.sh data-plane-unreachable-3-clusters
+
+      - name: Test thrin
+        run: ./test/test/test-thrin.sh
 
   test-forward:
     runs-on: ubuntu-latest
     needs:
-    - build-ferrctl
-    - build-ferry-tunnel
+      - build-ferrctl
+      - build-ferry-tunnel
     steps:
       - uses: actions/checkout@v2
 

@@ -15,15 +15,15 @@ export KUBECONFIG
 echo "::group::Control plane initialization"
 KUBECONFIG="${KUBECONFIG_DIR}/control-plane.yaml"
 echo "KUBECONFIG=${KUBECONFIG}"
-echo ferryctl control-plane init "--control-plane-tunnel-address=${HOST_IP}:31000"
-ferryctl control-plane init "--control-plane-tunnel-address=${HOST_IP}:31000"
+echo ferryctl control-plane init --control-plane-reachable=false
+ferryctl control-plane init --control-plane-reachable=false
 echo "::endgroup::"
 
 echo "::group::Data plane cluster-1 join"
 KUBECONFIG="${KUBECONFIG_DIR}/control-plane.yaml"
 echo "KUBECONFIG=${KUBECONFIG}"
-echo ferryctl control-plane join cluster-1 "--data-plane-tunnel-address=${HOST_IP}:31001" "--data-plane-apiserver-address=${HOST_IP}:32001"
-SEND_TO_CLUSTER_1="$(ferryctl control-plane join cluster-1 "--data-plane-tunnel-address=${HOST_IP}:31001" "--data-plane-apiserver-address=${HOST_IP}:32001" 2>/dev/null)"
+echo ferryctl control-plane join cluster-1 "--data-plane-tunnel-address=${HOST_IP}:31001" --control-plane-reachable=false
+SEND_TO_CLUSTER_1="$(ferryctl control-plane join cluster-1 "--data-plane-tunnel-address=${HOST_IP}:31001" --control-plane-reachable=false 2>/dev/null)"
 echo "::endgroup::"
 
 echo "::group::Data plane cluster-1 join"

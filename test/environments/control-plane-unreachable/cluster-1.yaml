@@ -7,6 +7,3 @@ nodes:
         hostPort: 31001
         listenAddress: "0.0.0.0"
         protocol: tcp
-networking:
-  apiServerAddress: "0.0.0.0"
-  apiServerPort: 32001
