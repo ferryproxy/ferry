@@ -1,9 +1,9 @@
 package init
 
 import (
-	"github.com/ferry-proxy/ferry/pkg/ferryctl/data_plane"
-	"github.com/ferry-proxy/ferry/pkg/ferryctl/log"
-	"github.com/ferry-proxy/ferry/pkg/ferryctl/vars"
+	"github.com/ferryproxy/ferry/pkg/ferryctl/data_plane"
+	"github.com/ferryproxy/ferry/pkg/ferryctl/log"
+	"github.com/ferryproxy/ferry/pkg/ferryctl/vars"
 	"github.com/spf13/cobra"
 )
 

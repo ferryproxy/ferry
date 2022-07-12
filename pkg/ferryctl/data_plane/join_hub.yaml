@@ -2,14 +2,14 @@ apiVersion: v1
 kind: Secret
 metadata:
   annotations:
-    traffic.ferry.zsm.io/ssh-key: default
+    traffic.ferryproxy.io/ssh-key: default
   name: {{ .DataPlaneName }}
   namespace: ferry-system
-type: traffic.ferry.zsm.io/kubeconfig-key
+type: traffic.ferryproxy.io/kubeconfig-key
 data:
   kubeconfig: {{ .DataPlaneKubeconfig }}
 ---
-apiVersion: traffic.ferry.zsm.io/v1alpha2
+apiVersion: traffic.ferryproxy.io/v1alpha2
 kind: Hub
 metadata:
   name: {{ .DataPlaneName }}

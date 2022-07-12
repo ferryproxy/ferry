@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/ferry-proxy/api/apis/traffic/v1alpha2"
-	"github.com/ferry-proxy/ferry/pkg/consts"
-	"github.com/ferry-proxy/ferry/pkg/ferry-controller/router/resource"
-	"github.com/ferry-proxy/ferry/pkg/ferry-controller/router/tunnel"
+	"github.com/ferryproxy/api/apis/traffic/v1alpha2"
+	"github.com/ferryproxy/ferry/pkg/consts"
+	"github.com/ferryproxy/ferry/pkg/ferry-controller/router/resource"
+	"github.com/ferryproxy/ferry/pkg/ferry-controller/router/tunnel"
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -115,9 +115,9 @@ func TestRouter(t *testing.T) {
 							Name:      "import-test-svc1-export-test-svc1-tunnel-server",
 							Namespace: "ferry-tunnel-system",
 							Labels: map[string]string{
-								"traffic.ferry.zsm.io/exported-from-name":      "svc1",
-								"traffic.ferry.zsm.io/exported-from-namespace": "test",
-								"tunnel.ferry.zsm.io/service":                  "inject",
+								"traffic.ferryproxy.io/exported-from-name":      "svc1",
+								"traffic.ferryproxy.io/exported-from-namespace": "test",
+								"tunnel.ferryproxy.io/service":                  "inject",
 							},
 						},
 					},
@@ -130,9 +130,9 @@ func TestRouter(t *testing.T) {
 							Name:      "import-test-svc1-export-test-svc1-tunnel-client",
 							Namespace: "ferry-tunnel-system",
 							Labels: map[string]string{
-								"traffic.ferry.zsm.io/exported-from-name":      "svc1",
-								"traffic.ferry.zsm.io/exported-from-namespace": "test",
-								"tunnel.ferry.zsm.io/service":                  "inject",
+								"traffic.ferryproxy.io/exported-from-name":      "svc1",
+								"traffic.ferryproxy.io/exported-from-namespace": "test",
+								"tunnel.ferryproxy.io/service":                  "inject",
 							},
 						},
 						Data: map[string]string{
@@ -162,10 +162,10 @@ func TestRouter(t *testing.T) {
 							Name:      "svc1",
 							Namespace: "test",
 							Labels: map[string]string{
-								"traffic.ferry.zsm.io/exported-from-name":      "svc1",
-								"traffic.ferry.zsm.io/exported-from-namespace": "test",
-								"traffic.ferry.zsm.io/exported-from-ports":     "10001",
-								"tunnel.ferry.zsm.io/service":                  "inject",
+								"traffic.ferryproxy.io/exported-from-name":      "svc1",
+								"traffic.ferryproxy.io/exported-from-namespace": "test",
+								"traffic.ferryproxy.io/exported-from-ports":     "10001",
+								"tunnel.ferryproxy.io/service":                  "inject",
 							},
 						},
 						Spec: corev1.ServiceSpec{
@@ -275,9 +275,9 @@ func TestRouter(t *testing.T) {
 							Name:      "import-test-svc1-export-test-svc1-tunnel-client",
 							Namespace: "ferry-tunnel-system",
 							Labels: map[string]string{
-								"traffic.ferry.zsm.io/exported-from-name":      "svc1",
-								"traffic.ferry.zsm.io/exported-from-namespace": "test",
-								"tunnel.ferry.zsm.io/service":                  "inject",
+								"traffic.ferryproxy.io/exported-from-name":      "svc1",
+								"traffic.ferryproxy.io/exported-from-namespace": "test",
+								"tunnel.ferryproxy.io/service":                  "inject",
 							},
 						},
 						Data: map[string]string{
@@ -309,9 +309,9 @@ func TestRouter(t *testing.T) {
 							Name:      "import-test-svc1-export-test-svc1-tunnel-server",
 							Namespace: "ferry-tunnel-system",
 							Labels: map[string]string{
-								"traffic.ferry.zsm.io/exported-from-name":      "svc1",
-								"traffic.ferry.zsm.io/exported-from-namespace": "test",
-								"tunnel.ferry.zsm.io/service":                  "inject",
+								"traffic.ferryproxy.io/exported-from-name":      "svc1",
+								"traffic.ferryproxy.io/exported-from-namespace": "test",
+								"tunnel.ferryproxy.io/service":                  "inject",
 							},
 						},
 
@@ -324,10 +324,10 @@ func TestRouter(t *testing.T) {
 							Name:      "svc1",
 							Namespace: "test",
 							Labels: map[string]string{
-								"traffic.ferry.zsm.io/exported-from-name":      "svc1",
-								"traffic.ferry.zsm.io/exported-from-namespace": "test",
-								"traffic.ferry.zsm.io/exported-from-ports":     "10001",
-								"tunnel.ferry.zsm.io/service":                  "inject",
+								"traffic.ferryproxy.io/exported-from-name":      "svc1",
+								"traffic.ferryproxy.io/exported-from-namespace": "test",
+								"traffic.ferryproxy.io/exported-from-ports":     "10001",
+								"tunnel.ferryproxy.io/service":                  "inject",
 							},
 						},
 						Spec: corev1.ServiceSpec{
@@ -454,9 +454,9 @@ func TestRouter(t *testing.T) {
 							Name:      "import-test-svc1-export-test-svc1-tunnel-server",
 							Namespace: "ferry-tunnel-system",
 							Labels: map[string]string{
-								"traffic.ferry.zsm.io/exported-from-name":      "svc1",
-								"traffic.ferry.zsm.io/exported-from-namespace": "test",
-								"tunnel.ferry.zsm.io/service":                  "inject",
+								"traffic.ferryproxy.io/exported-from-name":      "svc1",
+								"traffic.ferryproxy.io/exported-from-namespace": "test",
+								"tunnel.ferryproxy.io/service":                  "inject",
 							},
 						},
 						Data: map[string]string{
@@ -486,9 +486,9 @@ func TestRouter(t *testing.T) {
 							Name:      "import-test-svc1-export-test-svc1-tunnel-client",
 							Namespace: "ferry-tunnel-system",
 							Labels: map[string]string{
-								"traffic.ferry.zsm.io/exported-from-name":      "svc1",
-								"traffic.ferry.zsm.io/exported-from-namespace": "test",
-								"tunnel.ferry.zsm.io/service":                  "inject",
+								"traffic.ferryproxy.io/exported-from-name":      "svc1",
+								"traffic.ferryproxy.io/exported-from-namespace": "test",
+								"tunnel.ferryproxy.io/service":                  "inject",
 							},
 						},
 						Data: map[string]string{
@@ -516,10 +516,10 @@ func TestRouter(t *testing.T) {
 							Name:      "svc1",
 							Namespace: "test",
 							Labels: map[string]string{
-								"traffic.ferry.zsm.io/exported-from-name":      "svc1",
-								"traffic.ferry.zsm.io/exported-from-namespace": "test",
-								"traffic.ferry.zsm.io/exported-from-ports":     "10001",
-								"tunnel.ferry.zsm.io/service":                  "inject",
+								"traffic.ferryproxy.io/exported-from-name":      "svc1",
+								"traffic.ferryproxy.io/exported-from-namespace": "test",
+								"traffic.ferryproxy.io/exported-from-ports":     "10001",
+								"tunnel.ferryproxy.io/service":                  "inject",
 							},
 						},
 						Spec: corev1.ServiceSpec{

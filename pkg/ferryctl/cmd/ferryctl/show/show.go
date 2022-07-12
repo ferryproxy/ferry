@@ -3,11 +3,11 @@ package show
 import (
 	"fmt"
 
-	"github.com/ferry-proxy/ferry/pkg/ferryctl/cmd/ferryctl/show/hub"
-	"github.com/ferry-proxy/ferry/pkg/ferryctl/cmd/ferryctl/show/policy"
-	"github.com/ferry-proxy/ferry/pkg/ferryctl/cmd/ferryctl/show/route"
-	"github.com/ferry-proxy/ferry/pkg/ferryctl/cmd/ferryctl/show/tunnel"
-	"github.com/ferry-proxy/ferry/pkg/ferryctl/log"
+	"github.com/ferryproxy/ferry/pkg/ferryctl/cmd/ferryctl/show/hub"
+	"github.com/ferryproxy/ferry/pkg/ferryctl/cmd/ferryctl/show/policy"
+	"github.com/ferryproxy/ferry/pkg/ferryctl/cmd/ferryctl/show/route"
+	"github.com/ferryproxy/ferry/pkg/ferryctl/cmd/ferryctl/show/tunnel"
+	"github.com/ferryproxy/ferry/pkg/ferryctl/log"
 	"github.com/spf13/cobra"
 )
 

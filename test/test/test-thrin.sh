@@ -5,7 +5,7 @@ source "$(dirname "${BASH_SOURCE}")/helpers.sh"
 function check-both() {
   echo "::group::Check both"
   resource-apply control-plane <<EOF
-apiVersion: traffic.ferry.zsm.io/v1alpha2
+apiVersion: traffic.ferryproxy.io/v1alpha2
 kind: RoutePolicy
 metadata:
   name: ferry-test
@@ -45,7 +45,7 @@ EOF
 function check-2-to-1() {
   echo "::group::Check 2 to 1"
   resource-apply control-plane <<EOF
-apiVersion: traffic.ferry.zsm.io/v1alpha2
+apiVersion: traffic.ferryproxy.io/v1alpha2
 kind: RoutePolicy
 metadata:
   name: ferry-test
@@ -80,7 +80,7 @@ EOF
 function check-1-to-2() {
   echo "::group::Check 1 to 2"
   resource-apply control-plane <<EOF
-apiVersion: traffic.ferry.zsm.io/v1alpha2
+apiVersion: traffic.ferryproxy.io/v1alpha2
 kind: RoutePolicy
 metadata:
   name: ferry-test
@@ -115,7 +115,7 @@ EOF
 function check-0-to-1() {
   echo "::group::Check 0 to 1"
   resource-apply control-plane <<EOF
-apiVersion: traffic.ferry.zsm.io/v1alpha2
+apiVersion: traffic.ferryproxy.io/v1alpha2
 kind: RoutePolicy
 metadata:
   name: ferry-test
@@ -150,7 +150,7 @@ EOF
 function check-1-to-0() {
   echo "::group::Check 1 to 0"
   resource-apply control-plane <<EOF
-apiVersion: traffic.ferry.zsm.io/v1alpha2
+apiVersion: traffic.ferryproxy.io/v1alpha2
 kind: RoutePolicy
 metadata:
   name: ferry-test
@@ -185,7 +185,7 @@ EOF
 function check-none() {
   echo "::group::Check none"
   resource-apply control-plane <<EOF
-apiVersion: traffic.ferry.zsm.io/v1alpha2
+apiVersion: traffic.ferryproxy.io/v1alpha2
 kind: RoutePolicy
 metadata:
   name: ferry-test

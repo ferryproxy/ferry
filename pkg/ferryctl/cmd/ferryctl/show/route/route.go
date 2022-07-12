@@ -2,14 +2,14 @@ package route
 
 import (
 	"strings"
-	
-	"github.com/ferry-proxy/ferry/pkg/consts"
-	"github.com/ferry-proxy/ferry/pkg/ferryctl/kubectl"
-	"github.com/ferry-proxy/ferry/pkg/ferryctl/log"
+
+	"github.com/ferryproxy/ferry/pkg/consts"
+	"github.com/ferryproxy/ferry/pkg/ferryctl/kubectl"
+	"github.com/ferryproxy/ferry/pkg/ferryctl/log"
 	"github.com/spf13/cobra"
 )
 
-var example = []string{"get", "route.traffic.ferry.zsm.io", "-n", consts.FerryNamespace}
+var example = []string{"get", "route.traffic.ferryproxy.io", "-n", consts.FerryNamespace}
 
 func NewCommand(logger log.Logger) *cobra.Command {
 	cmd := &cobra.Command{

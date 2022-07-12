@@ -12,7 +12,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/ferry-proxy/ferry/pkg/utils/trybuffer"
+	"github.com/ferryproxy/ferry/pkg/utils/trybuffer"
 	"github.com/go-logr/logr"
 	"github.com/wzshiming/notify"
 	"k8s.io/client-go/kubernetes"

@@ -6,8 +6,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/ferry-proxy/ferry/pkg/ferryctl/kubectl"
-	"github.com/ferry-proxy/ferry/pkg/ferryctl/utils"
+	"github.com/ferryproxy/ferry/pkg/ferryctl/kubectl"
+	"github.com/ferryproxy/ferry/pkg/ferryctl/utils"
 )
 
 type ClusterInitConfig struct {

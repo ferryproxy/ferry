@@ -6,7 +6,7 @@ const (
 	FerryTunnelName      = FerryName + "-tunnel"
 	FerryTunnelNamespace = FerryTunnelName + "-system"
 
-	LabelPrefix                        = "traffic.ferry.zsm.io/"
+	LabelPrefix                        = "traffic.ferryproxy.io/"
 	LabelFerryExportedFromKey          = LabelPrefix + "exported-from"
 	LabelFerryExportedFromNamespaceKey = LabelPrefix + "exported-from-namespace"
 	LabelFerryExportedFromNameKey      = LabelPrefix + "exported-from-name"
@@ -15,6 +15,6 @@ const (
 	LabelFerryManagedByKey             = LabelPrefix + "managed-by"
 	LabelFerryManagedByValue           = "ferry-controller"
 
-	LabelFerryTunnelKey   = "tunnel.ferry.zsm.io/service"
+	LabelFerryTunnelKey   = "tunnel.ferryproxy.io/service"
 	LabelFerryTunnelValue = "inject"
 )

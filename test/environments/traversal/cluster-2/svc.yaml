@@ -36,7 +36,7 @@ metadata:
   namespace: test
   labels:
     app: web-2
-    traffic.ferry.zsm.io/export: "true"
+    traffic.ferryproxy.io/export: "true"
 spec:
   selector:
     app: web-2

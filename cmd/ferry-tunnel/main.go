@@ -5,9 +5,9 @@ import (
 	"os"
 	"syscall"
 
-	"github.com/ferry-proxy/ferry/pkg/consts"
-	"github.com/ferry-proxy/ferry/pkg/ferry-tunnel/controller"
-	"github.com/ferry-proxy/ferry/pkg/utils/env"
+	"github.com/ferryproxy/ferry/pkg/consts"
+	"github.com/ferryproxy/ferry/pkg/ferry-tunnel/controller"
+	"github.com/ferryproxy/ferry/pkg/utils/env"
 	"github.com/go-logr/logr"
 	"github.com/go-logr/zapr"
 	"github.com/wzshiming/notify"
@@ -21,7 +21,7 @@ var (
 	log               logr.Logger
 	serviceName       = env.GetEnv("SERVICE_NAME", consts.FerryTunnelName)
 	namespace         = env.GetEnv("NAMESPACE", consts.FerryTunnelNamespace)
-	labelSelector     = env.GetEnv("LABEL_SELECTOR", "tunnel.ferry.zsm.io/service=inject")
+	labelSelector     = env.GetEnv("LABEL_SELECTOR", "tunnel.ferryproxy.io/service=inject")
 	master            = env.GetEnv("MASTER", "")
 	kubeconfig        = env.GetEnv("KUBECONFIG", "")
 	conf              = "./bridge.conf"

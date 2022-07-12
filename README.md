@@ -6,7 +6,7 @@ Ferry is a multi-cluster communication component of Kubernetes that supports map
 
 ### Download ferryctl (ferry install management tool)
 
-https://github.com/ferry-proxy/ferry/releases
+https://github.com/ferryproxy/ferry/releases
 
 ## Initialize control plane
 
@@ -42,7 +42,7 @@ All rules in control plane
 example1
 ``` yaml
 # Mapping services of match label app=web-1 of cluster-1 to the control-plane
-apiVersion: traffic.ferry.zsm.io/v1alpha2
+apiVersion: traffic.ferryproxy.io/v1alpha2
 kind: RoutePolicy
 metadata:
   name: ferry-test
@@ -60,7 +60,7 @@ spec:
 example2
 ``` yaml
 # Mapping web-1.test.svc of cluster-1 to the xxx-1.default.svc of control-plane
-apiVersion: traffic.ferry.zsm.io/v1alpha2
+apiVersion: traffic.ferryproxy.io/v1alpha2
 kind: RoutePolicy
 metadata:
   name: ferry-test

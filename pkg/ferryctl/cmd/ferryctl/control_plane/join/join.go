@@ -4,12 +4,12 @@ import (
 	"fmt"
 	"strings"
 
-	import_cmd "github.com/ferry-proxy/ferry/pkg/ferryctl/cmd/ferryctl/local/manual/import"
-	"github.com/ferry-proxy/ferry/pkg/ferryctl/control_plane"
-	"github.com/ferry-proxy/ferry/pkg/ferryctl/kubectl"
-	"github.com/ferry-proxy/ferry/pkg/ferryctl/log"
-	"github.com/ferry-proxy/ferry/pkg/ferryctl/utils"
-	"github.com/ferry-proxy/ferry/pkg/ferryctl/vars"
+	import_cmd "github.com/ferryproxy/ferry/pkg/ferryctl/cmd/ferryctl/local/manual/import"
+	"github.com/ferryproxy/ferry/pkg/ferryctl/control_plane"
+	"github.com/ferryproxy/ferry/pkg/ferryctl/kubectl"
+	"github.com/ferryproxy/ferry/pkg/ferryctl/log"
+	"github.com/ferryproxy/ferry/pkg/ferryctl/utils"
+	"github.com/ferryproxy/ferry/pkg/ferryctl/vars"
 	"github.com/spf13/cobra"
 )
 

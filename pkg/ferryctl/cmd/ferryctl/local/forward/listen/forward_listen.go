@@ -3,8 +3,8 @@ package listen
 import (
 	"fmt"
 
-	"github.com/ferry-proxy/ferry/pkg/ferryctl/local"
-	"github.com/ferry-proxy/ferry/pkg/ferryctl/log"
+	"github.com/ferryproxy/ferry/pkg/ferryctl/local"
+	"github.com/ferryproxy/ferry/pkg/ferryctl/log"
 	"github.com/spf13/cobra"
 )
 
