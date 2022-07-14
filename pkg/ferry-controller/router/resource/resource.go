@@ -8,7 +8,6 @@ import (
 	"github.com/ferryproxy/api/apis/traffic/v1alpha2"
 	versioned "github.com/ferryproxy/client-go/generated/clientset/versioned"
 	"github.com/ferryproxy/ferry/pkg/consts"
-	"github.com/ferryproxy/ferry/pkg/ferry-controller/utils"
 	"github.com/ferryproxy/ferry/pkg/utils/objref"
 	"github.com/go-logr/logr"
 	"github.com/google/go-cmp/cmp"
@@ -18,50 +17,8 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
-type ResourceBuilder interface {
-	Build(proxy *Proxy, origin, destination objref.ObjectRef, spec *corev1.ServiceSpec) ([]Resourcer, error)
-}
-
-type ResourceBuilders []ResourceBuilder
-
-func (r ResourceBuilders) Build(proxy *Proxy, origin, destination objref.ObjectRef, spec *corev1.ServiceSpec) ([]Resourcer, error) {
-	var resourcers []Resourcer
-	for _, i := range r {
-		resourcer, err := i.Build(proxy, origin, destination, spec)
-		if err != nil {
-			return nil, err
-		}
-		resourcers = append(resourcers, resourcer...)
-	}
-	return resourcers, nil
-}
-
-type Proxy struct {
-	RemotePrefix string
-	Reverse      bool
-	Repeater     bool
-
-	TunnelNamespace string
-
-	ImportHubName string
-	ExportHubName string
-
-	Labels map[string]string
-
-	ExportIngressAddress string
-	ExportIdentity       string
-
-	ImportIngressAddress string
-	ImportIdentity       string
-
-	ExportProxy []string
-	ImportProxy []string
-
-	GetPortFunc func(namespace, name string, port int32) int32
-}
-
 type Resourcer interface {
-	utils.KMetadata
+	objref.KMetadata
 	Apply(ctx context.Context, clientset kubernetes.Interface) (err error)
 	Delete(ctx context.Context, clientset kubernetes.Interface) (err error)
 }
