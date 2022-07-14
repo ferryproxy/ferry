@@ -27,50 +27,50 @@ type Route struct {
 	*v1alpha2.Route
 }
 
-func (rule *Route) Apply(ctx context.Context, clientset *versioned.Clientset) (err error) {
+func (r Route) Apply(ctx context.Context, clientset *versioned.Clientset) (err error) {
 	logger := logr.FromContextOrDiscard(ctx)
 	ori, err := clientset.
 		TrafficV1alpha2().
-		Routes(rule.Namespace).
-		Get(ctx, rule.Name, metav1.GetOptions{})
+		Routes(r.Namespace).
+		Get(ctx, r.Name, metav1.GetOptions{})
 	if err != nil {
 		if !errors.IsNotFound(err) {
-			return fmt.Errorf("get mapping rule %s: %w", objref.KObj(rule), err)
+			return fmt.Errorf("get route %s: %w", objref.KObj(r), err)
 		}
-		logger.Info("Creating Service", "Service", objref.KObj(rule))
+		logger.Info("Creating Route", "Route", objref.KObj(r))
 		_, err = clientset.
 			TrafficV1alpha2().
-			Routes(rule.Namespace).
-			Create(ctx, rule.Route, metav1.CreateOptions{
+			Routes(r.Namespace).
+			Create(ctx, r.Route, metav1.CreateOptions{
 				FieldManager: consts.LabelFerryManagedByValue,
 			})
 		if err != nil {
-			return fmt.Errorf("create mapping rule %s: %w", objref.KObj(rule), err)
+			return fmt.Errorf("create route %s: %w", objref.KObj(r), err)
 		}
 	} else {
 		_, err = clientset.
 			TrafficV1alpha2().
-			Routes(rule.Namespace).
+			Routes(r.Namespace).
 			Update(ctx, ori, metav1.UpdateOptions{
 				FieldManager: consts.LabelFerryManagedByValue,
 			})
 		if err != nil {
-			return fmt.Errorf("update mapping rule %s: %w", objref.KObj(rule), err)
+			return fmt.Errorf("update route %s: %w", objref.KObj(r), err)
 		}
 	}
 	return nil
 }
 
-func (rule *Route) Delete(ctx context.Context, clientset *versioned.Clientset) (err error) {
+func (r Route) Delete(ctx context.Context, clientset *versioned.Clientset) (err error) {
 	logger := logr.FromContextOrDiscard(ctx)
-	logger.Info("Deleting Service", "Service", objref.KObj(rule))
+	logger.Info("Deleting Route", "Route", objref.KObj(r))
 
 	err = clientset.
 		TrafficV1alpha2().
-		Routes(rule.Namespace).
-		Delete(ctx, rule.Name, metav1.DeleteOptions{})
+		Routes(r.Namespace).
+		Delete(ctx, r.Name, metav1.DeleteOptions{})
 	if err != nil && !errors.IsNotFound(err) {
-		return fmt.Errorf("delete mapping rule  %s: %w", objref.KObj(rule), err)
+		return fmt.Errorf("delete route %s: %w", objref.KObj(r), err)
 	}
 	return nil
 }

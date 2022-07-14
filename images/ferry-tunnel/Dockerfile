@@ -1,5 +1,5 @@
 FROM docker.io/library/golang:alpine AS builder
-WORKDIR /go/src/github.com/ferry-tunnel/ferry/
+WORKDIR /go/src/github.com/ferryproxy/ferry/
 COPY . .
 ENV CGO_ENABLED=0
 RUN apk add git
