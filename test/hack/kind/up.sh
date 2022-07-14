@@ -34,11 +34,12 @@ done
 mkdir -p "${KUBECONFIG_DIR}"
 for name in $(ls ${ENVIRONMENT_DIR} | grep -v in-cluster | grep .yaml); do
   name="${name%.*}"
+  env_name="ferry-test-${name}"
   if [[ ! -f "${KUBECONFIG_DIR}/${name}-in-cluster.yaml" ]]; then
-    echo kind create cluster --name "${ENVIRONMENT_NAME}-${name}" --config "${ENVIRONMENT_DIR}/${name}.yaml" --image "${KIND_IMAGE}"
-    kind create cluster --name "${ENVIRONMENT_NAME}-${name}" --config "${ENVIRONMENT_DIR}/${name}.yaml" --image "${KIND_IMAGE}"
-    echo kubectl --context="kind-${ENVIRONMENT_NAME}-${name}" config view --minify --raw=true
-    kubectl --context="kind-${ENVIRONMENT_NAME}-${name}" config view --minify --raw=true >"${KUBECONFIG_DIR}/${name}-raw.yaml"
+    echo kind create cluster --name "${env_name}" --config "${ENVIRONMENT_DIR}/${name}.yaml" --image "${KIND_IMAGE}"
+    kind create cluster --name "${env_name}" --config "${ENVIRONMENT_DIR}/${name}.yaml" --image "${KIND_IMAGE}"
+    echo kubectl --context="kind-${env_name}" config view --minify --raw=true
+    kubectl --context="kind-${env_name}" config view --minify --raw=true >"${KUBECONFIG_DIR}/${name}-raw.yaml"
 
     cat "${KUBECONFIG_DIR}/${name}-raw.yaml" |
       sed "s/0\.0\.0\.0/127.0.0.1/g" |
@@ -49,6 +50,6 @@ for name in $(ls ${ENVIRONMENT_DIR} | grep -v in-cluster | grep .yaml); do
   fi
 
   for image in "${images[@]}"; do
-    kind load docker-image --name "${ENVIRONMENT_NAME}-${name}" "${image}"
+    kind load docker-image --name "${env_name}" "${image}"
   done
 done
