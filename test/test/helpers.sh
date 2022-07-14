@@ -41,11 +41,16 @@ function check() {
   local deploy=$2
   local target=$3
   local wanted=$4
+  local retry=$5
   local got
   if [[ "${deploy}" != "" && "${cluster}" != "" ]]; then
     got=$(kubectl --kubeconfig="${KUBECONFIG_DIR}/${cluster}.yaml" exec "deploy/${deploy}" -n test -- wget -T 1 -S -O- "${target}" 2>&1)
     if [[ $? == 0 && "${got}" =~ "${wanted}" ]]; then
       echo "check passed for ${cluster} ${deploy} ${target}"
+    elif [[ "${retry}" -gt 0 ]]; then
+      echo "check failed for ${target}, retry again later"
+      sleep 5
+      check "${cluster}" "${deploy}" "${target}" "${wanted}" "$((retry - 1))"
     else
       failed=("${failed[@]}" "check failed for ${cluster} ${deploy} ${target}")
       echo "check failed for ${cluster} ${deploy} ${target}"
@@ -57,6 +62,10 @@ function check() {
     got=$(wget -T 1 -S -O- "${target}")
     if [[ $? == 0 && "${got}" =~ "${wanted}" ]]; then
       echo "check passed for ${target}"
+    elif [[ "${retry}" -gt 0 ]]; then
+      echo "check failed for ${target}, retry again later"
+      sleep 5
+      check "${cluster}" "${deploy}" "${target}" "${wanted}" "$((retry - 1))"
     else
       failed=("${failed[@]}" "check failed for ${target}")
       echo "check failed for ${target}"
@@ -71,23 +80,32 @@ function check-should-failed() {
   local cluster=$1
   local deploy=$2
   local target=$3
+  local retry=$4
   if [[ "${deploy}" != "" && "${cluster}" != "" ]]; then
     kubectl --kubeconfig="${KUBECONFIG_DIR}/${cluster}.yaml" exec "deploy/${deploy}" -n test -- wget -T 1 -S -O- "${target}" 2>&1
-    if [[ $? == 0 ]]; then
+    if [[ $? != 0 ]]; then
+      echo "check-should-failed passed for ${cluster} ${deploy} ${target}"
+    elif [[ "${retry}" -gt 0 ]]; then
+      echo "check-should-failed failed for ${target}, retry again later"
+      sleep 5
+      check-should-failed "${cluster}" "${deploy}" "${target}" "$((retry - 1))"
+    else
       failed=("${failed[@]}" "check should failed for ${cluster} ${deploy} ${target}")
       echo "check-should-failed failed for ${cluster} ${deploy} ${target}"
       return 1
-    else
-      echo "check-should-failed passed for ${cluster} ${deploy} ${target}"
     fi
   else
     wget -T 1 -S -O- "${target}"
-    if [[ $? == 0 ]]; then
+    if [[ $? != 0 ]]; then
+      echo "check-should-failed passed for ${target}"
+    elif [[ "${retry}" -gt 0 ]]; then
+      echo "check-should-failed failed for ${target}, retry again later"
+      sleep 5
+      check-should-failed "${cluster}" "${deploy}" "${target}" "$((retry - 1))"
+    else
       failed=("${failed[@]}" "check should failed for ${target}")
       echo "check-should-failed failed for ${target}"
       return 1
-    else
-      echo "check-should-failed passed for ${target}"
     fi
   fi
 }
