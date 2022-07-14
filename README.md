@@ -1,6 +1,6 @@
 # Ferry
 
-Ferry is a multi-cluster communication component of Kubernetes that supports mapping services from one cluster to another.
+Ferry is a multi-cluster communication component of Kubernetes that can map services from one cluster to another.
 
 ## Quick Start
 
@@ -24,8 +24,7 @@ ferryctl control-plane init
 ferryctl control-plane join <other-data-plane-name>
 ```
 
-PS: The `<other-data-plane-name>` is the same as FerryPoliy used below
-
+PS: The `<other-data-plane-name>` is the same as RoutePolicy used below
 
 ### Data plane join
 
