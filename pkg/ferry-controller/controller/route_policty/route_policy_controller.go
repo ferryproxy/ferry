@@ -11,7 +11,7 @@ import (
 	versioned "github.com/ferryproxy/client-go/generated/clientset/versioned"
 	externalversions "github.com/ferryproxy/client-go/generated/informers/externalversions"
 	"github.com/ferryproxy/ferry/pkg/ferry-controller/router/resource"
-	"github.com/ferryproxy/ferry/pkg/ferry-controller/utils"
+	"github.com/ferryproxy/ferry/pkg/utils/diffobjs"
 	"github.com/ferryproxy/ferry/pkg/utils/objref"
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
@@ -187,17 +187,17 @@ func (c *RoutePolicyController) Sync(ctx context.Context) {
 
 	ferryPolicies := c.list()
 
-	routes := policiesToRoutes(c.clusterCache, ferryPolicies)
+	updated := policiesToRoutes(c.clusterCache, ferryPolicies)
 
 	// If the mapping rules are the same, no need to update
-	if reflect.DeepEqual(c.cacheRoutePolicyRoutes, routes) {
+	if reflect.DeepEqual(c.cacheRoutePolicyRoutes, updated) {
 		return
 	}
 
 	// Update the cache of mapping rules
-	updated, deleted := utils.CalculatePatchResources(c.cacheRoutePolicyRoutes, routes)
+	deleted := diffobjs.ShouldDeleted(c.cacheRoutePolicyRoutes, updated)
 	defer func() {
-		c.cacheRoutePolicyRoutes = routes
+		c.cacheRoutePolicyRoutes = updated
 	}()
 
 	for _, r := range deleted {
@@ -217,7 +217,7 @@ func (c *RoutePolicyController) Sync(ctx context.Context) {
 	}
 
 	for _, policy := range ferryPolicies {
-		err := c.updateStatus(policy.Name, "Worked", len(routes))
+		err := c.updateStatus(policy.Name, "Worked", len(updated))
 		if err != nil {
 			c.logger.Error(err, "failed to update status")
 		}

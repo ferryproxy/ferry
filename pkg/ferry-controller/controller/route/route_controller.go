@@ -11,8 +11,6 @@ import (
 	externalversions "github.com/ferryproxy/client-go/generated/informers/externalversions"
 	"github.com/ferryproxy/ferry/pkg/consts"
 	"github.com/ferryproxy/ferry/pkg/ferry-controller/controller/mapping"
-	"github.com/ferryproxy/ferry/pkg/ferry-controller/router/resource"
-	"github.com/ferryproxy/ferry/pkg/ferry-controller/router/tunnel"
 	"github.com/ferryproxy/ferry/pkg/utils/objref"
 	"github.com/go-logr/logr"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -249,14 +247,10 @@ func (c *RouteController) startMappingController(ctx context.Context, key cluste
 	}
 
 	mc = mapping.NewMappingController(mapping.MappingControllerConfig{
-		Namespace:                  consts.FerryTunnelNamespace,
-		ClusterCache:               c.clusterCache,
-		ImportHubName:              key.Import,
-		ExportHubName:              key.Export,
-		ExportClientset:            exportClientset,
-		ImportClientset:            importClientset,
-		SourceResourceBuilder:      resource.ResourceBuilders{tunnel.IngressBuilder},
-		DestinationResourceBuilder: resource.ResourceBuilders{tunnel.EgressBuilder, tunnel.ServiceEgressDiscoveryBuilder},
+		Namespace:     consts.FerryTunnelNamespace,
+		ClusterCache:  c.clusterCache,
+		ImportHubName: key.Import,
+		ExportHubName: key.Export,
 		Logger: c.logger.WithName("data-plane").
 			WithName(key.Import).
 			WithValues("export", key.Export, "import", key.Import),

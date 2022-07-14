@@ -2,7 +2,6 @@ package objref
 
 import (
 	"fmt"
-	"reflect"
 )
 
 // ObjectRef references a kubernetes object
@@ -23,14 +22,7 @@ type KMetadata interface {
 	GetNamespace() string
 }
 
-func KObj(obj KMetadata) ObjectRef {
-	if obj == nil {
-		return ObjectRef{}
-	}
-	if val := reflect.ValueOf(obj); val.Kind() == reflect.Ptr && val.IsNil() {
-		return ObjectRef{}
-	}
-
+func KObj[T KMetadata](obj T) ObjectRef {
 	return ObjectRef{
 		Name:      obj.GetName(),
 		Namespace: obj.GetNamespace(),
@@ -46,18 +38,10 @@ func KRef(namespace, name string) ObjectRef {
 }
 
 // KObjs returns slice of ObjectRef from an slice of ObjectMeta
-func KObjs(arg interface{}) []ObjectRef {
-	s := reflect.ValueOf(arg)
-	if s.Kind() != reflect.Slice {
-		return nil
-	}
-	objectRefs := make([]ObjectRef, 0, s.Len())
-	for i := 0; i < s.Len(); i++ {
-		if v, ok := s.Index(i).Interface().(KMetadata); ok {
-			objectRefs = append(objectRefs, KObj(v))
-		} else {
-			return nil
-		}
+func KObjs[T KMetadata](objs []T) []ObjectRef {
+	objectRefs := make([]ObjectRef, 0, len(objs))
+	for _, obj := range objs {
+		objectRefs = append(objectRefs, KObj(obj))
 	}
 	return objectRefs
 }

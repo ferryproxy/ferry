@@ -9,7 +9,7 @@ import (
 	"github.com/ferryproxy/ferry/pkg/consts"
 	"github.com/ferryproxy/ferry/pkg/ferry-controller/router"
 	"github.com/ferryproxy/ferry/pkg/ferry-controller/router/resource"
-	"github.com/ferryproxy/ferry/pkg/ferry-controller/utils"
+	"github.com/ferryproxy/ferry/pkg/utils/diffobjs"
 	"github.com/ferryproxy/ferry/pkg/utils/trybuffer"
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
@@ -21,6 +21,7 @@ import (
 type ClusterCache interface {
 	ListServices(name string) []*corev1.Service
 	GetHub(name string) *v1alpha2.Hub
+	GetHubGateway(hubName string, forHub string) v1alpha2.HubSpecGateway
 	GetIdentity(name string) string
 	Clientset(name string) kubernetes.Interface
 	LoadPortPeer(importHubName string, list *corev1.ServiceList)
@@ -30,28 +31,21 @@ type ClusterCache interface {
 }
 
 type MappingControllerConfig struct {
-	Namespace                  string
-	ExportHubName              string
-	ImportHubName              string
-	ClusterCache               ClusterCache
-	ExportClientset            kubernetes.Interface
-	ImportClientset            kubernetes.Interface
-	Logger                     logr.Logger
-	SourceResourceBuilder      resource.ResourceBuilders
-	DestinationResourceBuilder resource.ResourceBuilders
+	Namespace     string
+	ExportHubName string
+	ImportHubName string
+	ClusterCache  ClusterCache
+	Logger        logr.Logger
 }
 
 func NewMappingController(conf MappingControllerConfig) *MappingController {
 	return &MappingController{
-		namespace:                  conf.Namespace,
-		importHubName:              conf.ImportHubName,
-		exportHubName:              conf.ExportHubName,
-		exportClientset:            conf.ExportClientset,
-		importClientset:            conf.ImportClientset,
-		logger:                     conf.Logger,
-		clusterCache:               conf.ClusterCache,
-		sourceResourceBuilder:      conf.SourceResourceBuilder,
-		destinationResourceBuilder: conf.DestinationResourceBuilder,
+		namespace:      conf.Namespace,
+		importHubName:  conf.ImportHubName,
+		exportHubName:  conf.ExportHubName,
+		logger:         conf.Logger,
+		clusterCache:   conf.ClusterCache,
+		cacheResources: map[string][]resource.Resourcer{},
 	}
 }
 
@@ -65,17 +59,12 @@ type MappingController struct {
 	exportHubName string
 	importHubName string
 
-	router *router.Router
-
+	router       *router.Router
+	solution     *router.Solution
 	clusterCache ClusterCache
 
-	exportClientset            kubernetes.Interface
-	importClientset            kubernetes.Interface
-	sourceResourceBuilder      resource.ResourceBuilders
-	destinationResourceBuilder resource.ResourceBuilders
-	lastSourceResources        []resource.Resourcer
-	lastDestinationResources   []resource.Resourcer
-	logger                     logr.Logger
+	cacheResources map[string][]resource.Resourcer
+	logger         logr.Logger
 
 	try *trybuffer.TryBuffer
 
@@ -89,16 +78,29 @@ func (d *MappingController) Start(ctx context.Context) error {
 	}()
 	d.ctx = ctx
 
+	d.solution = router.NewSolution(router.SolutionConfig{
+		GetHubGateway: d.clusterCache.GetHubGateway,
+	})
+
 	// Mark managed by ferry
 	opt := metav1.ListOptions{
 		LabelSelector: labels.SelectorFromSet(d.getLabel()).String(),
 	}
 
-	err := d.initLastSourceResources(ctx, opt)
+	ways, err := d.solution.CalculateWays(d.exportHubName, d.importHubName)
 	if err != nil {
+		d.logger.Error(err, "calculate ways")
 		return err
 	}
-	err = d.initLastDestinationResources(ctx, opt)
+
+	for _, way := range ways {
+		err := d.loadLastConfigMap(ctx, way, opt)
+		if err != nil {
+			return err
+		}
+	}
+
+	err = d.loadLastService(ctx, ways[len(ways)-1], opt)
 	if err != nil {
 		return err
 	}
@@ -112,7 +114,10 @@ func (d *MappingController) Start(ctx context.Context) error {
 		Namespace:     d.namespace,
 		ExportHubName: d.exportHubName,
 		ImportHubName: d.importHubName,
-		ClusterCache:  d.clusterCache,
+		GetIdentity:   d.clusterCache.GetIdentity,
+		ListServices:  d.clusterCache.ListServices,
+		GetHubGateway: d.clusterCache.GetHubGateway,
+		GetPortPeer:   d.clusterCache.GetPortPeer,
 	})
 
 	return nil
@@ -128,8 +133,8 @@ func (d *MappingController) SetRoutes(rules []*v1alpha2.Route) {
 	d.router.SetRoutes(rules)
 }
 
-func (d *MappingController) initLastSourceResources(ctx context.Context, opt metav1.ListOptions) error {
-	cmList, err := d.exportClientset.
+func (d *MappingController) loadLastConfigMap(ctx context.Context, name string, opt metav1.ListOptions) error {
+	cmList, err := d.clusterCache.Clientset(name).
 		CoreV1().
 		ConfigMaps(d.namespace).
 		List(ctx, opt)
@@ -137,23 +142,13 @@ func (d *MappingController) initLastSourceResources(ctx context.Context, opt met
 		return err
 	}
 	for _, item := range cmList.Items {
-		d.lastSourceResources = append(d.lastSourceResources, resource.ConfigMap{item.DeepCopy()})
+		d.cacheResources[name] = append(d.cacheResources[name], resource.ConfigMap{item.DeepCopy()})
 	}
 	return nil
 }
 
-func (d *MappingController) initLastDestinationResources(ctx context.Context, opt metav1.ListOptions) error {
-	cmList, err := d.importClientset.
-		CoreV1().
-		ConfigMaps(d.namespace).
-		List(ctx, opt)
-	if err != nil {
-		return err
-	}
-	for _, item := range cmList.Items {
-		d.lastDestinationResources = append(d.lastDestinationResources, resource.ConfigMap{item.DeepCopy()})
-	}
-	svcList, err := d.importClientset.
+func (d *MappingController) loadLastService(ctx context.Context, name string, opt metav1.ListOptions) error {
+	svcList, err := d.clusterCache.Clientset(name).
 		CoreV1().
 		Services("").
 		List(ctx, opt)
@@ -161,10 +156,10 @@ func (d *MappingController) initLastDestinationResources(ctx context.Context, op
 		return err
 	}
 	for _, item := range svcList.Items {
-		d.lastDestinationResources = append(d.lastDestinationResources, resource.Service{item.DeepCopy()})
+		d.cacheResources[name] = append(d.cacheResources[name], resource.Service{item.DeepCopy()})
 	}
 
-	d.clusterCache.LoadPortPeer(d.importHubName, svcList)
+	d.clusterCache.LoadPortPeer(name, svcList)
 	return nil
 }
 
@@ -189,73 +184,54 @@ func (d *MappingController) sync() {
 	}
 	ctx := d.ctx
 
-	var ir []resource.Resourcer
-	var er []resource.Resourcer
+	ways, err := d.solution.CalculateWays(d.exportHubName, d.importHubName)
+	if err != nil {
+		d.logger.Error(err, "calculate ways")
+		return
+	}
 
-	ir, er, err := d.router.BuildResource()
+	resources, err := d.router.BuildResource(ways)
 	if err != nil {
 		d.logger.Error(err, "build resource")
 		return
 	}
+	defer func() {
+		d.cacheResources = resources
+	}()
 
-	d.logger.Info("CalculatePatchResources",
-		"lastSourceResources", len(d.lastSourceResources),
-		"lastDestinationResources", len(d.lastDestinationResources),
-		"ImportResources", len(ir),
-		"ExportResources", len(er),
-	)
+	for hubName, updated := range resources {
+		cacheResource := d.cacheResources[hubName]
+		deleled := diffobjs.ShouldDeleted(cacheResource, updated)
+		cli := d.clusterCache.Clientset(hubName)
+		for _, r := range updated {
+			err := r.Apply(ctx, cli)
+			if err != nil {
+				d.logger.Error(err, "Apply resource", "hub", hubName)
+			}
+		}
 
-	if len(d.lastSourceResources) == 0 && len(d.lastDestinationResources) == 0 &&
-		len(ir) == 0 && len(er) == 0 {
-		d.logger.Info("No need to sync")
-		return
-	}
-
-	sourceUpdate, sourceDelete := utils.CalculatePatchResources(d.lastSourceResources, ir)
-	destinationUpdate, destinationDelete := utils.CalculatePatchResources(d.lastDestinationResources, er)
-
-	if len(sourceUpdate) == 0 && len(sourceDelete) == 0 && len(destinationUpdate) == 0 && len(destinationDelete) == 0 {
-		d.logger.Info("No need to sync")
-		return
-	}
-
-	d.logger.Info("Sync",
-		"SourceUpdate", len(sourceUpdate),
-		"SourceDelete", len(sourceDelete),
-		"DestinationUpdate", len(destinationUpdate),
-		"DestinationDelete", len(destinationDelete),
-	)
-
-	for _, r := range sourceUpdate {
-		err := r.Apply(ctx, d.exportClientset)
-		if err != nil {
-			d.logger.Error(err, "Apply Export")
+		for _, r := range deleled {
+			err := r.Delete(ctx, cli)
+			if err != nil {
+				d.logger.Error(err, "Delete resource", "hub", hubName)
+			}
 		}
 	}
 
-	for _, r := range destinationUpdate {
-		err := r.Apply(ctx, d.importClientset)
-		if err != nil {
-			d.logger.Error(err, "Apply Import")
+	for hubName, caches := range d.cacheResources {
+		v, ok := resources[hubName]
+		if ok && len(v) != 0 {
+			continue
+		}
+		cli := d.clusterCache.Clientset(hubName)
+		for _, r := range caches {
+			err := r.Delete(ctx, cli)
+			if err != nil {
+				d.logger.Error(err, "Delete resource", "hub", hubName)
+			}
 		}
 	}
 
-	for _, r := range sourceDelete {
-		err := r.Delete(ctx, d.exportClientset)
-		if err != nil {
-			d.logger.Error(err, "Delete Export")
-		}
-	}
-
-	for _, r := range destinationDelete {
-		err := r.Delete(ctx, d.importClientset)
-		if err != nil {
-			d.logger.Error(err, "Delete Import")
-		}
-	}
-
-	d.lastSourceResources = ir
-	d.lastDestinationResources = er
 	return
 }
 
@@ -272,17 +248,13 @@ func (d *MappingController) Close() {
 
 	ctx := context.Background()
 
-	for _, r := range d.lastSourceResources {
-		err := r.Delete(ctx, d.exportClientset)
-		if err != nil {
-			d.logger.Error(err, "Delete Export")
-		}
-	}
-
-	for _, r := range d.lastDestinationResources {
-		err := r.Delete(ctx, d.importClientset)
-		if err != nil {
-			d.logger.Error(err, "Delete Import")
+	for hubName, caches := range d.cacheResources {
+		cli := d.clusterCache.Clientset(hubName)
+		for _, r := range caches {
+			err := r.Delete(ctx, cli)
+			if err != nil {
+				d.logger.Error(err, "Delete resource", "hub", hubName)
+			}
 		}
 	}
 }

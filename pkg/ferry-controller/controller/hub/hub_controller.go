@@ -381,3 +381,17 @@ func (c *HubController) GetHub(name string) *v1alpha2.Hub {
 	defer c.mut.RUnlock()
 	return c.cacheHub[name]
 }
+
+func (c *HubController) GetHubGateway(hubName string, forHub string) v1alpha2.HubSpecGateway {
+	hub := c.cacheHub[hubName]
+	if hub != nil {
+		if hub.Spec.Override != nil {
+			h, ok := hub.Spec.Override[forHub]
+			if ok {
+				return h
+			}
+		}
+		return hub.Spec.Gateway
+	}
+	return v1alpha2.HubSpecGateway{}
+}
