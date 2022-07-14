@@ -41,7 +41,7 @@ jobs:
       - name: Upload ferryctl
         uses: actions/upload-artifact@v2
         with:
-          name: test
+          name: ferryctl
           path: ferryctl
 
   build-ferry-controller:
@@ -55,7 +55,7 @@ jobs:
       - name: Upload ferry
         uses: actions/upload-artifact@v2
         with:
-          name: test
+          name: ferry-controller
           path: ferry-controller.tar
 
   build-ferry-tunnel:
@@ -69,7 +69,7 @@ jobs:
       - name: Upload ferry-tunnel
         uses: actions/upload-artifact@v2
         with:
-          name: test
+          name: ferry-tunnel
           path: ferry-tunnel.tar
 
   test-default:
@@ -81,10 +81,20 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: Download for test
+      - name: Download for ferry-controller
         uses: actions/download-artifact@v2
         with:
-          name: test
+          name: ferry-controller
+
+      - name: Download for ferry-tunnel
+        uses: actions/download-artifact@v2
+        with:
+          name: ferry-tunnel
+
+      - name: Download for ferryctl
+        uses: actions/download-artifact@v2
+        with:
+          name: ferryctl
 
       - name: Setup
         run: |
@@ -97,8 +107,15 @@ jobs:
           ulimit -n 4096
           ./test/hack/start-environment.sh default
 
-      - name: Test both
-        run: ./test/test/test-both.sh
+      - name: Test control-plane and cluster-1
+        run: ./test/test/test-in-both.sh
+        env:
+          ROUTE_NAME: ferry-test
+          CONTROL_PLANE: control-plane
+          CLUSTER_1: cluster-1
+          CLUSTER_2: control-plane
+          TARGET_1: web-1
+          TARGET_2: web-0
 
   test-control-plane-unreachable:
     runs-on: ubuntu-latest
@@ -109,10 +126,20 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: Download for test
+      - name: Download for ferry-controller
         uses: actions/download-artifact@v2
         with:
-          name: test
+          name: ferry-controller
+
+      - name: Download for ferry-tunnel
+        uses: actions/download-artifact@v2
+        with:
+          name: ferry-tunnel
+
+      - name: Download for ferryctl
+        uses: actions/download-artifact@v2
+        with:
+          name: ferryctl
 
       - name: Setup
         run: |
@@ -125,8 +152,15 @@ jobs:
           ulimit -n 4096
           ./test/hack/start-environment.sh control-plane-unreachable
 
-      - name: Test both
-        run: ./test/test/test-both.sh
+      - name: Test control-plane and cluster-1
+        run: ./test/test/test-in-both.sh
+        env:
+          ROUTE_NAME: ferry-test
+          CONTROL_PLANE: control-plane
+          CLUSTER_1: cluster-1
+          CLUSTER_2: control-plane
+          TARGET_1: web-1
+          TARGET_2: web-0
 
   test-data-plane-unreachable:
     runs-on: ubuntu-latest
@@ -137,10 +171,20 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: Download for test
+      - name: Download for ferry-controller
         uses: actions/download-artifact@v2
         with:
-          name: test
+          name: ferry-controller
+
+      - name: Download for ferry-tunnel
+        uses: actions/download-artifact@v2
+        with:
+          name: ferry-tunnel
+
+      - name: Download for ferryctl
+        uses: actions/download-artifact@v2
+        with:
+          name: ferryctl
 
       - name: Setup
         run: |
@@ -153,8 +197,15 @@ jobs:
           ulimit -n 4096
           ./test/hack/start-environment.sh data-plane-unreachable
 
-      - name: Test both
-        run: ./test/test/test-both.sh
+      - name: Test control-plane and cluster-1
+        run: ./test/test/test-in-both.sh
+        env:
+          ROUTE_NAME: ferry-test
+          CONTROL_PLANE: control-plane
+          CLUSTER_1: cluster-1
+          CLUSTER_2: control-plane
+          TARGET_1: web-1
+          TARGET_2: web-0
 
   test-control-plane-unreachable-3-clusters:
     runs-on: ubuntu-latest
@@ -165,10 +216,20 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: Download for test
+      - name: Download for ferry-controller
         uses: actions/download-artifact@v2
         with:
-          name: test
+          name: ferry-controller
+
+      - name: Download for ferry-tunnel
+        uses: actions/download-artifact@v2
+        with:
+          name: ferry-tunnel
+
+      - name: Download for ferryctl
+        uses: actions/download-artifact@v2
+        with:
+          name: ferryctl
 
       - name: Setup
         run: |
@@ -181,11 +242,25 @@ jobs:
           ulimit -n 4096
           ./test/hack/start-environment.sh control-plane-unreachable-3-clusters
 
-      - name: Test thrin
-        run: ./test/test/test-thrin.sh
+      - name: Test cluster-1 and cluster-2
+        run: ./test/test/test-in-both.sh
+        env:
+          ROUTE_NAME: ferry-test
+          CONTROL_PLANE: control-plane
+          CLUSTER_1: cluster-1
+          CLUSTER_2: cluster-2
+          TARGET_1: web-1
+          TARGET_2: web-2
 
-      - name: Test both
-        run: ./test/test/test-both.sh
+      - name: Test control-plane and cluster-1
+        run: ./test/test/test-in-both.sh
+        env:
+          ROUTE_NAME: ferry-test
+          CONTROL_PLANE: control-plane
+          CLUSTER_1: cluster-1
+          CLUSTER_2: control-plane
+          TARGET_1: web-1
+          TARGET_2: web-0
 
   test-data-plane-unreachable-3-clusters:
     runs-on: ubuntu-latest
@@ -196,10 +271,20 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: Download for test
+      - name: Download for ferry-controller
         uses: actions/download-artifact@v2
         with:
-          name: test
+          name: ferry-controller
+
+      - name: Download for ferry-tunnel
+        uses: actions/download-artifact@v2
+        with:
+          name: ferry-tunnel
+
+      - name: Download for ferryctl
+        uses: actions/download-artifact@v2
+        with:
+          name: ferryctl
 
       - name: Setup
         run: |
@@ -212,11 +297,25 @@ jobs:
           ulimit -n 4096
           ./test/hack/start-environment.sh data-plane-unreachable-3-clusters
 
-      - name: Test thrin
-        run: ./test/test/test-thrin.sh
+      - name: Test cluster-1 and cluster-2
+        run: ./test/test/test-in-both.sh
+        env:
+          ROUTE_NAME: ferry-test
+          CONTROL_PLANE: control-plane
+          CLUSTER_1: cluster-1
+          CLUSTER_2: cluster-2
+          TARGET_1: web-1
+          TARGET_2: web-2
 
-      - name: Test both
-        run: ./test/test/test-both.sh
+      - name: Test control-plane and cluster-1
+        run: ./test/test/test-in-both.sh
+        env:
+          ROUTE_NAME: ferry-test
+          CONTROL_PLANE: control-plane
+          CLUSTER_1: cluster-1
+          CLUSTER_2: control-plane
+          TARGET_1: web-1
+          TARGET_2: web-0
 
   test-forward:
     runs-on: ubuntu-latest
@@ -226,10 +325,15 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
-      - name: Download for test
+      - name: Download for ferry-tunnel
         uses: actions/download-artifact@v2
         with:
-          name: test
+          name: ferry-tunnel
+
+      - name: Download for ferryctl
+        uses: actions/download-artifact@v2
+        with:
+          name: ferryctl
 
       - name: Setup
         run: |
@@ -252,10 +356,15 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
-      - name: Download for test
+      - name: Download for ferry-tunnel
         uses: actions/download-artifact@v2
         with:
-          name: test
+          name: ferry-tunnel
+
+      - name: Download for ferryctl
+        uses: actions/download-artifact@v2
+        with:
+          name: ferryctl
 
       - name: Setup
         run: |
