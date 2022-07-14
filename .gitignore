@@ -23,8 +23,4 @@ testbin/*
 
 # Customs
 vendor
-kubeconfig
-
-/hack/clusters/control-plane-cluster/control-plane-cluster.yaml
-/hack/clusters/control-plane-cluster/data-plane-cluster-1.yaml
-/hack/clusters/control-plane-cluster/data-plane-cluster-2.yaml
+kubeconfigs
