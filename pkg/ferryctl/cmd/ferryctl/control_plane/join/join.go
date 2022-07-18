@@ -96,7 +96,7 @@ func NewCommand(logger log.Logger) *cobra.Command {
 				ControlPlaneTunnelAddress: controlPlaneTunnelAddress,
 				ControlPlaneReachable:     controlPlaneReachable,
 				DataPlaneNavigation:       dataPlaneNavigation,
-				DataPlaneReception:        dataPlaneNavigation,
+				DataPlaneReception:        dataPlaneReception,
 			})
 			if err != nil {
 				return err
