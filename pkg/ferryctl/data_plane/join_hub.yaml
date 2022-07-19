@@ -19,21 +19,40 @@ spec:
     reachable: {{ .DataPlaneReachable }}
     address: {{ .DataPlaneTunnelAddress }}
 
-{{ with .DataPlaneReception }}
-    reception:
-{{ range . }}
+  {{ with .DataPlaneReceptionWay }}
+    receptionWay:
+  {{ range . }}
       - hubName: {{ . }}
-{{ end}}
-{{ else }}
-    reception: []
-{{ end }}
+  {{ end}}
+  {{ else }}
+    receptionWay: []
+  {{ end }}
 
-{{ with .DataPlaneNavigation }}
-    navigation:
-{{ range . }}
+  {{ with .DataPlaneNavigationWay }}
+    navigationWay:
+  {{ range . }}
       - hubName: {{ . }}
-{{ end}}
-{{ else }}
-    navigation: []
-{{ end }}
+  {{ end}}
+  {{ else }}
+    navigationWay: []
+  {{ end }}
+
+
+  {{ with .DataPlaneReceptionProxy }}
+    receptionProxy:
+  {{ range . }}
+      - proxy: {{ . }}
+  {{ end}}
+  {{ else }}
+    receptionProxy: []
+  {{ end }}
+
+  {{ with .DataPlaneNavigationProxy }}
+    navigationProxy:
+  {{ range . }}
+      - hubName: {{ . }}
+  {{ end}}
+  {{ else }}
+    navigationProxy: []
+  {{ end }}
 

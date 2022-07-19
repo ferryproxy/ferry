@@ -20,8 +20,10 @@ func NewCommand(logger log.Logger) *cobra.Command {
 		dataPlaneApiserverAddress = vars.AutoPlaceholders
 		controlPlaneReachable     = true
 		dataPlaneReachable        = true
-		dataPlaneNavigation       = []string{}
-		dataPlaneReception        = []string{}
+		dataPlaneNavigationWay    = []string{}
+		dataPlaneReceptionWay     = []string{}
+		dataPlaneNavigationProxy  = []string{}
+		dataPlaneReceptionProxy   = []string{}
 	)
 
 	cmd := &cobra.Command{
@@ -95,8 +97,10 @@ func NewCommand(logger log.Logger) *cobra.Command {
 				DataPlaneReachable:        dataPlaneReachable,
 				ControlPlaneTunnelAddress: controlPlaneTunnelAddress,
 				ControlPlaneReachable:     controlPlaneReachable,
-				DataPlaneNavigation:       dataPlaneNavigation,
-				DataPlaneReception:        dataPlaneReception,
+				DataPlaneNavigationWay:    dataPlaneNavigationWay,
+				DataPlaneReceptionWay:     dataPlaneReceptionWay,
+				DataPlaneNavigationProxy:  dataPlaneNavigationProxy,
+				DataPlaneReceptionProxy:   dataPlaneReceptionProxy,
 			})
 			if err != nil {
 				return err
@@ -117,7 +121,9 @@ func NewCommand(logger log.Logger) *cobra.Command {
 	flags.StringVar(&dataPlaneApiserverAddress, "data-plane-apiserver-address", dataPlaneApiserverAddress, "Apiserver address of the data plane for control plane")
 	flags.BoolVar(&controlPlaneReachable, "control-plane-reachable", controlPlaneReachable, "Control plane is reachable")
 	flags.BoolVar(&dataPlaneReachable, "data-plane-reachable", dataPlaneReachable, "Data plane is reachable")
-	flags.StringSliceVar(&dataPlaneNavigation, "data-plane-navigation", dataPlaneNavigation, "Navigation hub name of the data plane connected to another cluster")
-	flags.StringSliceVar(&dataPlaneReception, "data-plane-reception", dataPlaneReception, "Reception hub name of the data plane connected to another cluster")
+	flags.StringSliceVar(&dataPlaneNavigationWay, "data-plane-navigation-way", dataPlaneNavigationWay, "Navigation hub name of the data plane connected to another cluster")
+	flags.StringSliceVar(&dataPlaneReceptionWay, "data-plane-reception-way", dataPlaneReceptionWay, "Reception hub name of the data plane connected to another cluster")
+	flags.StringSliceVar(&dataPlaneNavigationProxy, "data-plane-navigation-proxy", dataPlaneNavigationProxy, "Navigation proxy name of the data plane connected to another cluster")
+	flags.StringSliceVar(&dataPlaneReceptionProxy, "data-plane-reception-proxy", dataPlaneReceptionProxy, "Reception proxy name of the data plane connected to another cluster")
 	return cmd
 }

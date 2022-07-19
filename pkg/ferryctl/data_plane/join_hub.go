@@ -7,12 +7,14 @@ import (
 )
 
 type BuildHubConfig struct {
-	DataPlaneReachable     bool
-	DataPlaneName          string
-	DataPlaneTunnelAddress string
-	DataPlaneNavigation    []string
-	DataPlaneReception     []string
-	DataPlaneKubeconfig    string
+	DataPlaneReachable       bool
+	DataPlaneName            string
+	DataPlaneTunnelAddress   string
+	DataPlaneNavigationWay   []string
+	DataPlaneReceptionWay    []string
+	DataPlaneNavigationProxy []string
+	DataPlaneReceptionProxy  []string
+	DataPlaneKubeconfig      string
 }
 
 func BuildHub(conf BuildHubConfig) (string, error) {

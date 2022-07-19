@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"strings"
 	"sync"
 
 	"github.com/ferryproxy/api/apis/traffic/v1alpha2"
@@ -92,7 +93,7 @@ func (c *RouteController) Run(ctx context.Context) error {
 	return nil
 }
 
-func (c *RouteController) updateStatus(name string, phase string) error {
+func (c *RouteController) updateStatus(name string, phase string, way []string) error {
 	fp := c.cache[name]
 	if fp == nil {
 		return fmt.Errorf("not found Route %s", name)
@@ -104,6 +105,13 @@ func (c *RouteController) updateStatus(name string, phase string) error {
 	fp.Status.Import = fmt.Sprintf("%s.%s/%s", fp.Spec.Import.Service.Name, fp.Spec.Import.Service.Namespace, fp.Spec.Import.HubName)
 	fp.Status.Export = fmt.Sprintf("%s.%s/%s", fp.Spec.Export.Service.Name, fp.Spec.Export.Service.Namespace, fp.Spec.Export.HubName)
 	fp.Status.Phase = phase
+
+	if len(way) >= 2 {
+		way = way[1 : len(way)-1]
+	} else {
+		way = nil
+	}
+	fp.Status.Way = strings.Join(way, ",")
 	_, err := c.clientset.
 		TrafficV1alpha2().
 		Routes(fp.Namespace).
@@ -125,7 +133,7 @@ func (c *RouteController) onAdd(obj interface{}) {
 
 	c.syncFunc()
 
-	err := c.updateStatus(f.Name, "Pending")
+	err := c.updateStatus(f.Name, "Pending", nil)
 	if err != nil {
 		c.logger.Error(err, "failed to update status")
 	}
@@ -150,7 +158,7 @@ func (c *RouteController) onUpdate(oldObj, newObj interface{}) {
 
 	c.syncFunc()
 
-	err := c.updateStatus(f.Name, "Pending")
+	err := c.updateStatus(f.Name, "Pending", nil)
 	if err != nil {
 		c.logger.Error(err, "failed to update status")
 	}
@@ -202,9 +210,12 @@ func (c *RouteController) Sync(ctx context.Context) {
 		mc.SetRoutes(newerRoutes[key])
 
 		mc.Sync()
+	}
 
+	for _, key := range updated {
+		mc := c.getMappingController(key)
 		for _, rule := range newerRoutes[key] {
-			err := c.updateStatus(rule.Name, "Worked")
+			err := c.updateStatus(rule.Name, "Worked", mc.Way())
 			if err != nil {
 				c.logger.Error(err, "failed to update status")
 			}
@@ -219,6 +230,10 @@ func (c *RouteController) cleanupMappingController(key clusterPair) {
 		mc.Close()
 		delete(c.cacheMappingController, key)
 	}
+}
+
+func (c *RouteController) getMappingController(key clusterPair) *mapping.MappingController {
+	return c.cacheMappingController[key]
 }
 
 func (c *RouteController) startMappingController(ctx context.Context, key clusterPair) (*mapping.MappingController, error) {

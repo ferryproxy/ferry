@@ -515,7 +515,7 @@ spec:
           type: string
         - jsonPath: .status.way
           name: way
-          type: way
+          type: string
         - jsonPath: .status.import
           name: import
           type: string
