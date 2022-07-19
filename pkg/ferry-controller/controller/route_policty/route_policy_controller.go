@@ -12,6 +12,7 @@ import (
 	externalversions "github.com/ferryproxy/client-go/generated/informers/externalversions"
 	"github.com/ferryproxy/ferry/pkg/ferry-controller/router/resource"
 	"github.com/ferryproxy/ferry/pkg/utils/diffobjs"
+	"github.com/ferryproxy/ferry/pkg/utils/maps"
 	"github.com/ferryproxy/ferry/pkg/utils/objref"
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
@@ -236,6 +237,9 @@ func policiesToRoutes(clusterCache ClusterCache, policies []*v1alpha2.RoutePolic
 
 		for importHubName, matches := range rule {
 			for _, match := range matches {
+				label := maps.Merge(match.Export.Labels, match.Import.Labels)
+				var labelsMatch labels.Selector
+
 				for _, svc := range svcs {
 					var (
 						exportName      = match.Export.Name
@@ -244,23 +248,50 @@ func policiesToRoutes(clusterCache ClusterCache, policies []*v1alpha2.RoutePolic
 						importNamespace = match.Import.Namespace
 					)
 
-					if len(match.Export.Labels) != 0 {
-						if !labels.SelectorFromSet(match.Export.Labels).Matches(labels.Set(svc.Labels)) {
+					if exportName == "" && importName != "" {
+						exportName = importName
+					}
+					if exportNamespace == "" && importNamespace != "" {
+						exportNamespace = importNamespace
+					}
+
+					if importName == "" && exportName != "" {
+						importName = exportName
+					}
+					if importNamespace == "" && exportNamespace != "" {
+						importNamespace = exportNamespace
+					}
+
+					if len(label) != 0 && exportName == "" {
+						if exportNamespace != "" && exportNamespace != svc.Namespace {
 							continue
 						}
-						if exportName == "" {
-							exportName = svc.Name
+
+						if labelsMatch == nil {
+							labelsMatch = labels.SelectorFromSet(label)
 						}
-						if exportNamespace == "" {
-							exportNamespace = svc.Namespace
+						if !labelsMatch.Matches(labels.Set(svc.Labels)) {
+							continue
 						}
+
+						exportNamespace = svc.Namespace
+
+						exportName = svc.Name
+
 					} else {
+						if exportNamespace == "" {
+							continue
+						}
+
 						if svc.Namespace != exportNamespace {
 							continue
 						}
 
-						if svc.Name != exportName {
+						if exportName != "" && svc.Name != exportName {
 							continue
+						}
+						if exportName == "" {
+							exportName = svc.Name
 						}
 					}
 
