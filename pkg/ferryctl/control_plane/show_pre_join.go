@@ -16,8 +16,10 @@ type ShowJoinConfig struct {
 	ControlPlaneTunnelAddress string
 	ControlPlaneReachable     bool
 
-	DataPlaneNavigation []string
-	DataPlaneReception  []string
+	DataPlaneNavigationWay   []string
+	DataPlaneReceptionWay    []string
+	DataPlaneNavigationProxy []string
+	DataPlaneReceptionProxy  []string
 }
 
 func ShowJoin(ctx context.Context, conf ShowJoinConfig) (next string, err error) {
@@ -31,11 +33,17 @@ func ShowJoin(ctx context.Context, conf ShowJoinConfig) (next string, err error)
 		args = append(args, "--data-plane-reachable=false")
 	}
 
-	if len(conf.DataPlaneNavigation) > 0 {
-		args = append(args, "--data-plane-navigation="+strings.Join(conf.DataPlaneNavigation, ","))
+	if len(conf.DataPlaneNavigationWay) > 0 {
+		args = append(args, "--data-plane-navigation-way="+strings.Join(conf.DataPlaneNavigationWay, ","))
 	}
-	if len(conf.DataPlaneReception) > 0 {
-		args = append(args, "--data-plane-reception="+strings.Join(conf.DataPlaneReception, ","))
+	if len(conf.DataPlaneReceptionWay) > 0 {
+		args = append(args, "--data-plane-reception-way="+strings.Join(conf.DataPlaneReceptionWay, ","))
+	}
+	if len(conf.DataPlaneNavigationProxy) > 0 {
+		args = append(args, "--data-plane-navigation-proxy="+strings.Join(conf.DataPlaneNavigationProxy, ","))
+	}
+	if len(conf.DataPlaneReceptionProxy) > 0 {
+		args = append(args, "--data-plane-reception-proxy="+strings.Join(conf.DataPlaneReceptionProxy, ","))
 	}
 
 	return fmt.Sprintf("ferryctl data-plane join %s %s\n",

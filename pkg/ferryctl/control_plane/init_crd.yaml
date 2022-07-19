@@ -45,45 +45,80 @@ spec:
               description: HubSpec defines the desired state of Hub
               properties:
                 gateway:
-                  description: Gateway is the default gateway of this Hub.
+                  description: Gateway is the default gateway of this Hub
                   properties:
                     address:
-                      description: Address is the address of the cluster.
+                      description: Address is the address of this Hub, used when Reachable
+                        is true
                       type: string
-                    navigation:
-                      description: Navigation is the navigation of the Hub.
+                    navigationProxy:
+                      description: NavigationProxy is a list of proxies through which
+                        this Hub to reach other Hubs must need to go through, used when
+                        this Hub reaches other Hubs
                       items:
-                        description: HubSpecGatewayWay defines the desired state of
+                        description: HubSpecGatewayProxy defines the desired state of
                           HubSpecGateway
                         properties:
                           hubName:
-                            description: HubName is the name of Hub to proxy. cannot
-                              be specified together with Proxy.
+                            description: HubName is the name of Hub to proxy, cannot
+                              be specified together with Proxy
                             type: string
                           proxy:
-                            description: Proxy is the proxy to use. cannot be specified
-                              together with HubName.
+                            description: Proxy is the proxy to use, cannot be specified
+                              together with HubName
                             type: string
                         type: object
                       type: array
-                    reachable:
-                      description: Reachable indicates that this cluster is reachable,
-                        the default unreachable.
-                      type: boolean
-                    reception:
-                      description: Reception is the reception of the Hub.
+                    navigationWay:
+                      description: NavigationWay is a list of Hub names through which
+                        this Hub needs to reach other Hubs, used when this Hub reaches
+                        other Hubs, used by RoutePolicy to calculate Routes
                       items:
                         description: HubSpecGatewayWay defines the desired state of
                           HubSpecGateway
                         properties:
                           hubName:
-                            description: HubName is the name of Hub to proxy. cannot
-                              be specified together with Proxy.
+                            description: HubName is the name of Hub
+                            type: string
+                        required:
+                          - hubName
+                        type: object
+                      type: array
+                    reachable:
+                      description: Reachable indicates that this Hub is reachable
+                      type: boolean
+                    receptionProxy:
+                      description: ReceptionProxy is a list of proxies through which
+                        other Hubs to reach this Hub must need to go through, used when
+                        other Hubs reaches this Hub and Reachable is true
+                      items:
+                        description: HubSpecGatewayProxy defines the desired state of
+                          HubSpecGateway
+                        properties:
+                          hubName:
+                            description: HubName is the name of Hub to proxy, cannot
+                              be specified together with Proxy
                             type: string
                           proxy:
-                            description: Proxy is the proxy to use. cannot be specified
-                              together with HubName.
+                            description: Proxy is the proxy to use, cannot be specified
+                              together with HubName
                             type: string
+                        type: object
+                      type: array
+                    receptionWay:
+                      description: ReceptionWay is a list of Hub names through which
+                        other hubs needs to reach this Hub, used when other Hubs reaches
+                        this Hub and Reachable is true, used by RoutePolicy to calculate
+                        Routes
+                      items:
+                        description: HubSpecGatewayWay defines the desired state of
+                          HubSpecGateway
+                        properties:
+                          hubName:
+                            description: HubName is the name of Hub
+                            type: string
+                        required:
+                          - hubName
                         type: object
                       type: array
                   required:
@@ -94,49 +129,84 @@ spec:
                     description: HubSpecGateway defines the desired state of Hub
                     properties:
                       address:
-                        description: Address is the address of the cluster.
+                        description: Address is the address of this Hub, used when Reachable
+                          is true
                         type: string
-                      navigation:
-                        description: Navigation is the navigation of the Hub.
+                      navigationProxy:
+                        description: NavigationProxy is a list of proxies through which
+                          this Hub to reach other Hubs must need to go through, used
+                          when this Hub reaches other Hubs
                         items:
-                          description: HubSpecGatewayWay defines the desired state of
-                            HubSpecGateway
+                          description: HubSpecGatewayProxy defines the desired state
+                            of HubSpecGateway
                           properties:
                             hubName:
-                              description: HubName is the name of Hub to proxy. cannot
-                                be specified together with Proxy.
+                              description: HubName is the name of Hub to proxy, cannot
+                                be specified together with Proxy
                               type: string
                             proxy:
-                              description: Proxy is the proxy to use. cannot be specified
-                                together with HubName.
+                              description: Proxy is the proxy to use, cannot be specified
+                                together with HubName
                               type: string
                           type: object
                         type: array
-                      reachable:
-                        description: Reachable indicates that this cluster is reachable,
-                          the default unreachable.
-                        type: boolean
-                      reception:
-                        description: Reception is the reception of the Hub.
+                      navigationWay:
+                        description: NavigationWay is a list of Hub names through which
+                          this Hub needs to reach other Hubs, used when this Hub reaches
+                          other Hubs, used by RoutePolicy to calculate Routes
                         items:
                           description: HubSpecGatewayWay defines the desired state of
                             HubSpecGateway
                           properties:
                             hubName:
-                              description: HubName is the name of Hub to proxy. cannot
-                                be specified together with Proxy.
+                              description: HubName is the name of Hub
+                              type: string
+                          required:
+                            - hubName
+                          type: object
+                        type: array
+                      reachable:
+                        description: Reachable indicates that this Hub is reachable
+                        type: boolean
+                      receptionProxy:
+                        description: ReceptionProxy is a list of proxies through which
+                          other Hubs to reach this Hub must need to go through, used
+                          when other Hubs reaches this Hub and Reachable is true
+                        items:
+                          description: HubSpecGatewayProxy defines the desired state
+                            of HubSpecGateway
+                          properties:
+                            hubName:
+                              description: HubName is the name of Hub to proxy, cannot
+                                be specified together with Proxy
                               type: string
                             proxy:
-                              description: Proxy is the proxy to use. cannot be specified
-                                together with HubName.
+                              description: Proxy is the proxy to use, cannot be specified
+                                together with HubName
                               type: string
+                          type: object
+                        type: array
+                      receptionWay:
+                        description: ReceptionWay is a list of Hub names through which
+                          other hubs needs to reach this Hub, used when other Hubs reaches
+                          this Hub and Reachable is true, used by RoutePolicy to calculate
+                          Routes
+                        items:
+                          description: HubSpecGatewayWay defines the desired state of
+                            HubSpecGateway
+                          properties:
+                            hubName:
+                              description: HubName is the name of Hub
+                              type: string
+                          required:
+                            - hubName
                           type: object
                         type: array
                     required:
                       - reachable
                     type: object
-                  description: Override will replace the peer default gateway, key is
-                    the peer Hub
+                  description: Override will replace the peer default gateway, the key
+                    is the name of peer Hub
                   type: object
               required:
                 - gateway
@@ -218,7 +288,7 @@ spec:
                   format: date-time
                   type: string
                 phase:
-                  description: Phase is the phase of the Hub.
+                  description: Phase is the phase of the Hub
                   type: string
               type: object
           type: object
@@ -277,7 +347,7 @@ spec:
               description: RoutePolicySpec defines the desired state of RoutePolicy
               properties:
                 exports:
-                  description: Exports is a list of exports of the RoutePolicy.
+                  description: Exports is a list of exports of the RoutePolicy
                   items:
                     description: RoutePolicySpecRule defines the desired import of RoutePolicySpec
                     properties:
@@ -304,7 +374,7 @@ spec:
                     type: object
                   type: array
                 imports:
-                  description: Imports is a list of imports of the RoutePolicy.
+                  description: Imports is a list of imports of the RoutePolicy
                   items:
                     description: RoutePolicySpecRule defines the desired import of RoutePolicySpec
                     properties:
@@ -411,7 +481,7 @@ spec:
                   format: date-time
                   type: string
                 phase:
-                  description: Phase is the phase of the RoutePolicy.
+                  description: Phase is the phase of the RoutePolicy
                   type: string
                 routeCount:
                   description: RouteCount is the number of Route in the RoutePolicy
@@ -442,6 +512,9 @@ spec:
     - additionalPrinterColumns:
         - jsonPath: .status.export
           name: export
+          type: string
+        - jsonPath: .status.way
+          name: way
           type: string
         - jsonPath: .status.import
           name: import
@@ -476,7 +549,7 @@ spec:
               description: RouteSpec defines the desired state of Route
               properties:
                 export:
-                  description: Export is one of export of the Route.
+                  description: Export is one of export of the Route
                   properties:
                     hubName:
                       description: HubName is specifies the name of the Hub
@@ -485,10 +558,10 @@ spec:
                       description: Service is the service
                       properties:
                         name:
-                          description: Name is the service name.
+                          description: Name is the service name
                           type: string
                         namespace:
-                          description: Namespace is the service namespace.
+                          description: Namespace is the service namespace
                           type: string
                       required:
                         - name
@@ -499,7 +572,7 @@ spec:
                     - service
                   type: object
                 import:
-                  description: Import is one of import of the Route.
+                  description: Import is one of import of the Route
                   properties:
                     hubName:
                       description: HubName is specifies the name of the Hub
@@ -508,10 +581,10 @@ spec:
                       description: Service is the service
                       properties:
                         name:
-                          description: Name is the service name.
+                          description: Name is the service name
                           type: string
                         namespace:
-                          description: Namespace is the service namespace.
+                          description: Namespace is the service namespace
                           type: string
                       required:
                         - name
@@ -608,7 +681,10 @@ spec:
                   format: date-time
                   type: string
                 phase:
-                  description: Phase is the phase of the Route.
+                  description: Phase is the phase of the Route
+                  type: string
+                way:
+                  description: Way is describe of the way
                   type: string
               type: object
           type: object

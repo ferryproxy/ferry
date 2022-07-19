@@ -70,7 +70,7 @@ func TestSolution_Solution(t *testing.T) {
 					Spec: v1alpha2.HubSpec{
 						Gateway: v1alpha2.HubSpecGateway{
 							Reachable: true,
-							Reception: []v1alpha2.HubSpecGatewayWay{
+							ReceptionWay: []v1alpha2.HubSpecGatewayWay{
 								{
 									HubName: "repeater-import",
 								},
@@ -157,7 +157,7 @@ func TestSolution_Solution(t *testing.T) {
 				"import": {
 					Spec: v1alpha2.HubSpec{
 						Gateway: v1alpha2.HubSpecGateway{
-							Navigation: []v1alpha2.HubSpecGatewayWay{
+							NavigationWay: []v1alpha2.HubSpecGatewayWay{
 								{
 									HubName: "repeater-export",
 								},
@@ -183,7 +183,7 @@ func TestSolution_Solution(t *testing.T) {
 					Spec: v1alpha2.HubSpec{
 						Gateway: v1alpha2.HubSpecGateway{
 							Reachable: true,
-							Reception: []v1alpha2.HubSpecGatewayWay{
+							ReceptionWay: []v1alpha2.HubSpecGatewayWay{
 								{
 									HubName: "repeater-export",
 								},
@@ -220,7 +220,7 @@ func TestSolution_Solution(t *testing.T) {
 				"import": {
 					Spec: v1alpha2.HubSpec{
 						Gateway: v1alpha2.HubSpecGateway{
-							Navigation: []v1alpha2.HubSpecGatewayWay{
+							NavigationWay: []v1alpha2.HubSpecGatewayWay{
 								{
 									HubName: "repeater-import",
 								},
@@ -268,7 +268,7 @@ func TestSolution_Solution(t *testing.T) {
 					Spec: v1alpha2.HubSpec{
 						Gateway: v1alpha2.HubSpecGateway{
 							Reachable: true,
-							Reception: []v1alpha2.HubSpecGatewayWay{
+							ReceptionWay: []v1alpha2.HubSpecGatewayWay{
 								{
 									HubName: "repeater-export",
 								},
@@ -299,7 +299,7 @@ func TestSolution_Solution(t *testing.T) {
 				"export": {
 					Spec: v1alpha2.HubSpec{
 						Gateway: v1alpha2.HubSpecGateway{
-							Navigation: []v1alpha2.HubSpecGatewayWay{
+							NavigationWay: []v1alpha2.HubSpecGatewayWay{
 								{
 									HubName: "repeater-import",
 								},
@@ -357,7 +357,7 @@ func TestSolution_Solution(t *testing.T) {
 				"export": {
 					Spec: v1alpha2.HubSpec{
 						Gateway: v1alpha2.HubSpecGateway{
-							Navigation: []v1alpha2.HubSpecGatewayWay{
+							NavigationWay: []v1alpha2.HubSpecGatewayWay{
 								{
 									HubName: "repeater-export",
 								},
@@ -389,7 +389,7 @@ func TestSolution_Solution(t *testing.T) {
 					Spec: v1alpha2.HubSpec{
 						Gateway: v1alpha2.HubSpecGateway{
 							Reachable: true,
-							Reception: []v1alpha2.HubSpecGatewayWay{
+							ReceptionWay: []v1alpha2.HubSpecGatewayWay{
 								{
 									HubName: "repeater-import",
 								},
@@ -419,7 +419,7 @@ func TestSolution_Solution(t *testing.T) {
 				"export": {
 					Spec: v1alpha2.HubSpec{
 						Gateway: v1alpha2.HubSpecGateway{
-							Navigation: []v1alpha2.HubSpecGatewayWay{
+							NavigationWay: []v1alpha2.HubSpecGatewayWay{
 								{
 									HubName: "repeater-import",
 								},
@@ -498,7 +498,7 @@ func TestSolution_Solution(t *testing.T) {
 				"import": {
 					Spec: v1alpha2.HubSpec{
 						Gateway: v1alpha2.HubSpecGateway{
-							Navigation: []v1alpha2.HubSpecGatewayWay{
+							NavigationWay: []v1alpha2.HubSpecGatewayWay{
 								{
 									HubName: "repeater-export",
 								},
@@ -523,7 +523,7 @@ func TestSolution_Solution(t *testing.T) {
 				"export": {
 					Spec: v1alpha2.HubSpec{
 						Gateway: v1alpha2.HubSpecGateway{
-							Navigation: []v1alpha2.HubSpecGatewayWay{
+							NavigationWay: []v1alpha2.HubSpecGatewayWay{
 								{
 									HubName: "repeater-export",
 								},
@@ -558,7 +558,7 @@ func TestSolution_Solution(t *testing.T) {
 				"import": {
 					Spec: v1alpha2.HubSpec{
 						Gateway: v1alpha2.HubSpecGateway{
-							Navigation: []v1alpha2.HubSpecGatewayWay{
+							NavigationWay: []v1alpha2.HubSpecGatewayWay{
 								{
 									HubName: "repeater-import",
 								},

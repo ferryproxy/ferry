@@ -12,8 +12,10 @@ type ShowJoinDoneConfig struct {
 	DataPlaneReachable        bool
 	DataPlaneApiserverAddress string
 	DataPlaneTunnelAddress    string
-	DataPlaneNavigation       []string
-	DataPlaneReception        []string
+	DataPlaneNavigationWay    []string
+	DataPlaneReceptionWay     []string
+	DataPlaneNavigationProxy  []string
+	DataPlaneReceptionProxy   []string
 }
 
 func ShowJoinDone(ctx context.Context, conf ShowJoinDoneConfig) (next string, err error) {
@@ -25,8 +27,10 @@ func ShowJoinDone(ctx context.Context, conf ShowJoinDoneConfig) (next string, er
 		DataPlaneName:          conf.DataPlaneName,
 		DataPlaneReachable:     conf.DataPlaneReachable,
 		DataPlaneTunnelAddress: conf.DataPlaneTunnelAddress,
-		DataPlaneNavigation:    conf.DataPlaneNavigation,
-		DataPlaneReception:     conf.DataPlaneReception,
+		DataPlaneNavigationWay: conf.DataPlaneNavigationWay,
+		DataPlaneReceptionWay:  conf.DataPlaneReceptionWay,
+		DataPlaneNavigationProxy:conf.DataPlaneNavigationProxy,
+		DataPlaneReceptionProxy:conf.DataPlaneReceptionProxy,
 		DataPlaneKubeconfig:    base64.StdEncoding.EncodeToString(kubeconfig),
 	})
 	if err != nil {

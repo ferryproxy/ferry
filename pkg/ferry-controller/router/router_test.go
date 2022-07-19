@@ -49,7 +49,7 @@ func TestRouter(t *testing.T) {
 							Gateway: v1alpha2.HubSpecGateway{
 								Reachable: true,
 								Address:   "10.0.0.1:8080",
-								Reception: []v1alpha2.HubSpecGatewayWay{
+								ReceptionProxy: []v1alpha2.HubSpecGatewayProxy{
 									{
 										Proxy: "socks5://reception2",
 									},
@@ -57,7 +57,7 @@ func TestRouter(t *testing.T) {
 										Proxy: "socks5://reception1",
 									},
 								},
-								Navigation: []v1alpha2.HubSpecGatewayWay{
+								NavigationProxy: []v1alpha2.HubSpecGatewayProxy{
 									{
 										Proxy: "socks5://navigation2",
 									},
@@ -206,7 +206,7 @@ func TestRouter(t *testing.T) {
 							Gateway: v1alpha2.HubSpecGateway{
 								Reachable: true,
 								Address:   "10.0.0.2:8080",
-								Reception: []v1alpha2.HubSpecGatewayWay{
+								ReceptionProxy: []v1alpha2.HubSpecGatewayProxy{
 									{
 										Proxy: "socks5://reception2",
 									},
@@ -214,7 +214,7 @@ func TestRouter(t *testing.T) {
 										Proxy: "socks5://reception1",
 									},
 								},
-								Navigation: []v1alpha2.HubSpecGatewayWay{
+								NavigationProxy: []v1alpha2.HubSpecGatewayProxy{
 									{
 										Proxy: "socks5://navigation2",
 									},
@@ -342,7 +342,7 @@ func TestRouter(t *testing.T) {
 							Gateway: v1alpha2.HubSpecGateway{
 								Reachable: false,
 								Address:   "10.0.0.1:8080",
-								Navigation: v1alpha2.HubSpecGatewayWays{
+								NavigationWay: []v1alpha2.HubSpecGatewayWay{
 									{
 										HubName: "import",
 									},

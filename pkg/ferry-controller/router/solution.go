@@ -1,8 +1,6 @@
 package router
 
 import (
-	"fmt"
-
 	"github.com/ferryproxy/api/apis/traffic/v1alpha2"
 )
 
@@ -49,92 +47,34 @@ func (s *Solution) CalculateWays(exportHub, importHub string) ([]string, error) 
 		exportGateway := s.getHubGateway(exportWay, importWay)
 		importGateway := s.getHubGateway(importWay, exportWay)
 		if exportGateway.Reachable {
-			if len(importGateway.Navigation) != 0 {
-				ok, err := isHubs(importGateway.Navigation)
-				if err != nil {
-					return nil, fmt.Errorf("%w for export gateway reachable with import navigation: export %q, import %q ", err, exportWay, importWay)
-				}
-				if ok {
-					insertFunc(i+1, importGateway.Navigation...)
-				}
+			if len(importGateway.NavigationWay) != 0 {
+				insertFunc(i+1, importGateway.NavigationWay...)
 			}
-			if len(exportGateway.Reception) != 0 {
-				ok, err := isHubs(exportGateway.Reception)
-				if err != nil {
-					return nil, fmt.Errorf("%w for export gateway reachable with export reception: export %q, import %q ", err, exportWay, importWay)
-				}
-				if ok {
-					insertFunc(i+1, reverse(exportGateway.Reception)...)
-				}
+			if len(exportGateway.ReceptionWay) != 0 {
+				insertFunc(i+1, reverse(exportGateway.ReceptionWay)...)
 			}
 		} else if importGateway.Reachable {
-			if len(importGateway.Reception) != 0 {
-				ok, err := isHubs(importGateway.Reception)
-				if err != nil {
-					return nil, fmt.Errorf("%w for import gateway reachable with import reception: export %q, import %q ", err, exportWay, importWay)
-				}
-				if ok {
-					insertFunc(i+1, importGateway.Reception...)
-				}
+			if len(importGateway.ReceptionWay) != 0 {
+				insertFunc(i+1, importGateway.ReceptionWay...)
 			}
-			if len(exportGateway.Navigation) != 0 {
-				ok, err := isHubs(exportGateway.Navigation)
-				if err != nil {
-					return nil, fmt.Errorf("%w for import gateway reachable with export navigation: export %q, import %q ", err, exportWay, importWay)
-				}
-				if ok {
-					insertFunc(i+1, reverse(exportGateway.Navigation)...)
-				}
+			if len(exportGateway.NavigationWay) != 0 {
+				insertFunc(i+1, reverse(exportGateway.NavigationWay)...)
 			}
 		} else {
-			if len(importGateway.Navigation) == 0 && len(exportGateway.Navigation) == 0 {
+			if len(importGateway.NavigationWay) == 0 && len(exportGateway.NavigationWay) == 0 {
 				break
 			}
 
-			if len(importGateway.Navigation) != 0 {
-				ok, err := isHubs(importGateway.Navigation)
-				if err != nil {
-					return nil, fmt.Errorf("%w for gateway not reachable with import navigation: export %q, import %q ", err, exportWay, importWay)
-				}
-				if ok {
-					insertFunc(i+1, importGateway.Navigation...)
-				}
+			if len(importGateway.NavigationWay) != 0 {
+				insertFunc(i+1, importGateway.NavigationWay...)
 			}
-			if len(exportGateway.Navigation) != 0 {
-				ok, err := isHubs(exportGateway.Navigation)
-				if err != nil {
-					return nil, fmt.Errorf("%w for gateway not reachable with export navigation: export %q, import %q ", err, exportWay, importWay)
-				}
-				if ok {
-					insertFunc(i+1, reverse(exportGateway.Navigation)...)
-				}
+			if len(exportGateway.NavigationWay) != 0 {
+				insertFunc(i+1, reverse(exportGateway.NavigationWay)...)
 			}
 		}
 	}
 
 	return ways, nil
-}
-
-var ErrBothHubAndProxy = fmt.Errorf("both proxy and hub exist")
-
-func isHubs(ways v1alpha2.HubSpecGatewayWays) (isHub bool, err error) {
-	hasHub := false
-	hasProxy := false
-	for _, way := range ways {
-		if way.HubName != "" {
-			if hasProxy {
-				return false, ErrBothHubAndProxy
-			}
-			hasHub = true
-		}
-		if way.Proxy != "" {
-			if hasHub {
-				return false, ErrBothHubAndProxy
-			}
-			hasProxy = true
-		}
-	}
-	return hasHub, nil
 }
 
 func reverse[T any](a []T) []T {

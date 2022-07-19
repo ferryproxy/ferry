@@ -22,8 +22,8 @@ echo "::endgroup::"
 echo "::group::Data plane cluster-1 join"
 KUBECONFIG="${KUBECONFIG_DIR}/control-plane.yaml"
 echo "KUBECONFIG=${KUBECONFIG}"
-echo ferryctl control-plane join cluster-1 "--control-plane-tunnel-address=${HOST_IP}:31000" --data-plane-reachable=false --data-plane-reception=control-plane --data-plane-navigation=control-plane
-SEND_TO_CLUSTER_1="$(ferryctl control-plane join cluster-1 "--control-plane-tunnel-address=${HOST_IP}:31000" --data-plane-reachable=false --data-plane-reception=control-plane --data-plane-navigation=control-plane 2>/dev/null)"
+echo ferryctl control-plane join cluster-1 "--control-plane-tunnel-address=${HOST_IP}:31000" --data-plane-reachable=false --data-plane-reception-way=control-plane --data-plane-navigation-way=control-plane
+SEND_TO_CLUSTER_1="$(ferryctl control-plane join cluster-1 "--control-plane-tunnel-address=${HOST_IP}:31000" --data-plane-reachable=false --data-plane-reception-way=control-plane --data-plane-navigation-way=control-plane 2>/dev/null)"
 echo "::endgroup::"
 
 echo "::group::Data plane cluster-1 join"
@@ -43,8 +43,8 @@ echo "::endgroup::"
 echo "::group::Data plane cluster-2 join"
 KUBECONFIG="${KUBECONFIG_DIR}/control-plane.yaml"
 echo "KUBECONFIG=${KUBECONFIG}"
-echo ferryctl control-plane join cluster-2 "--control-plane-tunnel-address=${HOST_IP}:31000" --data-plane-reachable=false --data-plane-reception=control-plane --data-plane-navigation=control-plane
-SEND_TO_CLUSTER_2="$(ferryctl control-plane join cluster-2 "--control-plane-tunnel-address=${HOST_IP}:31000" --data-plane-reachable=false --data-plane-reception=control-plane --data-plane-navigation=control-plane 2>/dev/null)"
+echo ferryctl control-plane join cluster-2 "--control-plane-tunnel-address=${HOST_IP}:31000" --data-plane-reachable=false --data-plane-reception-way=control-plane --data-plane-navigation-way=control-plane
+SEND_TO_CLUSTER_2="$(ferryctl control-plane join cluster-2 "--control-plane-tunnel-address=${HOST_IP}:31000" --data-plane-reachable=false --data-plane-reception-way=control-plane --data-plane-navigation-way=control-plane 2>/dev/null)"
 echo "::endgroup::"
 
 echo "::group::Data plane cluster-2 join"

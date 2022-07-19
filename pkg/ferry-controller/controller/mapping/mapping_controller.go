@@ -65,6 +65,7 @@ type MappingController struct {
 
 	cacheResources map[string][]resource.Resourcer
 	logger         logr.Logger
+	way            []string
 
 	try *trybuffer.TryBuffer
 
@@ -87,20 +88,21 @@ func (d *MappingController) Start(ctx context.Context) error {
 		LabelSelector: labels.SelectorFromSet(d.getLabel()).String(),
 	}
 
-	ways, err := d.solution.CalculateWays(d.exportHubName, d.importHubName)
+	way, err := d.solution.CalculateWays(d.exportHubName, d.importHubName)
 	if err != nil {
 		d.logger.Error(err, "calculate ways")
 		return err
 	}
+	d.way = way
 
-	for _, way := range ways {
-		err := d.loadLastConfigMap(ctx, way, opt)
+	for _, w := range way {
+		err := d.loadLastConfigMap(ctx, w, opt)
 		if err != nil {
 			return err
 		}
 	}
 
-	err = d.loadLastService(ctx, ways[len(ways)-1], opt)
+	err = d.loadLastService(ctx, way[len(way)-1], opt)
 	if err != nil {
 		return err
 	}
@@ -121,6 +123,12 @@ func (d *MappingController) Start(ctx context.Context) error {
 	})
 
 	return nil
+}
+
+func (d *MappingController) Way() []string {
+	d.mut.Lock()
+	defer d.mut.Unlock()
+	return d.way
 }
 
 func (d *MappingController) Sync() {
@@ -184,13 +192,14 @@ func (d *MappingController) sync() {
 	}
 	ctx := d.ctx
 
-	ways, err := d.solution.CalculateWays(d.exportHubName, d.importHubName)
+	way, err := d.solution.CalculateWays(d.exportHubName, d.importHubName)
 	if err != nil {
 		d.logger.Error(err, "calculate ways")
 		return
 	}
+	d.way = way
 
-	resources, err := d.router.BuildResource(ways)
+	resources, err := d.router.BuildResource(way)
 	if err != nil {
 		d.logger.Error(err, "build resource")
 		return

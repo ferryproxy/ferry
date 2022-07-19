@@ -846,7 +846,7 @@ func TestHubsChain_Build(t *testing.T) {
 						Gateway: v1alpha2.HubSpecGateway{
 							Reachable: true,
 							Address:   "export:8080",
-							Reception: []v1alpha2.HubSpecGatewayWay{
+							ReceptionProxy: []v1alpha2.HubSpecGatewayProxy{
 								{
 									Proxy: "socks5://export-reception-1:8080",
 								},
@@ -860,7 +860,7 @@ func TestHubsChain_Build(t *testing.T) {
 				"import": {
 					Spec: v1alpha2.HubSpec{
 						Gateway: v1alpha2.HubSpecGateway{
-							Navigation: []v1alpha2.HubSpecGatewayWay{
+							NavigationProxy: []v1alpha2.HubSpecGatewayProxy{
 								{
 									Proxy: "socks5://import-navigation-1:8080",
 								},
@@ -902,7 +902,7 @@ func TestHubsChain_Build(t *testing.T) {
 				"export": {
 					Spec: v1alpha2.HubSpec{
 						Gateway: v1alpha2.HubSpecGateway{
-							Navigation: []v1alpha2.HubSpecGatewayWay{
+							NavigationProxy: []v1alpha2.HubSpecGatewayProxy{
 								{
 									Proxy: "socks5://export-navigation-1:8080",
 								},
@@ -918,7 +918,7 @@ func TestHubsChain_Build(t *testing.T) {
 						Gateway: v1alpha2.HubSpecGateway{
 							Reachable: true,
 							Address:   "import:8080",
-							Reception: []v1alpha2.HubSpecGatewayWay{
+							ReceptionProxy: []v1alpha2.HubSpecGatewayProxy{
 								{
 									Proxy: "socks5://import-reception-1:8080",
 								},
@@ -962,7 +962,7 @@ func TestHubsChain_Build(t *testing.T) {
 				"export": {
 					Spec: v1alpha2.HubSpec{
 						Gateway: v1alpha2.HubSpecGateway{
-							Navigation: []v1alpha2.HubSpecGatewayWay{
+							NavigationProxy: []v1alpha2.HubSpecGatewayProxy{
 								{
 									Proxy: "socks5://export-navigation-1:8080",
 								},
@@ -978,7 +978,7 @@ func TestHubsChain_Build(t *testing.T) {
 						Gateway: v1alpha2.HubSpecGateway{
 							Reachable: true,
 							Address:   "repeater:8080",
-							Reception: []v1alpha2.HubSpecGatewayWay{
+							ReceptionProxy: []v1alpha2.HubSpecGatewayProxy{
 								{
 									Proxy: "socks5://repeater-reception-1:8080",
 								},
@@ -992,7 +992,7 @@ func TestHubsChain_Build(t *testing.T) {
 				"import": {
 					Spec: v1alpha2.HubSpec{
 						Gateway: v1alpha2.HubSpecGateway{
-							Navigation: []v1alpha2.HubSpecGatewayWay{
+							NavigationProxy: []v1alpha2.HubSpecGatewayProxy{
 								{
 									Proxy: "socks5://import-navigation-1:8080",
 								},
@@ -1052,7 +1052,7 @@ func TestHubsChain_Build(t *testing.T) {
 						Gateway: v1alpha2.HubSpecGateway{
 							Reachable: true,
 							Address:   "export:8080",
-							Reception: []v1alpha2.HubSpecGatewayWay{
+							ReceptionProxy: []v1alpha2.HubSpecGatewayProxy{
 								{
 									Proxy: "socks5://export-reception-1:8080",
 								},
@@ -1066,7 +1066,7 @@ func TestHubsChain_Build(t *testing.T) {
 				"repeater": {
 					Spec: v1alpha2.HubSpec{
 						Gateway: v1alpha2.HubSpecGateway{
-							Navigation: []v1alpha2.HubSpecGatewayWay{
+							NavigationProxy: []v1alpha2.HubSpecGatewayProxy{
 								{
 									Proxy: "socks5://repeater-navigation-1:8080",
 								},
@@ -1082,7 +1082,7 @@ func TestHubsChain_Build(t *testing.T) {
 						Gateway: v1alpha2.HubSpecGateway{
 							Reachable: true,
 							Address:   "import:8080",
-							Reception: []v1alpha2.HubSpecGatewayWay{
+							ReceptionProxy: []v1alpha2.HubSpecGatewayProxy{
 								{
 									Proxy: "socks5://import-reception-1:8080",
 								},
@@ -1134,7 +1134,7 @@ func TestHubsChain_Build(t *testing.T) {
 							"repeater": {
 								Reachable: true,
 								Address:   "export:8080",
-								Reception: []v1alpha2.HubSpecGatewayWay{
+								ReceptionProxy: []v1alpha2.HubSpecGatewayProxy{
 									{
 										Proxy: "socks5://export-reception-1:8080",
 									},
@@ -1149,7 +1149,7 @@ func TestHubsChain_Build(t *testing.T) {
 				"repeater": {
 					Spec: v1alpha2.HubSpec{
 						Gateway: v1alpha2.HubSpecGateway{
-							Navigation: []v1alpha2.HubSpecGatewayWay{
+							NavigationProxy: []v1alpha2.HubSpecGatewayProxy{
 								{
 									Proxy: "socks5://repeater-navigation-1:8080",
 								},
@@ -1162,7 +1162,7 @@ func TestHubsChain_Build(t *testing.T) {
 							"import": {
 								Reachable: true,
 								Address:   "repeater:8080",
-								Reception: []v1alpha2.HubSpecGatewayWay{
+								ReceptionProxy: []v1alpha2.HubSpecGatewayProxy{
 									{
 										Proxy: "socks5://repeater-reception-1:8080",
 									},
@@ -1170,7 +1170,7 @@ func TestHubsChain_Build(t *testing.T) {
 										Proxy: "socks5://repeater-reception-2:8080",
 									},
 								},
-								Navigation: []v1alpha2.HubSpecGatewayWay{
+								NavigationProxy: []v1alpha2.HubSpecGatewayProxy{
 									{
 										Proxy: "socks5://repeater-navigation-1:8080",
 									},
@@ -1185,7 +1185,7 @@ func TestHubsChain_Build(t *testing.T) {
 				"import": {
 					Spec: v1alpha2.HubSpec{
 						Gateway: v1alpha2.HubSpecGateway{
-							Navigation: []v1alpha2.HubSpecGatewayWay{
+							NavigationProxy: []v1alpha2.HubSpecGatewayProxy{
 								{
 									Proxy: "socks5://import-navigation-1:8080",
 								},
@@ -1234,7 +1234,7 @@ func TestHubsChain_Build(t *testing.T) {
 				"export": {
 					Spec: v1alpha2.HubSpec{
 						Gateway: v1alpha2.HubSpecGateway{
-							Navigation: []v1alpha2.HubSpecGatewayWay{
+							NavigationProxy: []v1alpha2.HubSpecGatewayProxy{
 								{
 									Proxy: "socks5://export-navigation-1:8080",
 								},
@@ -1248,7 +1248,7 @@ func TestHubsChain_Build(t *testing.T) {
 				"repeater": {
 					Spec: v1alpha2.HubSpec{
 						Gateway: v1alpha2.HubSpecGateway{
-							Navigation: []v1alpha2.HubSpecGatewayWay{
+							NavigationProxy: []v1alpha2.HubSpecGatewayProxy{
 								{
 									Proxy: "socks5://repeater-navigation-1:8080",
 								},
@@ -1261,7 +1261,7 @@ func TestHubsChain_Build(t *testing.T) {
 							"export": {
 								Reachable: true,
 								Address:   "repeater:8080",
-								Navigation: []v1alpha2.HubSpecGatewayWay{
+								NavigationProxy: []v1alpha2.HubSpecGatewayProxy{
 									{
 										Proxy: "socks5://repeater-navigation-1:8080",
 									},
@@ -1269,7 +1269,7 @@ func TestHubsChain_Build(t *testing.T) {
 										Proxy: "socks5://repeater-navigation-2:8080",
 									},
 								},
-								Reception: []v1alpha2.HubSpecGatewayWay{
+								ReceptionProxy: []v1alpha2.HubSpecGatewayProxy{
 									{
 										Proxy: "socks5://repeater-reception-1:8080",
 									},
@@ -1287,7 +1287,7 @@ func TestHubsChain_Build(t *testing.T) {
 							"repeater": {
 								Reachable: true,
 								Address:   "import:8080",
-								Reception: []v1alpha2.HubSpecGatewayWay{
+								ReceptionProxy: []v1alpha2.HubSpecGatewayProxy{
 									{
 										Proxy: "socks5://import-reception-1:8080",
 									},

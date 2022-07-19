@@ -182,36 +182,40 @@ func (h *HubsChain) buildPeer(
 	}
 
 	if exportGateway.Reachable {
-		hubURI := sshURI(exportGateway.Address, h.getIdentity(exportHubName))
-		chain.Proxy = append(chain.Proxy, hubURI)
-		for _, r := range exportGateway.Reception {
-			if r.Proxy != "" {
-				chain.Proxy = append(chain.Proxy, r.Proxy)
-			}
-		}
-		for _, r := range importGateway.Navigation {
-			if r.Proxy != "" {
-				chain.Proxy = append(chain.Proxy, r.Proxy)
-			}
-		}
+		proxies := []v1alpha2.HubSpecGatewayProxy{}
+		proxies = append(proxies, v1alpha2.HubSpecGatewayProxy{
+			HubName: exportHubName,
+		})
+		proxies = append(proxies, exportGateway.ReceptionProxy...)
+		proxies = append(proxies, importGateway.NavigationProxy...)
+		chain.Proxy = h.proxies(chain.Proxy, importHubName, proxies)
 		return nil, chain, nil
 	} else if importGateway.Reachable {
-		hubURI := sshURI(importGateway.Address, h.getIdentity(importHubName))
-		chain.Bind = append(chain.Bind, hubURI)
-		for _, r := range importGateway.Reception {
-			if r.Proxy != "" {
-				chain.Bind = append(chain.Bind, r.Proxy)
-			}
-		}
-		for _, r := range exportGateway.Navigation {
-			if r.Proxy != "" {
-				chain.Bind = append(chain.Bind, r.Proxy)
-			}
-		}
+		binds := []v1alpha2.HubSpecGatewayProxy{}
+		binds = append(binds, v1alpha2.HubSpecGatewayProxy{
+			HubName: importHubName,
+		})
+		binds = append(binds, importGateway.ReceptionProxy...)
+		binds = append(binds, exportGateway.NavigationProxy...)
+		chain.Bind = h.proxies(chain.Bind, exportHubName, binds)
 		return chain, nil, nil
 	}
 
 	return nil, nil, fmt.Errorf("both export %q and import %q hubs are unreachable", exportHubName, importHubName)
+}
+
+func (h *HubsChain) proxies(a []string, prev string, proxies []v1alpha2.HubSpecGatewayProxy) []string {
+	for _, r := range proxies {
+		if r.HubName != "" {
+			gw := h.getHubGateway(r.HubName, prev)
+			hubURI := sshURI(gw.Address, h.getIdentity(r.HubName))
+			a = append(a, hubURI)
+			prev = r.HubName
+		} else if r.Proxy != "" {
+			a = append(a, r.Proxy)
+		}
+	}
+	return a
 }
 
 func unixSocksPath(name string) string {
