@@ -12,7 +12,7 @@ fi
 ENVIRONMENT_DIR="${ROOT}/environments/${ENVIRONMENT_NAME}"
 KUBECONFIG_DIR="${ROOT}/kubeconfigs"
 
-KIND_IMAGE="docker.io/kindest/node:v1.22.5"
+KIND_IMAGE="docker.io/kindest/node:v1.23.6"
 
 images=(
   "ghcr.io/wzshiming/echoserver/echoserver:v0.0.1"
