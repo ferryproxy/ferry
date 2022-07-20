@@ -14,21 +14,22 @@
 # limitations under the License.
 
 
-CURRENT="$(dirname "${BASH_SOURCE}")"
-ROOT="$(realpath "${CURRENT}/../..")"
-ENVIRONMENT_NAME="${CURRENT##*/}"
+set -o errexit
+set -o nounset
+set -o pipefail
 
-ENVIRONMENT_DIR="${ROOT}/environments/${ENVIRONMENT_NAME}"
-KUBECONFIG_DIR="${ROOT}/kubeconfigs"
+ROOT="$(dirname "${BASH_SOURCE[0]}")/.."
 
-HOST_IP="$(${ROOT}/hack/host-docker-internal.sh)"
-echo "Host IP: ${HOST_IP}"
+failed=()
 
-export KUBECONFIG
+if [[ "${VERIFY_BOILERPLATE:-true}" == "true" ]]; then
+  echo "[*] Verifying boilerplate..."
+  "${ROOT}"/hack/verify-boilerplate.sh || failed+=(boilerplate)
+fi
 
-echo "::group::Data plane initialization"
-KUBECONFIG="${KUBECONFIG_DIR}/cluster-0.yaml"
-echo "KUBECONFIG=${KUBECONFIG}"
-echo ferryctl data-plane init
-ferryctl data-plane init
-echo "::endgroup::"
+
+# exit based on verify scripts
+if [[ "${#failed[@]}" != 0 ]]; then
+  echo "Verify failed for: ${failed[*]}"
+  exit 1
+fi

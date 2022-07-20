@@ -12,8 +12,23 @@ env:
   FERRY_TUNNEL_IMAGE: ferry-tunnel:test
 
 jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: 1.18
+
+      - run: |
+          ./hack/verify-all.sh
+
   test:
     runs-on: ubuntu-latest
+    needs:
+      - verify
     steps:
       - uses: actions/checkout@v3
 
@@ -27,6 +42,8 @@ jobs:
 
   build-ferrctl:
     runs-on: ubuntu-latest
+    needs:
+      - verify
     steps:
       - uses: actions/checkout@v3
 
@@ -46,6 +63,8 @@ jobs:
 
   build-ferry-controller:
     runs-on: ubuntu-latest
+    needs:
+      - verify
     steps:
       - uses: actions/checkout@v3
 
@@ -60,6 +79,8 @@ jobs:
 
   build-ferry-tunnel:
     runs-on: ubuntu-latest
+    needs:
+      - verify
     steps:
       - uses: actions/checkout@v3
 
