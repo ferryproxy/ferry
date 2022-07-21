@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -33,6 +34,7 @@ import (
 
 	"github.com/ferryproxy/ferry/pkg/consts"
 	"github.com/ferryproxy/ferry/pkg/ferryctl/vars"
+	apimachineryversion "k8s.io/apimachinery/pkg/version"
 	"sigs.k8s.io/yaml"
 )
 
@@ -62,6 +64,48 @@ func (c *Kubectl) ApplyWithReader(ctx context.Context, r io.Reader) error {
 	return nil
 }
 
+// Version is a struct for version information
+type Version struct {
+	ClientVersion    *apimachineryversion.Info `json:"clientVersion,omitempty" yaml:"clientVersion,omitempty"`
+	KustomizeVersion string                    `json:"kustomizeVersion,omitempty" yaml:"kustomizeVersion,omitempty"`
+	ServerVersion    *apimachineryversion.Info `json:"serverVersion,omitempty" yaml:"serverVersion,omitempty"`
+}
+
+func (c *Kubectl) getVersion(ctx context.Context) (*Version, error) {
+	out, err := commandRun(ctx, "kubectl", "--kubeconfig="+vars.KubeconfigPath, "version", "-o", "json")
+	if err != nil {
+		return nil, err
+	}
+	version := &Version{}
+	err = json.Unmarshal(out, &version)
+	if err != nil {
+		return nil, err
+	}
+	return version, nil
+}
+
+func (c *Kubectl) getToken(ctx context.Context) (string, error) {
+	v, err := c.getVersion(ctx)
+	if err != nil {
+		return "", err
+	}
+	if v.ServerVersion != nil && v.ServerVersion.Minor != "" {
+		minor, _ := strconv.ParseUint(v.ServerVersion.Minor, 10, 64)
+		if minor >= 24 {
+			return c.getTokenFor124AndAfter(ctx)
+		}
+	}
+	return c.getTokenForBefore124(ctx)
+}
+
+func (c *Kubectl) getTokenFor124AndAfter(ctx context.Context) (string, error) {
+	out, err := commandRun(ctx, "kubectl", "--kubeconfig="+vars.KubeconfigPath, "create", "token", "-n", consts.FerryTunnelNamespace, "ferry-control")
+	if err != nil {
+		return "", err
+	}
+	return string(out), nil
+}
+
 func (c *Kubectl) getSecretName(ctx context.Context) (string, error) {
 	out, err := commandRun(ctx, "kubectl", "--kubeconfig="+vars.KubeconfigPath, "get", "sa", "-n", consts.FerryTunnelNamespace, "ferry-control", "-o", "jsonpath={$.secrets[0].name}")
 	if err != nil {
@@ -70,7 +114,7 @@ func (c *Kubectl) getSecretName(ctx context.Context) (string, error) {
 	return string(out), nil
 }
 
-func (c *Kubectl) getToken(ctx context.Context) (string, error) {
+func (c *Kubectl) getTokenForBefore124(ctx context.Context) (string, error) {
 	secretName, err := c.getSecretName(ctx)
 	if err != nil {
 		return "", err
