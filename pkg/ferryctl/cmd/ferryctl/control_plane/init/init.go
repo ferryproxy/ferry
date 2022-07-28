@@ -31,6 +31,7 @@ func NewCommand(logger log.Logger) *cobra.Command {
 	var (
 		controlPlaneTunnelAddress = vars.AutoPlaceholders
 		controlPlaneReachable     = true
+		tunnelServiceType         = "NodePort"
 	)
 
 	cmd := &cobra.Command{
@@ -56,7 +57,8 @@ func NewCommand(logger log.Logger) *cobra.Command {
 			}
 
 			err = data_plane.ClusterInit(cmd.Context(), data_plane.ClusterInitConfig{
-				FerryTunnelImage: vars.FerryTunnelImage,
+				FerryTunnelImage:  vars.FerryTunnelImage,
+				TunnelServiceType: tunnelServiceType,
 			})
 			if err != nil {
 				return err
@@ -78,5 +80,6 @@ func NewCommand(logger log.Logger) *cobra.Command {
 	flags := cmd.Flags()
 	flags.StringVar(&controlPlaneTunnelAddress, "control-plane-tunnel-address", controlPlaneTunnelAddress, "Tunnel address of the control plane connected to another cluster")
 	flags.BoolVar(&controlPlaneReachable, "control-plane-reachable", controlPlaneReachable, "Whether the control plane is reachable")
+	flags.StringVar(&tunnelServiceType, "tunnel-service-type", tunnelServiceType, "Tunnel service type (LoadBalancer or NodePort)")
 	return cmd
 }

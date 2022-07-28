@@ -24,6 +24,7 @@ import (
 )
 
 func NewCommand(logger log.Logger) *cobra.Command {
+	var tunnelServiceType = "NodePort"
 	cmd := &cobra.Command{
 		Use:  "init",
 		Args: cobra.NoArgs,
@@ -34,7 +35,8 @@ func NewCommand(logger log.Logger) *cobra.Command {
 		Long:  `Data plane init commands is used to initialize the data plane`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			err := data_plane.ClusterInit(cmd.Context(), data_plane.ClusterInitConfig{
-				FerryTunnelImage: vars.FerryTunnelImage,
+				FerryTunnelImage:  vars.FerryTunnelImage,
+				TunnelServiceType: tunnelServiceType,
 			})
 			if err != nil {
 				return err
@@ -42,5 +44,7 @@ func NewCommand(logger log.Logger) *cobra.Command {
 			return nil
 		},
 	}
+	flags := cmd.Flags()
+	flags.StringVar(&tunnelServiceType, "tunnel-service-type", tunnelServiceType, "Tunnel service type (LoadBalancer or NodePort)")
 	return cmd
 }

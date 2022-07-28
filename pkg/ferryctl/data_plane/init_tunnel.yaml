@@ -115,7 +115,7 @@ spec:
   selector:
     app: ferry-tunnel
   sessionAffinity: None
-  type: NodePort
+  type: {{ .TunnelServiceType }}
 ---
 apiVersion: apps/v1
 kind: Deployment
