@@ -27,14 +27,16 @@ import (
 )
 
 type ClusterInitConfig struct {
-	FerryTunnelImage string
+	FerryTunnelImage  string
+	TunnelServiceType string // LoadBalancer or NodePort
 }
 
 func ClusterInit(ctx context.Context, conf ClusterInitConfig) error {
 	kctl := kubectl.NewKubectl()
 	fmt.Fprintf(os.Stderr, "ferry tunnel image: %s\n", conf.FerryTunnelImage)
 	tunnel, err := BuildInitTunnel(BuildInitTunnelConfig{
-		Image: conf.FerryTunnelImage,
+		Image:             conf.FerryTunnelImage,
+		TunnelServiceType: conf.TunnelServiceType,
 	})
 	if err != nil {
 		return err

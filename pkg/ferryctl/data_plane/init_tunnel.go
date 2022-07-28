@@ -23,7 +23,8 @@ import (
 )
 
 type BuildInitTunnelConfig struct {
-	Image string
+	Image             string
+	TunnelServiceType string // LoadBalancer or NodePort
 }
 
 func BuildInitTunnel(conf BuildInitTunnelConfig) (string, error) {
