@@ -48,20 +48,19 @@ func NewCommand(logger log.Logger) *cobra.Command {
 			}
 
 			kctl := kubectl.NewKubectl()
-			var err error
-			if controlPlaneTunnelAddress == vars.AutoPlaceholders {
-				controlPlaneTunnelAddress, err = kctl.GetTunnelAddress(cmd.Context())
-				if err != nil {
-					return err
-				}
-			}
-
-			err = data_plane.ClusterInit(cmd.Context(), data_plane.ClusterInitConfig{
+			err := data_plane.ClusterInit(cmd.Context(), data_plane.ClusterInitConfig{
 				FerryTunnelImage:  vars.FerryTunnelImage,
 				TunnelServiceType: tunnelServiceType,
 			})
 			if err != nil {
 				return err
+			}
+
+			if controlPlaneTunnelAddress == vars.AutoPlaceholders {
+				controlPlaneTunnelAddress, err = kctl.GetTunnelAddress(cmd.Context())
+				if err != nil {
+					return err
+				}
 			}
 
 			err = control_plane.ClusterInit(cmd.Context(), control_plane.ClusterInitConfig{

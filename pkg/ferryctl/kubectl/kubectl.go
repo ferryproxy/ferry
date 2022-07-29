@@ -34,6 +34,7 @@ import (
 
 	"github.com/ferryproxy/ferry/pkg/consts"
 	"github.com/ferryproxy/ferry/pkg/ferryctl/vars"
+	corev1 "k8s.io/api/core/v1"
 	apimachineryversion "k8s.io/apimachinery/pkg/version"
 	"sigs.k8s.io/yaml"
 )
@@ -202,17 +203,55 @@ func (c *Kubectl) GetApiserverAddress(ctx context.Context) (string, error) {
 }
 
 func (c *Kubectl) GetTunnelAddress(ctx context.Context) (string, error) {
-	address, err := c.GetApiserverAddress(ctx)
+	out, err := commandRun(ctx, "kubectl", "--kubeconfig="+vars.KubeconfigPath, "get", "svc", "-n", consts.FerryTunnelNamespace, "gateway-ferry-tunnel", "-o", "yaml")
+	if err != nil {
+		return "", err
+	}
+	take := corev1.Service{}
+	err = yaml.Unmarshal(out, &take)
 	if err != nil {
 		return "", err
 	}
 
-	host, _, err := net.SplitHostPort(address)
-	if err != nil {
-		log.Printf("Failed to parse host: %v", err)
-		return "", err
+	address := ""
+	port := ""
+
+	if take.Spec.Type == corev1.ServiceTypeLoadBalancer {
+		ingress := take.Status.LoadBalancer.Ingress
+		if len(ingress) != 0 {
+			if address == "" && ingress[0].IP != "" {
+				address = ingress[0].IP
+			}
+			if address == "" && ingress[0].Hostname != "" {
+				address = ingress[0].Hostname
+			}
+			if port == "" && len(ingress[0].Ports) != 0 {
+				port = strconv.FormatInt(int64(ingress[0].Ports[0].Port), 10)
+			}
+		}
 	}
-	return host + ":31087", nil
+
+	if port == "" && len(take.Spec.Ports) != 0 {
+		port = strconv.FormatInt(int64(take.Spec.Ports[0].Port), 10)
+	}
+
+	if port == "" {
+		port = "31087"
+	}
+
+	if address == "" {
+		host, err := c.GetApiserverAddress(ctx)
+		if err != nil {
+			return "", err
+		}
+		address, _, err = net.SplitHostPort(host)
+		if err != nil {
+			log.Printf("Failed to parse host: %v", err)
+			return "", err
+		}
+	}
+
+	return address + ":" + port, nil
 }
 
 func (c *Kubectl) GetUnusedPort(ctx context.Context) (string, error) {
