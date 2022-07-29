@@ -20,27 +20,20 @@ import (
 	"context"
 	"log"
 	"os"
-	"syscall"
 
 	"github.com/ferryproxy/ferry/pkg/ferryctl/cmd/ferryctl"
-	"github.com/wzshiming/notify"
+	"github.com/ferryproxy/ferry/pkg/utils/signals"
 )
-
-var (
-	ctx, globalCancel = context.WithCancel(context.Background())
-)
-
-func init() {
-	signals := []os.Signal{syscall.SIGINT, syscall.SIGTERM}
-	notify.OnceSlice(signals, func() {
-		globalCancel()
-		notify.OnceSlice(signals, func() {
-			os.Exit(1)
-		})
-	})
-}
 
 func main() {
+	stopCh := signals.SetupNotifySignalHandler()
+	ctx, cancel := context.WithCancel(context.Background())
+
+	go func() {
+		<-stopCh
+		cancel()
+	}()
+
 	logger := log.New(os.Stdout, "", 0)
 	cmd := ferryctl.NewCommand(logger)
 	err := cmd.ExecuteContext(ctx)
