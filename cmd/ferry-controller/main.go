@@ -19,44 +19,30 @@ package main
 import (
 	"context"
 	"os"
-	"syscall"
 
 	"github.com/ferryproxy/ferry/pkg/consts"
 	"github.com/ferryproxy/ferry/pkg/ferry-controller/controller"
 	"github.com/ferryproxy/ferry/pkg/utils/env"
-	"github.com/go-logr/logr"
+	"github.com/ferryproxy/ferry/pkg/utils/signals"
 	"github.com/go-logr/zapr"
-	"github.com/wzshiming/notify"
 	"go.uber.org/zap"
 	"k8s.io/client-go/tools/clientcmd"
 )
 
 var (
-	ctx, globalCancel = context.WithCancel(context.Background())
-	log               = logr.Discard()
-	master            = env.GetEnv("MASTER", "")
-	kubeconfig        = env.GetEnv("KUBECONFIG", "")
-	namespace         = env.GetEnv("NAMESPACE", consts.FerryNamespace)
+	master     = env.GetEnv("MASTER", "")
+	kubeconfig = env.GetEnv("KUBECONFIG", "")
+	namespace  = env.GetEnv("NAMESPACE", consts.FerryNamespace)
 )
 
-func init() {
+func main() {
 	logConfig := zap.NewDevelopmentConfig()
 	zapLog, err := logConfig.Build()
 	if err != nil {
 		os.Exit(1)
 	}
-	log = zapr.NewLogger(zapLog)
+	log := zapr.NewLogger(zapLog)
 
-	signals := []os.Signal{syscall.SIGINT, syscall.SIGTERM}
-	notify.OnceSlice(signals, func() {
-		globalCancel()
-		notify.OnceSlice(signals, func() {
-			os.Exit(1)
-		})
-	})
-}
-
-func main() {
 	restConfig, err := clientcmd.BuildConfigFromFlags(master, kubeconfig)
 	if err != nil {
 		log.Error(err, "failed to create kubernetes client")
@@ -68,6 +54,14 @@ func main() {
 		Config:    restConfig,
 		Namespace: namespace,
 	})
+
+	stopCh := signals.SetupNotifySignalHandler()
+	ctx, cancel := context.WithCancel(context.Background())
+
+	go func() {
+		<-stopCh
+		cancel()
+	}()
 
 	err = control.Run(ctx)
 	if err != nil {
