@@ -53,10 +53,7 @@ func ClusterInit(ctx context.Context, conf ClusterInitConfig) error {
 		return err
 	}
 
-	apiserver, err := kctl.GetApiserverAddress(ctx)
-	if err != nil {
-		return err
-	}
+	apiserver := "kubernetes.default.svc:443"
 
 	kubeconfig, err := data_plane.GetKubeconfig(ctx, apiserver)
 	if err != nil {
