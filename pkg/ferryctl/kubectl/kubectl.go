@@ -168,10 +168,6 @@ func (c *Kubectl) GetSecretAuthorized(ctx context.Context) (string, error) {
 }
 
 func (c *Kubectl) GetApiserverAddress(ctx context.Context) (string, error) {
-	out, err := commandRun(ctx, "kubectl", "--kubeconfig="+vars.KubeconfigPath, "get", "cm", "-n", "kube-public", "cluster-info", "-o", "jsonpath={$.data.kubeconfig}")
-	if err != nil {
-		return "", err
-	}
 	take := struct {
 		Clusters []struct {
 			Cluster struct {
@@ -179,6 +175,16 @@ func (c *Kubectl) GetApiserverAddress(ctx context.Context) (string, error) {
 			} `yaml:"cluster"`
 		} `yaml:"clusters"`
 	}{}
+
+	out, err := commandRun(ctx, "kubectl", "--kubeconfig="+vars.KubeconfigPath, "get", "cm", "-n", "kube-public", "cluster-info", "-o", "jsonpath={$.data.kubeconfig}")
+	if err != nil {
+		data, err := os.ReadFile(vars.KubeconfigPath)
+		if err != nil {
+			return "", err
+		}
+		out = data
+	}
+
 	err = yaml.Unmarshal(out, &take)
 	if err != nil {
 		return "", err
