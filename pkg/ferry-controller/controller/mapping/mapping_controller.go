@@ -89,6 +89,9 @@ type MappingController struct {
 }
 
 func (d *MappingController) Start(ctx context.Context) error {
+	d.mut.Lock()
+	defer d.mut.Unlock()
+
 	d.logger.Info("DataPlane controller started")
 	defer func() {
 		d.logger.Info("DataPlane controller stopped")
