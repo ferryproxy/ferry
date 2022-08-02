@@ -63,7 +63,7 @@ function check() {
       echo "check passed for ${cluster} ${deploy} ${target}"
     elif [[ "${retry}" -gt 0 ]]; then
       echo "check failed for ${target}, retry again later"
-      sleep 5
+      sleep 10
       check "${cluster}" "${deploy}" "${target}" "${wanted}" "$((retry - 1))"
     else
       failed=("${failed[@]}" "check failed for ${cluster} ${deploy} ${target}")
@@ -78,7 +78,7 @@ function check() {
       echo "check passed for ${target}"
     elif [[ "${retry}" -gt 0 ]]; then
       echo "check failed for ${target}, retry again later"
-      sleep 5
+      sleep 10
       check "${cluster}" "${deploy}" "${target}" "${wanted}" "$((retry - 1))"
     else
       failed=("${failed[@]}" "check failed for ${target}")
@@ -101,7 +101,7 @@ function check-should-failed() {
       echo "check-should-failed passed for ${cluster} ${deploy} ${target}"
     elif [[ "${retry}" -gt 0 ]]; then
       echo "check-should-failed failed for ${target}, retry again later"
-      sleep 5
+      sleep 10
       check-should-failed "${cluster}" "${deploy}" "${target}" "$((retry - 1))"
     else
       failed=("${failed[@]}" "check should failed for ${cluster} ${deploy} ${target}")
@@ -114,7 +114,7 @@ function check-should-failed() {
       echo "check-should-failed passed for ${target}"
     elif [[ "${retry}" -gt 0 ]]; then
       echo "check-should-failed failed for ${target}, retry again later"
-      sleep 5
+      sleep 10
       check-should-failed "${cluster}" "${deploy}" "${target}" "$((retry - 1))"
     else
       failed=("${failed[@]}" "check should failed for ${target}")

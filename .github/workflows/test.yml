@@ -1,4 +1,4 @@
-name: test
+name: Test
 
 on:
   push:
@@ -10,6 +10,10 @@ on:
 env:
   FERRY_CONTROLLER_IMAGE: ferry-controller:test
   FERRY_TUNNEL_IMAGE: ferry-tunnel:test
+
+concurrency:
+  group: ${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
 
 jobs:
   verify:
@@ -93,7 +97,14 @@ jobs:
           name: ferry-tunnel
           path: ferry-tunnel.tar
 
-  test-default:
+  test-2-cluster-cases:
+    continue-on-error: true
+    strategy:
+      matrix:
+        case:
+          - default
+          - control-plane-unreachable
+          - data-plane-unreachable
     runs-on: ubuntu-latest
     needs:
       - build-ferrctl
@@ -126,7 +137,7 @@ jobs:
       - name: Start cluster
         run: |
           ulimit -n 4096
-          ./test/hack/start-environment.sh default
+          ./test/hack/start-environment.sh ${{ matrix.case }}
 
       - name: Test control-plane and cluster-1
         run: ./test/test/test-in-both.sh
@@ -138,7 +149,13 @@ jobs:
           TARGET_1: web-1
           TARGET_2: web-0
 
-  test-control-plane-unreachable:
+  test-3-cluster-cases:
+    continue-on-error: true
+    strategy:
+      matrix:
+        case:
+          - control-plane-unreachable-3-clusters
+          - data-plane-unreachable-3-clusters
     runs-on: ubuntu-latest
     needs:
       - build-ferrctl
@@ -171,97 +188,7 @@ jobs:
       - name: Start cluster
         run: |
           ulimit -n 4096
-          ./test/hack/start-environment.sh control-plane-unreachable
-
-      - name: Test control-plane and cluster-1
-        run: ./test/test/test-in-both.sh
-        env:
-          ROUTE_NAME: ferry-test
-          CONTROL_PLANE: control-plane
-          CLUSTER_1: cluster-1
-          CLUSTER_2: control-plane
-          TARGET_1: web-1
-          TARGET_2: web-0
-
-  test-data-plane-unreachable:
-    runs-on: ubuntu-latest
-    needs:
-      - build-ferrctl
-      - build-ferry-controller
-      - build-ferry-tunnel
-    steps:
-      - uses: actions/checkout@v3
-
-      - name: Download for ferry-controller
-        uses: actions/download-artifact@v2
-        with:
-          name: ferry-controller
-
-      - name: Download for ferry-tunnel
-        uses: actions/download-artifact@v2
-        with:
-          name: ferry-tunnel
-
-      - name: Download for ferryctl
-        uses: actions/download-artifact@v2
-        with:
-          name: ferryctl
-
-      - name: Setup
-        run: |
-          cp ferryctl /usr/local/bin/ferryctl && chmod +x /usr/local/bin/ferryctl
-          docker load -i ferry-controller.tar
-          docker load -i ferry-tunnel.tar
-
-      - name: Start cluster
-        run: |
-          ulimit -n 4096
-          ./test/hack/start-environment.sh data-plane-unreachable
-
-      - name: Test control-plane and cluster-1
-        run: ./test/test/test-in-both.sh
-        env:
-          ROUTE_NAME: ferry-test
-          CONTROL_PLANE: control-plane
-          CLUSTER_1: cluster-1
-          CLUSTER_2: control-plane
-          TARGET_1: web-1
-          TARGET_2: web-0
-
-  test-control-plane-unreachable-3-clusters:
-    runs-on: ubuntu-latest
-    needs:
-      - build-ferrctl
-      - build-ferry-controller
-      - build-ferry-tunnel
-    steps:
-      - uses: actions/checkout@v3
-
-      - name: Download for ferry-controller
-        uses: actions/download-artifact@v2
-        with:
-          name: ferry-controller
-
-      - name: Download for ferry-tunnel
-        uses: actions/download-artifact@v2
-        with:
-          name: ferry-tunnel
-
-      - name: Download for ferryctl
-        uses: actions/download-artifact@v2
-        with:
-          name: ferryctl
-
-      - name: Setup
-        run: |
-          cp ferryctl /usr/local/bin/ferryctl && chmod +x /usr/local/bin/ferryctl
-          docker load -i ferry-controller.tar
-          docker load -i ferry-tunnel.tar
-
-      - name: Start cluster
-        run: |
-          ulimit -n 4096
-          ./test/hack/start-environment.sh control-plane-unreachable-3-clusters
+          ./test/hack/start-environment.sh ${{ matrix.case }}
 
       - name: Test cluster-1 and cluster-2
         run: ./test/test/test-in-both.sh
@@ -283,62 +210,13 @@ jobs:
           TARGET_1: web-1
           TARGET_2: web-0
 
-  test-data-plane-unreachable-3-clusters:
-    runs-on: ubuntu-latest
-    needs:
-      - build-ferrctl
-      - build-ferry-controller
-      - build-ferry-tunnel
-    steps:
-      - uses: actions/checkout@v3
-
-      - name: Download for ferry-controller
-        uses: actions/download-artifact@v2
-        with:
-          name: ferry-controller
-
-      - name: Download for ferry-tunnel
-        uses: actions/download-artifact@v2
-        with:
-          name: ferry-tunnel
-
-      - name: Download for ferryctl
-        uses: actions/download-artifact@v2
-        with:
-          name: ferryctl
-
-      - name: Setup
-        run: |
-          cp ferryctl /usr/local/bin/ferryctl && chmod +x /usr/local/bin/ferryctl
-          docker load -i ferry-controller.tar
-          docker load -i ferry-tunnel.tar
-
-      - name: Start cluster
-        run: |
-          ulimit -n 4096
-          ./test/hack/start-environment.sh data-plane-unreachable-3-clusters
-
-      - name: Test cluster-1 and cluster-2
-        run: ./test/test/test-in-both.sh
-        env:
-          ROUTE_NAME: ferry-test
-          CONTROL_PLANE: control-plane
-          CLUSTER_1: cluster-1
-          CLUSTER_2: cluster-2
-          TARGET_1: web-1
-          TARGET_2: web-2
-
-      - name: Test control-plane and cluster-1
-        run: ./test/test/test-in-both.sh
-        env:
-          ROUTE_NAME: ferry-test
-          CONTROL_PLANE: control-plane
-          CLUSTER_1: cluster-1
-          CLUSTER_2: control-plane
-          TARGET_1: web-1
-          TARGET_2: web-0
-
-  test-forward:
+  test-not-controller-cases:
+    continue-on-error: true
+    strategy:
+      matrix:
+        case:
+          - forward
+          - manual
     runs-on: ubuntu-latest
     needs:
       - build-ferrctl
@@ -364,38 +242,7 @@ jobs:
       - name: Start cluster
         run: |
           ulimit -n 4096
-          ./test/hack/start-environment.sh forward
+          ./test/hack/start-environment.sh ${{ matrix.case }}
 
       - name: Test forward
-        run: ./test/test/test-forward.sh
-
-  test-manual:
-    runs-on: ubuntu-latest
-    needs:
-      - build-ferrctl
-      - build-ferry-tunnel
-    steps:
-      - uses: actions/checkout@v2
-
-      - name: Download for ferry-tunnel
-        uses: actions/download-artifact@v2
-        with:
-          name: ferry-tunnel
-
-      - name: Download for ferryctl
-        uses: actions/download-artifact@v2
-        with:
-          name: ferryctl
-
-      - name: Setup
-        run: |
-          cp ferryctl /usr/local/bin/ferryctl && chmod +x /usr/local/bin/ferryctl
-          docker load -i ferry-tunnel.tar
-
-      - name: Start cluster
-        run: |
-          ulimit -n 4096
-          ./test/hack/start-environment.sh manual
-
-      - name: Test forward
-        run: ./test/test/test-manual.sh
+        run: ./test/test/test-${{ matrix.case }}.sh
