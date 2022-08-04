@@ -17,8 +17,10 @@ WORKDIR /go/src/github.com/ferryproxy/ferry/
 COPY . .
 ENV CGO_ENABLED=0
 RUN apk add git
+RUN go install ./cmd/ferry-tunnel-controller
 RUN go install ./cmd/ferry-tunnel
 
 FROM ghcr.io/wzshiming/bridge/bridge:v0.8.5
+COPY --from=builder /go/bin/ferry-tunnel-controller /usr/local/bin/
 COPY --from=builder /go/bin/ferry-tunnel /usr/local/bin/
-ENTRYPOINT [ "/usr/local/bin/ferry-tunnel" ]
+ENTRYPOINT [ "/usr/local/bin/ferry-tunnel-controller" ]
