@@ -209,11 +209,12 @@ func (c *Kubectl) GetApiserverAddress(ctx context.Context) (string, error) {
 }
 
 func (c *Kubectl) GetTunnelAddress(ctx context.Context) (string, error) {
+	take := corev1.Service{}
+
 	out, err := commandRun(ctx, "kubectl", "--kubeconfig="+vars.KubeconfigPath, "get", "svc", "-n", consts.FerryTunnelNamespace, "gateway-ferry-tunnel", "-o", "yaml")
 	if err != nil {
 		return "", err
 	}
-	take := corev1.Service{}
 	err = yaml.Unmarshal(out, &take)
 	if err != nil {
 		return "", err
@@ -223,17 +224,28 @@ func (c *Kubectl) GetTunnelAddress(ctx context.Context) (string, error) {
 	port := ""
 
 	if take.Spec.Type == corev1.ServiceTypeLoadBalancer {
+		for len(take.Status.LoadBalancer.Ingress) == 0 {
+			log.Printf("svc %s.%s ingress is empty, waiting to be created", "gateway-ferry-tunnel", consts.FerryTunnelNamespace)
+			time.Sleep(1 * time.Second)
+			out, err = commandRun(ctx, "kubectl", "--kubeconfig="+vars.KubeconfigPath, "get", "svc", "-n", consts.FerryTunnelNamespace, "gateway-ferry-tunnel", "-o", "yaml")
+			if err != nil {
+				return "", err
+			}
+			err = yaml.Unmarshal(out, &take)
+			if err != nil {
+				return "", err
+			}
+		}
+
 		ingress := take.Status.LoadBalancer.Ingress
-		if len(ingress) != 0 {
-			if address == "" && ingress[0].IP != "" {
-				address = ingress[0].IP
-			}
-			if address == "" && ingress[0].Hostname != "" {
-				address = ingress[0].Hostname
-			}
-			if port == "" && len(ingress[0].Ports) != 0 {
-				port = strconv.FormatInt(int64(ingress[0].Ports[0].Port), 10)
-			}
+		if address == "" && ingress[0].IP != "" {
+			address = ingress[0].IP
+		}
+		if address == "" && ingress[0].Hostname != "" {
+			address = ingress[0].Hostname
+		}
+		if port == "" && len(ingress[0].Ports) != 0 {
+			port = strconv.FormatInt(int64(ingress[0].Ports[0].Port), 10)
 		}
 	}
 
