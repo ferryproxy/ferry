@@ -30,7 +30,6 @@ import (
 
 	"github.com/ferryproxy/ferry/pkg/utils/trybuffer"
 	"github.com/go-logr/logr"
-	"github.com/wzshiming/notify"
 	"k8s.io/client-go/kubernetes"
 )
 
@@ -83,12 +82,10 @@ func (r *RuntimeController) Run(ctx context.Context) error {
 
 	go r.watch(ctx)
 
-	signals := []os.Signal{syscall.SIGINT, syscall.SIGTERM}
-	notify.OnceSlice(signals, func() {
-		r.mut.Lock()
-		defer r.mut.Unlock()
+	go func() {
+		<-ctx.Done()
 		r.cmd.Process.Signal(syscall.SIGTERM)
-	})
+	}()
 
 	r.logger.Info("Start ferry tunnel")
 	for ctx.Err() == nil {

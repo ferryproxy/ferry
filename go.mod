@@ -12,7 +12,6 @@ require (
 	github.com/spf13/pflag v1.0.5
 	github.com/wzshiming/anyproxy v0.7.6
 	github.com/wzshiming/bridge v0.8.5
-	github.com/wzshiming/notify v0.1.1
 	go.uber.org/zap v1.21.0
 	golang.org/x/crypto v0.0.0-20220622213112-05595931fe9d
 	k8s.io/api v0.24.2
@@ -31,7 +30,6 @@ require (
 	github.com/go-openapi/swag v0.21.1 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
-	github.com/golang/snappy v0.0.4 // indirect
 	github.com/google/gnostic v0.6.9 // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
 	github.com/imdario/mergo v0.3.13 // indirect
@@ -44,7 +42,6 @@ require (
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/wzshiming/cmux v0.3.0 // indirect
 	github.com/wzshiming/commandproxy v0.2.0 // indirect
-	github.com/wzshiming/emux v0.2.1 // indirect
 	github.com/wzshiming/hostmatcher v0.0.1 // indirect
 	github.com/wzshiming/httpproxy v0.4.1 // indirect
 	github.com/wzshiming/schedialer v0.2.1 // indirect
