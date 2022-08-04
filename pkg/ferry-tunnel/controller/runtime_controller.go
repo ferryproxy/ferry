@@ -94,7 +94,7 @@ func (r *RuntimeController) Run(ctx context.Context) error {
 	for ctx.Err() == nil {
 		err := r.runtime(ctx)
 		if err != nil {
-			r.logger.Error(err, "bridge exited")
+			r.logger.Error(err, "tunnel exited")
 		}
 		time.Sleep(5 * time.Second)
 	}
@@ -133,7 +133,7 @@ func (r *RuntimeController) watch(ctx context.Context) {
 }
 
 func (r *RuntimeController) runtime(ctx context.Context) error {
-	cmd := exec.CommandContext(ctx, "bridge", "-c", r.conf)
+	cmd := exec.CommandContext(ctx, "ferry-tunnel", "-c", r.conf)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin
@@ -147,25 +147,25 @@ func (r *RuntimeController) reload() error {
 	r.mut.Lock()
 	defer r.mut.Unlock()
 
-	bridgeConfig, err := json.MarshalIndent(struct {
+	tunnelConfig, err := json.MarshalIndent(struct {
 		Chains []json.RawMessage `json:"chains"`
 	}{
 		Chains: r.chains,
 	}, "", "  ")
 	if err != nil {
-		return fmt.Errorf("failed to marshal bridge config: %w", err)
+		return fmt.Errorf("failed to marshal tunnel config: %w", err)
 	}
 	r.logger.V(1).Info("Reload", "config", r)
 
-	err = atomicWrite(r.conf, bridgeConfig, 0644)
+	err = atomicWrite(r.conf, tunnelConfig, 0644)
 	if err != nil {
-		return fmt.Errorf("failed to write bridge config: %w", err)
+		return fmt.Errorf("failed to write tunnel config: %w", err)
 	}
 
 	if r.cmd != nil {
 		err = r.cmd.Process.Signal(syscall.SIGHUP)
 		if err != nil {
-			return fmt.Errorf("failed to emit signal to bridge: %w", err)
+			return fmt.Errorf("failed to emit signal to tunnel: %w", err)
 		}
 	}
 	return nil

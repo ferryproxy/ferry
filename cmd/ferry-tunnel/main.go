@@ -19,50 +19,53 @@ package main
 import (
 	"context"
 	"os"
+	"sync"
 
-	"github.com/go-logr/zapr"
-	"go.uber.org/zap"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/clientcmd"
+	_ "github.com/wzshiming/bridge/protocols/command"
+	_ "github.com/wzshiming/bridge/protocols/connect"
+	_ "github.com/wzshiming/bridge/protocols/netcat"
+	_ "github.com/wzshiming/bridge/protocols/socks4"
+	_ "github.com/wzshiming/bridge/protocols/socks5"
+	_ "github.com/wzshiming/bridge/protocols/ssh"
+	_ "github.com/wzshiming/bridge/protocols/tls"
 
-	"github.com/ferryproxy/ferry/pkg/consts"
-	"github.com/ferryproxy/ferry/pkg/ferry-tunnel/controller"
-	"github.com/ferryproxy/ferry/pkg/utils/env"
+	_ "github.com/wzshiming/anyproxy/pprof"
+	_ "github.com/wzshiming/anyproxy/proxies/httpproxy"
+	_ "github.com/wzshiming/anyproxy/proxies/shadowsocks"
+	_ "github.com/wzshiming/anyproxy/proxies/socks4"
+	_ "github.com/wzshiming/anyproxy/proxies/socks5"
+	_ "github.com/wzshiming/anyproxy/proxies/sshproxy"
+
 	"github.com/ferryproxy/ferry/pkg/utils/signals"
+	"github.com/go-logr/logr"
+	"github.com/go-logr/zapr"
+	flag "github.com/spf13/pflag"
+	"github.com/wzshiming/bridge/chain"
+	"github.com/wzshiming/bridge/config"
+	"github.com/wzshiming/bridge/logger"
+	"go.uber.org/zap"
 )
 
 var (
-	serviceName   = env.GetEnv("SERVICE_NAME", consts.FerryTunnelName)
-	namespace     = env.GetEnv("NAMESPACE", consts.FerryTunnelNamespace)
-	labelSelector = env.GetEnv("LABEL_SELECTOR", "tunnel.ferryproxy.io/service=inject")
-	master        = env.GetEnv("MASTER", "")
-	kubeconfig    = env.GetEnv("KUBECONFIG", "")
+	configs []string
+	dump    bool
 )
 
-const (
-	conf = "./bridge.conf"
-)
+func init() {
+	flag.StringSliceVarP(&configs, "config", "c", nil, "load from config and ignore --bind and --proxy")
+	flag.BoolVarP(&dump, "debug", "d", dump, "Output the communication data.")
+	flag.Parse()
 
-func main() {
 	logConfig := zap.NewDevelopmentConfig()
 	zapLog, err := logConfig.Build()
 	if err != nil {
+		logger.Std.Error(err, "who watches the watchmen")
 		os.Exit(1)
 	}
-	log := zapr.NewLogger(zapLog)
+	logger.Std = zapr.NewLogger(zapLog).WithName("ferry-tunnel")
+}
 
-	config, err := clientcmd.BuildConfigFromFlags(master, kubeconfig)
-	if err != nil {
-		log.Error(err, "failed to create kubernetes client")
-		os.Exit(1)
-	}
-
-	clientset, err := kubernetes.NewForConfig(config)
-	if err != nil {
-		log.Error(err, "failed to create kubernetes client")
-		os.Exit(1)
-	}
-
+func main() {
 	stopCh := signals.SetupNotifySignalHandler()
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -71,45 +74,23 @@ func main() {
 		cancel()
 	}()
 
-	if serviceName != "" {
-		svcSyncer := controller.NewServiceSyncer(&controller.ServiceSyncerConfig{
-			Clientset:     clientset,
-			Logger:        log.WithName("service-syncer"),
-			LabelSelector: labelSelector,
-		})
+	runWithReload(ctx, logger.Std, configs)
+	return
+}
 
-		epWatcher := controller.NewEndpointWatcher(&controller.EndpointWatcherConfig{
-			Clientset: clientset,
-			Name:      serviceName,
-			Namespace: namespace,
-			SyncFunc:  svcSyncer.UpdateIPs,
-		})
-
-		go func() {
-			err = epWatcher.Run(ctx)
+func run(ctx context.Context, log logr.Logger, tasks []config.Chain) {
+	var wg sync.WaitGroup
+	wg.Add(len(tasks))
+	for _, task := range tasks {
+		go func(task config.Chain) {
+			defer wg.Done()
+			log.Info(chain.ShowChainWithConfig(task))
+			b := chain.NewBridge(log, dump)
+			err := b.BridgeWithConfig(ctx, task)
 			if err != nil {
-				log.Error(err, "failed to run endpoint watcher")
+				log.Error(err, "BridgeWithConfig")
 			}
-		}()
-
-		go func() {
-			err := svcSyncer.Run(ctx)
-			if err != nil {
-				log.Error(err, "failed to run service syncer")
-			}
-		}()
+		}(task)
 	}
-
-	ctr := controller.NewRuntimeController(&controller.RuntimeControllerConfig{
-		Namespace:     namespace,
-		LabelSelector: labelSelector,
-		Clientset:     clientset,
-		Logger:        log.WithName("runtime-controller"),
-		Conf:          conf,
-	})
-
-	err = ctr.Run(ctx)
-	if err != nil {
-		log.Error(err, "failed to run runtime controller")
-	}
+	wg.Wait()
 }

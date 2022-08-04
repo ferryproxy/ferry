@@ -209,6 +209,8 @@ github.com/golang/protobuf v1.5.1/go.mod h1:DopwsBzvsk0Fs44TXzsVbJyPhcCPeIwnvohx
 github.com/golang/protobuf v1.5.2 h1:ROPKBNFfQgOUMifHyP+KYbvpjbdoFNs+aK7DXlji0Tw=
 github.com/golang/protobuf v1.5.2/go.mod h1:XVQd3VNwM+JqD3oG2Ue2ip4fOMUkwXdXDdiuN0vRsmY=
 github.com/golang/snappy v0.0.3/go.mod h1:/XxbfmMg8lxefKM7IXC3fBNl/7bRcc72aCRzEWrmP2Q=
+github.com/golang/snappy v0.0.4 h1:yAGX7huGHXlcLOEtBnF4w7FQwA26wojNCwOYAEhLjQM=
+github.com/golang/snappy v0.0.4/go.mod h1:/XxbfmMg8lxefKM7IXC3fBNl/7bRcc72aCRzEWrmP2Q=
 github.com/google/btree v0.0.0-20180813153112-4030bb1f1f0c/go.mod h1:lNA+9X1NB3Zf8V7Ke586lFgjr2dZNuvo3lPJSGZ5JPQ=
 github.com/google/btree v1.0.0/go.mod h1:lNA+9X1NB3Zf8V7Ke586lFgjr2dZNuvo3lPJSGZ5JPQ=
 github.com/google/btree v1.0.1/go.mod h1:xXMiIv4Fb/0kKde4SpL7qlzvu5cMJDRkFDxJfI9uaxA=
@@ -442,6 +444,8 @@ github.com/wzshiming/cmux v0.3.0 h1:OsALDnhubCbqI+wqayn/DOD5OX0ebcQdHNN4xgY2h14=
 github.com/wzshiming/cmux v0.3.0/go.mod h1:TGi/uEBvRkO5+INEwBHiBtqdNWK+wS+OvvS7XtIf4bQ=
 github.com/wzshiming/commandproxy v0.2.0 h1:uPVhgIj2YSncRUo6g9smGR6OMzsIg7lwklcMHPPmEeM=
 github.com/wzshiming/commandproxy v0.2.0/go.mod h1:wS6+aJ9KMHciqYX3xmDO0W+QVY0zvngeBvmoIFMfq8A=
+github.com/wzshiming/emux v0.2.1 h1:pu0oV9PpAJ5cVO8tzkqUXcCqc8xC452vNzQK9cghUis=
+github.com/wzshiming/emux v0.2.1/go.mod h1:VQF6NoR4nfm3+OrKZLx47JuxuDeWemHDc0a4qDNtFtg=
 github.com/wzshiming/hostmatcher v0.0.1 h1:vPrUEXsd+khvN5W7I4rJ73vYaUvnBCodvtuyCU+q1HQ=
 github.com/wzshiming/hostmatcher v0.0.1/go.mod h1:3EyfIDuzQyo0tqrCtcUkD5UvAsdxOUb/RbcYOiPTh1E=
 github.com/wzshiming/httpproxy v0.4.1 h1:6K78q0Vi+/GM4h9KygTGi7nuVn5Xgk5oHqjJyaGLHcQ=
