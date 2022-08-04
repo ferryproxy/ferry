@@ -1,0 +1,104 @@
+name: Test Cloud
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-ferrctl:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: 1.18
+
+      - run: |
+          go build -o ferryctl ./cmd/ferryctl
+
+      - name: Upload ferryctl
+        uses: actions/upload-artifact@v2
+        with:
+          name: ferryctl
+          path: ferryctl
+
+  test-cloud:
+    continue-on-error: true
+    strategy:
+      matrix:
+        cloud:
+          - aliyun
+          - aws
+          - azure
+          - gcp
+    runs-on: ubuntu-latest
+    needs:
+      - build-ferrctl
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Download for ferryctl
+        uses: actions/download-artifact@v2
+        with:
+          name: ferryctl
+
+      - name: Set up ferryctl
+        run: |
+          cp ferryctl /usr/local/bin/ferryctl && chmod +x /usr/local/bin/ferryctl
+
+      - name: Set up eksctl
+        if: matrix.cloud == 'aws'
+        run: |
+          wget -O eksctl.tar.gc "https://github.com/weaveworks/eksctl/releases/latest/download/eksctl_linux_amd64.tar.gz"
+          tar -xzf eksctl.tar.gz -C /tmp/ && mv /tmp/eksctl /usr/local/bin/ && chmod +x /usr/local/bin/eksctl
+
+      - name: Set up gcloud
+        if: matrix.cloud == 'gcp'
+        uses: google-github-actions/setup-gcloud@v0
+        with:
+          install_components: 'gke-gcloud-auth-plugin'
+
+      - name: Login ${{ matrix.cloud }}
+        run: |
+          ./test/cloud/${{ matrix.cloud }}/login.sh
+          ./test/cloud/${{ matrix.cloud }}/list.sh
+        env:
+          ALIYUN_ACCESS_KEY_ID: ${{ secrets.ALIYUN_ACCESS_KEY_ID }}
+          ALIYUN_ACCESS_KEY_SECRET: ${{ secrets.ALIYUN_ACCESS_KEY_SECRET }}
+          ALIYUN_REGION_ID: ${{ secrets.ALIYUN_REGION_ID }}
+          ALIYUN_ZONE_ID: ${{ secrets.ALIYUN_ZONE_ID }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_ACCESS_KEY_SECRET: ${{ secrets.AWS_ACCESS_KEY_SECRET }}
+          AWS_REGION_ID: ${{ secrets.AWS_REGION_ID }}
+          AWS_ZONE_ID: ${{ secrets.AWS_ZONE_ID }}
+          AZURE_APP_ID: ${{ secrets.AZURE_APP_ID }}
+          AZURE_PASSWORD: ${{ secrets.AZURE_PASSWORD }}
+          AZURE_TENANT: ${{ secrets.AZURE_TENANT }}
+          AZURE_REGION_ID: ${{ secrets.AZURE_REGION_ID }}
+          AZURE_ZONE_ID: ${{ secrets.AZURE_ZONE_ID }}
+          GCP_CRED_DATA: ${{ secrets.GCP_CRED_DATA }}
+          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+          GCP_REGION_ID: ${{ secrets.GCP_REGION_ID }}
+          GCP_ZONE_ID: ${{ secrets.GCP_ZONE_ID }}
+      - name: Start cluster
+        run: |
+          ./test/hack/start-environment.sh cloud-${{ matrix.cloud }}
+
+      - name: Test control-plane and cluster-${{ matrix.cloud }}
+        run: ./test/test/test-in-both-easy.sh
+        env:
+          ROUTE_NAME: ferry-test
+          CONTROL_PLANE: control-plane
+          CLUSTER_1: cluster-${{ matrix.cloud }}
+          CLUSTER_2: control-plane
+          TARGET_1: web-${{ matrix.cloud }}
+          TARGET_2: web-0
+
+      - name: Clean cluster
+        run: |
+          ./test/hack/clean-environment.sh cloud-${{ matrix.cloud }}

@@ -1,0 +1,48 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: test
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web-aws
+  namespace: test
+  labels:
+    app: web-aws
+spec:
+  selector:
+    matchLabels:
+      app: web-aws
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: web-aws
+    spec:
+      containers:
+        - name: echoserver
+          image: ghcr.io/wzshiming/echoserver/echoserver:v0.0.1
+          env:
+            - name: MESSAGE
+              value: "web-aws"
+          ports:
+            - containerPort: 8080
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: web-aws
+  namespace: test
+  labels:
+    app: web-aws
+    traffic.ferryproxy.io/export: "true"
+spec:
+  selector:
+    app: web-aws
+  ports:
+    - name: http-8080
+      port: 8080
+    - name: http-80
+      port: 80
+      targetPort: 8080

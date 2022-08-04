@@ -14,7 +14,7 @@
 # limitations under the License.
 
 
-CURRENT="$(dirname "${BASH_SOURCE}")"
+CURRENT="$(dirname "${BASH_SOURCE[0]}")"
 ROOT="$(realpath "${CURRENT}/../..")"
 ENVIRONMENT_NAME="${1:-}"
 
@@ -32,22 +32,35 @@ images=(
   "ghcr.io/wzshiming/echoserver/echoserver:v0.0.1"
 )
 
-ferry_image="$(ferryctl --help | grep ' image (default ' | grep -o '".\+"' | tr -d '"')"
+NEED_INIT="true"
 
-for image in ${ferry_image}; do
-  images+=("${image}")
-done
+function init() {
+  ferry_image="$(ferryctl --help | grep ' image (default ' | grep -o '".\+"' | tr -d '"')"
 
-HOST_IP="$(${ROOT}/hack/host-docker-internal.sh)"
-echo "Host IP: ${HOST_IP}"
+  for image in ${ferry_image}; do
+    images+=("${image}")
+  done
 
-for image in "${images[@]}"; do
-  docker inspect "${image}" >/dev/null 2>&1 || docker pull "${image}"
-done
+  HOST_IP="$(${ROOT}/hack/host-docker-internal.sh)"
+  echo "Host IP: ${HOST_IP}"
+
+  for image in "${images[@]}"; do
+    docker inspect "${image}" >/dev/null 2>&1 || docker pull "${image}"
+  done
+}
 
 mkdir -p "${KUBECONFIG_DIR}"
 for name in $(ls ${ENVIRONMENT_DIR} | grep -v in-cluster | grep .yaml); do
   name="${name%.*}"
+  if ! cat "${ENVIRONMENT_DIR}/${name}.yaml" | grep 'kind.x-k8s.io/v1alpha4' ; then
+    continue
+  fi
+
+  if [[ "${NEED_INIT}" == "true" ]]; then
+    init
+    NEED_INIT="false"
+  fi
+
   env_name="ferry-test-${name}"
   if [[ ! -f "${KUBECONFIG_DIR}/${name}-in-cluster.yaml" ]]; then
     echo kind create cluster --name "${env_name}" --config "${ENVIRONMENT_DIR}/${name}.yaml" --image "${KIND_IMAGE}"

@@ -14,7 +14,7 @@
 # limitations under the License.
 
 
-CURRENT="$(dirname "${BASH_SOURCE}")"
+CURRENT="$(dirname "${BASH_SOURCE[0]}")"
 ROOT="$(realpath "${CURRENT}/../..")"
 ENVIRONMENT_NAME="${CURRENT##*/}"
 
@@ -25,6 +25,7 @@ HOST_IP="$(${ROOT}/hack/host-docker-internal.sh)"
 echo "Host IP: ${HOST_IP}"
 
 export KUBECONFIG
+export FERRY_PEER_KUBECONFIG
 
 echo "::group::Control plane initialization"
 KUBECONFIG="${KUBECONFIG_DIR}/control-plane.yaml"
@@ -33,44 +34,34 @@ echo ferryctl control-plane init "--control-plane-tunnel-address=${HOST_IP}:3100
 ferryctl control-plane init "--control-plane-tunnel-address=${HOST_IP}:31000"
 echo "::endgroup::"
 
-echo "::group::Data plane cluster-1 join"
-KUBECONFIG="${KUBECONFIG_DIR}/control-plane.yaml"
-echo "KUBECONFIG=${KUBECONFIG}"
-echo ferryctl control-plane join cluster-1 "--control-plane-tunnel-address=${HOST_IP}:31000" --data-plane-reachable=false --data-plane-reception-way=control-plane --data-plane-navigation-way=control-plane
-SEND_TO_CLUSTER_1="$(ferryctl control-plane join cluster-1 "--control-plane-tunnel-address=${HOST_IP}:31000" --data-plane-reachable=false --data-plane-reception-way=control-plane --data-plane-navigation-way=control-plane 2>/dev/null)"
-echo "::endgroup::"
-
-echo "::group::Data plane cluster-1 join"
+echo "::group::Data plane cluster-1 initialization"
 KUBECONFIG="${KUBECONFIG_DIR}/cluster-1.yaml"
 echo "KUBECONFIG=${KUBECONFIG}"
-echo "${SEND_TO_CLUSTER_1}"
-SEND_TO_CONTROL_PLANE="$(eval "${SEND_TO_CLUSTER_1}" 2>/dev/null)"
+echo ferryctl data-plane init
+ferryctl data-plane init
 echo "::endgroup::"
 
-echo "::group::Controll plane confirm cluster-1 join"
-KUBECONFIG="${KUBECONFIG_DIR}/control-plane.yaml"
-echo "KUBECONFIG=${KUBECONFIG}"
-echo "${SEND_TO_CONTROL_PLANE}"
-eval "${SEND_TO_CONTROL_PLANE}"
-echo "::endgroup::"
-
-echo "::group::Data plane cluster-2 join"
-KUBECONFIG="${KUBECONFIG_DIR}/control-plane.yaml"
-echo "KUBECONFIG=${KUBECONFIG}"
-echo ferryctl control-plane join cluster-2 "--control-plane-tunnel-address=${HOST_IP}:31000" --data-plane-reachable=false --data-plane-reception-way=control-plane --data-plane-navigation-way=control-plane
-SEND_TO_CLUSTER_2="$(ferryctl control-plane join cluster-2 "--control-plane-tunnel-address=${HOST_IP}:31000" --data-plane-reachable=false --data-plane-reception-way=control-plane --data-plane-navigation-way=control-plane 2>/dev/null)"
-echo "::endgroup::"
-
-echo "::group::Data plane cluster-2 join"
+echo "::group::Data plane cluster-2 initialization"
 KUBECONFIG="${KUBECONFIG_DIR}/cluster-2.yaml"
 echo "KUBECONFIG=${KUBECONFIG}"
-echo "${SEND_TO_CLUSTER_2}"
-SEND_TO_CONTROL_PLANE="$(eval "${SEND_TO_CLUSTER_2}" 2>/dev/null)"
+echo ferryctl data-plane init
+ferryctl data-plane init
 echo "::endgroup::"
 
-echo "::group::Controll plane confirm cluster-2 join"
+echo "::group::Data plane cluster-1 join"
 KUBECONFIG="${KUBECONFIG_DIR}/control-plane.yaml"
 echo "KUBECONFIG=${KUBECONFIG}"
-echo "${SEND_TO_CONTROL_PLANE}"
-eval "${SEND_TO_CONTROL_PLANE}"
+FERRY_PEER_KUBECONFIG="${KUBECONFIG_DIR}/cluster-1.yaml"
+echo "FERRY_PEER_KUBECONFIG=${FERRY_PEER_KUBECONFIG}"
+echo ferryctl control-plane join cluster-1 "--control-plane-tunnel-address=${HOST_IP}:31000" --data-plane-reachable=false --data-plane-reception-way=control-plane --data-plane-navigation-way=control-plane
+ferryctl control-plane join cluster-1 "--control-plane-tunnel-address=${HOST_IP}:31000" --data-plane-reachable=false --data-plane-reception-way=control-plane --data-plane-navigation-way=control-plane
+echo "::endgroup::"
+
+echo "::group::Data plane cluster-2 join"
+KUBECONFIG="${KUBECONFIG_DIR}/control-plane.yaml"
+echo "KUBECONFIG=${KUBECONFIG}"
+FERRY_PEER_KUBECONFIG="${KUBECONFIG_DIR}/cluster-2.yaml"
+echo "FERRY_PEER_KUBECONFIG=${FERRY_PEER_KUBECONFIG}"
+echo ferryctl control-plane join cluster-2 "--control-plane-tunnel-address=${HOST_IP}:31000" --data-plane-reachable=false --data-plane-reception-way=control-plane --data-plane-navigation-way=control-plane
+ferryctl control-plane join cluster-2 "--control-plane-tunnel-address=${HOST_IP}:31000" --data-plane-reachable=false --data-plane-reception-way=control-plane --data-plane-navigation-way=control-plane
 echo "::endgroup::"

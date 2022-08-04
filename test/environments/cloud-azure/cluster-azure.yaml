@@ -1,0 +1,4 @@
+kind: Cluster
+apiVersion: cloud.ferryproxy.io/v1alpha4
+name: cluster-azure
+cloud: azure

@@ -18,13 +18,34 @@ package utils
 
 import (
 	"fmt"
+	"github.com/ferryproxy/ferry/pkg/ferryctl/vars"
+	"os"
+	"os/exec"
 )
 
 func Prompt(want string, lines ...string) {
-	fmt.Printf("# ++++ Please run the following command to %s:\n", want)
-	fmt.Printf("# =============================================\n")
-	defer fmt.Printf("# =============================================\n")
-	for _, line := range lines {
-		fmt.Printf("%s\n", line)
+	if vars.PeerKubeconfigPath != "" {
+		fmt.Printf("# Run command to %s:\n", want)
+		for _, line := range lines {
+			cmd := exec.Command("sh", "-c", line)
+			cmd.Env = append(os.Environ(),
+				"KUBECONFIG="+vars.PeerKubeconfigPath,
+				"FERRY_PEER_KUBECONFIG="+vars.KubeconfigPath,
+			)
+			fmt.Printf("> %s\n", line)
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+			err := cmd.Run()
+			if err != nil {
+				fmt.Println(cmd)
+			}
+		}
+	} else {
+		fmt.Printf("# ++++ Please run the following command to %s:\n", want)
+		fmt.Printf("# =============================================\n")
+		defer fmt.Printf("# =============================================\n")
+		for _, line := range lines {
+			fmt.Printf("%s\n", line)
+		}
 	}
 }

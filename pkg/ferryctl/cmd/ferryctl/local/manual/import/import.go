@@ -104,7 +104,6 @@ func NewCommand(logger log.Logger) *cobra.Command {
 
 				utils.Prompt(
 					"peer tunnel",
-					"ferryctl data-plane init",
 					second,
 				)
 				return nil

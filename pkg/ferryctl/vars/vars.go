@@ -25,9 +25,10 @@ import (
 )
 
 var (
-	ControlPlaneName = "control-plane"
-	home, _          = os.UserHomeDir()
-	KubeconfigPath   = env.GetEnv("KUBECONFIG", filepath.Join(home, ".kube/config"))
+	ControlPlaneName   = "control-plane"
+	home, _            = os.UserHomeDir()
+	KubeconfigPath     = env.GetEnv("KUBECONFIG", filepath.Join(home, ".kube/config"))
+	PeerKubeconfigPath = env.GetEnv("FERRY_PEER_KUBECONFIG", "")
 
 	FerryImagePrefix = env.GetEnv("FERRY_IMAGE_PREFIX", "ghcr.io/ferryproxy/ferry")
 

@@ -15,7 +15,7 @@
 
 
 
-CURRENT="$(dirname "${BASH_SOURCE}")"
+CURRENT="$(dirname "${BASH_SOURCE[0]}")"
 ROOT="$(realpath "${CURRENT}/../..")"
 ENVIRONMENT_NAME="${1:-}"
 
@@ -29,6 +29,10 @@ KUBECONFIG_DIR="${ROOT}/kubeconfigs"
 
 for name in $(ls ${ENVIRONMENT_DIR} | grep -v in-cluster | grep .yaml); do
   name="${name%.*}"
+  if ! cat "${ENVIRONMENT_DIR}/${name}.yaml" | grep 'kind.x-k8s.io/v1alpha4' ; then
+    continue
+  fi
+
   kind delete clusters "${ENVIRONMENT_NAME}-${name}" || :
   rm -f "${KUBECONFIG_DIR}/${name}.yaml" "${KUBECONFIG_DIR}/${name}-in-cluster.yaml" || :
 done

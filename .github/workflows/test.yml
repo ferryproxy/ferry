@@ -12,7 +12,7 @@ env:
   FERRY_TUNNEL_IMAGE: ferry-tunnel:test
 
 concurrency:
-  group: ${{ github.head_ref || github.run_id }}
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:

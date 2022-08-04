@@ -15,7 +15,7 @@
 
 
 
-CURRENT="$(dirname "${BASH_SOURCE}")"
+CURRENT="$(dirname "${BASH_SOURCE[0]}")"
 ROOT="$(realpath "${CURRENT}/../..")"
 ENVIRONMENT_NAME="${1:-}"
 
