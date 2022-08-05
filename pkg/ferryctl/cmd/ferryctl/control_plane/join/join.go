@@ -124,7 +124,6 @@ func NewCommand(logger log.Logger) *cobra.Command {
 
 			utils.Prompt(
 				fmt.Sprintf("join the %s data cluster", dataPlaneName),
-				"ferryctl data-plane init",
 				next,
 			)
 

@@ -14,7 +14,7 @@
 # limitations under the License.
 
 
-source "$(dirname "${BASH_SOURCE}")/helpers.sh"
+source "$(dirname "${BASH_SOURCE[0]}")/helpers.sh"
 
 ROUTE_NAME="${ROUTE_NAME:-ferry-test}"
 CONTROL_PLANE="${CONTROL_PLANE:-control-plane}"
@@ -25,7 +25,7 @@ TARGET_2="${TARGET_2:-web-2}"
 
 function check-both() {
   echo "::group::Check both"
-  resource-apply control-plane <<EOF
+  resource-apply "${CONTROL_PLANE}" <<EOF
 apiVersion: traffic.ferryproxy.io/v1alpha2
 kind: RoutePolicy
 metadata:
@@ -46,7 +46,7 @@ spec:
     - hubName: ${CLUSTER_2}
 EOF
 
-  fetch-route control-plane
+  fetch-route "${CONTROL_PLANE}"
 
   fetch-tunnel-config "${CLUSTER_2}"
   fetch-tunnel-config "${CLUSTER_1}"
@@ -64,7 +64,7 @@ EOF
 
 function check-2-to-1() {
   echo "::group::Check 2 to 1"
-  resource-apply control-plane <<EOF
+  resource-apply "${CONTROL_PLANE}" <<EOF
 apiVersion: traffic.ferryproxy.io/v1alpha2
 kind: RoutePolicy
 metadata:
@@ -80,7 +80,7 @@ spec:
     - hubName: ${CLUSTER_1}
 EOF
 
-  fetch-route control-plane
+  fetch-route "${CONTROL_PLANE}"
 
   fetch-tunnel-config "${CLUSTER_2}"
   fetch-tunnel-config "${CLUSTER_1}"
@@ -98,7 +98,7 @@ EOF
 
 function check-1-to-2() {
   echo "::group::Check 1 to 2"
-  resource-apply control-plane <<EOF
+  resource-apply "${CONTROL_PLANE}" <<EOF
 apiVersion: traffic.ferryproxy.io/v1alpha2
 kind: RoutePolicy
 metadata:
@@ -114,7 +114,7 @@ spec:
     - hubName: ${CLUSTER_2}
 EOF
 
-  fetch-route control-plane
+  fetch-route "${CONTROL_PLANE}"
 
   fetch-tunnel-config "${CLUSTER_2}"
   fetch-tunnel-config "${CLUSTER_1}"

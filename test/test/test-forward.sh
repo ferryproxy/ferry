@@ -14,7 +14,7 @@
 # limitations under the License.
 
 
-source "$(dirname "${BASH_SOURCE}")/helpers.sh"
+source "$(dirname "${BASH_SOURCE[0]}")/helpers.sh"
 
 function check-forward-dial() {
   local pid

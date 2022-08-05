@@ -15,8 +15,9 @@
 
 
 
-CURRENT="$(dirname "${BASH_SOURCE}")"
+CURRENT="$(dirname "${BASH_SOURCE[0]}")"
 ROOT="$(realpath "${CURRENT}/..")"
 ENVIRONMENT_NAME="${1:-}"
 
+"${ROOT}/hack/cloud/down.sh" "${ENVIRONMENT_NAME}"
 "${ROOT}/hack/kind/down.sh" "${ENVIRONMENT_NAME}"

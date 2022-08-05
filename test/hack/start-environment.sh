@@ -15,13 +15,14 @@
 
 
 
-CURRENT="$(dirname "${BASH_SOURCE}")"
+CURRENT="$(dirname "${BASH_SOURCE[0]}")"
 ROOT="$(realpath "${CURRENT}/..")"
 ENVIRONMENT_NAME="${1:-}"
 
 ENVIRONMENT_DIR="${ROOT}/environments/${ENVIRONMENT_NAME}"
 
 "${ROOT}/hack/kind/up.sh" "${ENVIRONMENT_NAME}"
+"${ROOT}/hack/cloud/up.sh" "${ENVIRONMENT_NAME}"
 "${ROOT}/hack/clusters/up.sh" "${ENVIRONMENT_NAME}"
 
 if [ -f "${ENVIRONMENT_DIR}/init.sh" ]; then

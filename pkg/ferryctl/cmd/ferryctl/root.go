@@ -41,6 +41,7 @@ func NewCommand(logger log.Logger) *cobra.Command {
 
 	persistentFlags := cmd.PersistentFlags()
 	persistentFlags.StringVar(&vars.KubeconfigPath, "kubeconfig", vars.KubeconfigPath, "override the default kubeconfig path")
+	persistentFlags.StringVar(&vars.PeerKubeconfigPath, "peer-kubeconfig", vars.PeerKubeconfigPath, "this Kubeconfig specifies the handshake peer for operations that require handshaking")
 	persistentFlags.StringVar(&vars.FerryControllerImage, "ferry-controller-image", vars.FerryControllerImage, "default ferry controller image")
 	persistentFlags.StringVar(&vars.FerryTunnelImage, "ferry-tunnel-image", vars.FerryTunnelImage, "default ferry tunnel image")
 	persistentFlags.StringVar(&vars.ControlPlaneName, "control-plane-name", vars.ControlPlaneName, "default control plane name")

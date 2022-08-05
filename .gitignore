@@ -22,5 +22,6 @@ testbin/*
 
 
 # Customs
+!/test/bin
 vendor
-kubeconfigs
+test/kubeconfigs
