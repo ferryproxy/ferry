@@ -32,7 +32,7 @@ var (
 
 	FerryImagePrefix = env.GetEnv("FERRY_IMAGE_PREFIX", "ghcr.io/ferryproxy/ferry")
 
-	FerryVersion = env.GetEnv("FERRY_VERSION", "v0.4.4")
+	FerryVersion = env.GetEnv("FERRY_VERSION", "v0.5.1")
 
 	FerryControllerImage = env.GetEnv("FERRY_CONTROLLER_IMAGE", FerryImagePrefix+"/ferry-controller:"+FerryVersion)
 
