@@ -20,7 +20,6 @@ import (
 	"fmt"
 
 	"github.com/ferryproxy/ferry/pkg/ferryctl/control_plane"
-	"github.com/ferryproxy/ferry/pkg/ferryctl/data_plane"
 	"github.com/ferryproxy/ferry/pkg/ferryctl/kubectl"
 	"github.com/ferryproxy/ferry/pkg/ferryctl/log"
 	"github.com/ferryproxy/ferry/pkg/ferryctl/vars"
@@ -48,14 +47,8 @@ func NewCommand(logger log.Logger) *cobra.Command {
 			}
 
 			kctl := kubectl.NewKubectl()
-			err := data_plane.ClusterInit(cmd.Context(), data_plane.ClusterInitConfig{
-				FerryTunnelImage:  vars.FerryTunnelImage,
-				TunnelServiceType: tunnelServiceType,
-			})
-			if err != nil {
-				return err
-			}
 
+			var err error
 			if controlPlaneTunnelAddress == vars.AutoPlaceholders {
 				controlPlaneTunnelAddress, err = kctl.GetTunnelAddress(cmd.Context())
 				if err != nil {
