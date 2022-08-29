@@ -43,7 +43,7 @@ type Route struct {
 	*v1alpha2.Route
 }
 
-func (r Route) Apply(ctx context.Context, clientset *versioned.Clientset) (err error) {
+func (r Route) Apply(ctx context.Context, clientset versioned.Interface) (err error) {
 	logger := logr.FromContextOrDiscard(ctx)
 	ori, err := clientset.
 		TrafficV1alpha2().
@@ -77,7 +77,7 @@ func (r Route) Apply(ctx context.Context, clientset *versioned.Clientset) (err e
 	return nil
 }
 
-func (r Route) Delete(ctx context.Context, clientset *versioned.Clientset) (err error) {
+func (r Route) Delete(ctx context.Context, clientset versioned.Interface) (err error) {
 	logger := logr.FromContextOrDiscard(ctx)
 	logger.Info("Deleting Route", "Route", objref.KObj(r))
 
