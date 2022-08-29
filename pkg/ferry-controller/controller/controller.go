@@ -23,7 +23,7 @@ import (
 
 	"github.com/ferryproxy/ferry/pkg/ferry-controller/controller/hub"
 	"github.com/ferryproxy/ferry/pkg/ferry-controller/controller/route"
-	"github.com/ferryproxy/ferry/pkg/ferry-controller/controller/route_policty"
+	"github.com/ferryproxy/ferry/pkg/ferry-controller/controller/route_policy"
 	"github.com/ferryproxy/ferry/pkg/utils/trybuffer"
 	"github.com/go-logr/logr"
 	restclient "k8s.io/client-go/rest"
@@ -37,7 +37,7 @@ type Controller struct {
 	namespace             string
 	hubController         *hub.HubController
 	routeController       *route.RouteController
-	routePolicyController *route_policty.RoutePolicyController
+	routePolicyController *route_policy.RoutePolicyController
 	try                   *trybuffer.TryBuffer
 }
 
@@ -77,7 +77,7 @@ func (c *Controller) Run(ctx context.Context) error {
 	})
 	c.routeController = routeController
 
-	routePolicyController := route_policty.NewRoutePolicyController(route_policty.RoutePolicyControllerConfig{
+	routePolicyController := route_policy.NewRoutePolicyController(route_policy.RoutePolicyControllerConfig{
 		Config:       c.config,
 		Namespace:    c.namespace,
 		ClusterCache: hubController,
