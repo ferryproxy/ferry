@@ -22,7 +22,6 @@ import (
 	"encoding/base64"
 	"fmt"
 	"reflect"
-	"sort"
 	"sync"
 
 	"github.com/ferryproxy/api/apis/traffic/v1alpha2"
@@ -33,10 +32,14 @@ import (
 	"github.com/ferryproxy/ferry/pkg/utils/objref"
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
+	apiextensions "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
+	"sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
+	mcsversioned "sigs.k8s.io/mcs-api/pkg/client/clientset/versioned"
 )
 
 type HubControllerConfig struct {
@@ -47,34 +50,38 @@ type HubControllerConfig struct {
 }
 
 type HubController struct {
-	mut              sync.RWMutex
-	ctx              context.Context
-	logger           logr.Logger
-	config           *restclient.Config
-	clientset        versioned.Interface
-	kubeClientset    kubernetes.Interface
-	cacheHub         map[string]*v1alpha2.Hub
-	cacheClientset   map[string]kubernetes.Interface
-	cacheService     map[string]*clusterServiceCache
-	cacheTunnelPorts map[string]*tunnelPorts
-	cacheIdentity    map[string]string
-	cacheKubeconfig  map[string][]byte
-	syncFunc         func()
-	namespace        string
+	mut                sync.RWMutex
+	ctx                context.Context
+	logger             logr.Logger
+	config             *restclient.Config
+	clientset          versioned.Interface
+	kubeClientset      kubernetes.Interface
+	cacheHub           map[string]*v1alpha2.Hub
+	cacheClientset     map[string]kubernetes.Interface
+	cacheService       map[string]*clusterServiceCache
+	cacheServiceExport map[string]*clusterServiceExportCache
+	cacheServiceImport map[string]*clusterServiceImportCache
+	cacheTunnelPorts   map[string]*tunnelPorts
+	cacheIdentity      map[string]string
+	cacheKubeconfig    map[string][]byte
+	syncFunc           func()
+	namespace          string
 }
 
 func NewHubController(conf HubControllerConfig) *HubController {
 	return &HubController{
-		config:           conf.Config,
-		namespace:        conf.Namespace,
-		logger:           conf.Logger,
-		syncFunc:         conf.SyncFunc,
-		cacheHub:         map[string]*v1alpha2.Hub{},
-		cacheClientset:   map[string]kubernetes.Interface{},
-		cacheService:     map[string]*clusterServiceCache{},
-		cacheTunnelPorts: map[string]*tunnelPorts{},
-		cacheIdentity:    map[string]string{},
-		cacheKubeconfig:  map[string][]byte{},
+		config:             conf.Config,
+		namespace:          conf.Namespace,
+		logger:             conf.Logger,
+		syncFunc:           conf.SyncFunc,
+		cacheHub:           map[string]*v1alpha2.Hub{},
+		cacheClientset:     map[string]kubernetes.Interface{},
+		cacheService:       map[string]*clusterServiceCache{},
+		cacheServiceExport: map[string]*clusterServiceExportCache{},
+		cacheServiceImport: map[string]*clusterServiceImportCache{},
+		cacheTunnelPorts:   map[string]*tunnelPorts{},
+		cacheIdentity:      map[string]string{},
+		cacheKubeconfig:    map[string][]byte{},
 	}
 }
 
@@ -142,17 +149,7 @@ func (c *HubController) ListServices(name string) []*corev1.Service {
 	if cache == nil {
 		return nil
 	}
-
-	svcs := []*corev1.Service{}
-	cache.ForEach(func(svc *corev1.Service) {
-		svcs = append(svcs, svc)
-	})
-
-	sort.Slice(svcs, func(i, j int) bool {
-		return svcs[i].CreationTimestamp.Before(&svcs[j].CreationTimestamp)
-	})
-
-	return svcs
+	return cache.List()
 }
 
 func (c *HubController) GetIdentity(name string) string {
@@ -221,9 +218,15 @@ func (c *HubController) onAdd(obj interface{}) {
 		return
 	}
 
-	clientset, err := client.NewClientsetFromKubeconfig(kubeconfig)
+	restConfig, err := client.NewRestConfigFromKubeconfig(kubeconfig)
 	if err != nil {
-		c.logger.Error(err, "NewClientsetFromKubeconfig")
+		c.logger.Error(err, "client.NewRestConfigFromKubeconfig")
+		return
+	}
+
+	clientset, err := kubernetes.NewForConfig(restConfig)
+	if err != nil {
+		c.logger.Error(err, "kubernetes.NewForConfig")
 		err = c.updateStatus(f.Name, "Disconnected")
 		if err != nil {
 			c.logger.Error(err, "UpdateStatus",
@@ -241,12 +244,12 @@ func (c *HubController) onAdd(obj interface{}) {
 	}
 
 	c.cacheTunnelPorts[f.Name] = newTunnelPorts(tunnelPortsConfig{
-		Logger: c.logger.WithName(f.Name),
+		Logger: c.logger.WithName(f.Name).WithName("tunnel-port"),
 	})
 
 	clusterService := newClusterServiceCache(clusterServiceCacheConfig{
 		Clientset: clientset,
-		Logger:    c.logger.WithName(f.Name),
+		Logger:    c.logger.WithName(f.Name).WithName("service"),
 	})
 	c.cacheService[f.Name] = clusterService
 
@@ -261,7 +264,19 @@ func (c *HubController) onAdd(obj interface{}) {
 			"hub", objref.KObj(f),
 		)
 	}
+
+	if IsEnabledMCS(f) {
+		err = c.enableMCS(f, restConfig)
+		if err != nil {
+			c.logger.Error(err, "enable mcs")
+		}
+	}
+
 	c.syncFunc()
+}
+
+func IsEnabledMCS(f *v1alpha2.Hub) bool {
+	return f != nil && f.Labels != nil && f.Labels[consts.LabelMCSMarkHubKey] == consts.LabelMCSMarkHubValue
 }
 
 func (c *HubController) updateIdentity(name string) error {
@@ -303,6 +318,7 @@ func (c *HubController) updateKubeconfig(name string) error {
 }
 
 func (c *HubController) onUpdate(oldObj, newObj interface{}) {
+	old := oldObj.(*v1alpha2.Hub)
 	f := newObj.(*v1alpha2.Hub)
 	f = f.DeepCopy()
 	c.logger.Info("onUpdate",
@@ -334,7 +350,13 @@ func (c *HubController) onUpdate(oldObj, newObj interface{}) {
 	}
 
 	if !bytes.Equal(oldKubeconfig, kubeconfig) {
-		clientset, err := client.NewClientsetFromKubeconfig(kubeconfig)
+		restConfig, err := client.NewRestConfigFromKubeconfig(kubeconfig)
+		if err != nil {
+			c.logger.Error(err, "NewRestConfigFromKubeconfig")
+			return
+		}
+
+		clientset, err := kubernetes.NewForConfig(restConfig)
 		if err != nil {
 			c.logger.Error(err, "NewClientsetFromKubeconfig")
 			err = c.updateStatus(f.Name, "Disconnected")
@@ -362,12 +384,164 @@ func (c *HubController) onUpdate(oldObj, newObj interface{}) {
 					)
 				}
 			}
+
+			if IsEnabledMCS(old) {
+				if IsEnabledMCS(f) {
+					err = c.enableMCS(f, restConfig)
+					if err != nil {
+						c.logger.Error(err, "enable mcs")
+					}
+				} else {
+					err = c.disableMCS(f)
+					if err != nil {
+						c.logger.Error(err, "disable mcs")
+					}
+				}
+			} else {
+				if IsEnabledMCS(f) {
+					err = c.updateMCS(f, restConfig)
+					if err != nil {
+						c.logger.Error(err, "update mcs")
+					}
+				}
+			}
+		}
+	} else {
+		if IsEnabledMCS(old) {
+			if !IsEnabledMCS(f) {
+				err = c.disableMCS(f)
+				if err != nil {
+					c.logger.Error(err, "disable mcs")
+				}
+			}
+		} else {
+			if IsEnabledMCS(f) {
+				restConfig, err := client.NewRestConfigFromKubeconfig(kubeconfig)
+				if err == nil {
+					err = c.enableMCS(f, restConfig)
+					if err != nil {
+						c.logger.Error(err, "enable mcs")
+					}
+				}
+			}
 		}
 	}
 
 	c.cacheHub[f.Name] = f
 
 	c.syncFunc()
+}
+
+func (c *HubController) checkMCSCRD(restConfig *rest.Config) error {
+	apiextClientset, err := apiextensions.NewForConfig(restConfig)
+	if err != nil {
+		return err
+	}
+	_, err = apiextClientset.
+		ApiextensionsV1().
+		CustomResourceDefinitions().
+		Get(c.ctx, "serviceexports.multicluster.x-k8s.io", metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+	_, err = apiextClientset.
+		ApiextensionsV1().
+		CustomResourceDefinitions().
+		Get(c.ctx, "serviceimports.multicluster.x-k8s.io", metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (c *HubController) enableMCS(f *v1alpha2.Hub, restConfig *rest.Config) error {
+	err := c.checkMCSCRD(restConfig)
+	if err != nil {
+		return fmt.Errorf("not have mcs crd in %q: %w", f.Name, err)
+	}
+
+	mcsClientset, err := mcsversioned.NewForConfig(restConfig)
+	if err != nil {
+		return err
+	}
+	clusterServiceExport := newClusterServiceExportCache(clusterServiceExportCacheConfig{
+		Logger:    c.logger.WithName(f.Name).WithName("service-export"),
+		Clientset: mcsClientset,
+		SyncFunc:  c.syncFunc,
+	})
+	err = clusterServiceExport.Start(c.ctx)
+	if err != nil {
+		c.logger.Error(err, "failed start cluster service exports cache")
+	} else {
+		c.cacheServiceExport[f.Name] = clusterServiceExport
+	}
+
+	clusterServiceImport := newClusterServiceImportCache(clusterServiceImportCacheConfig{
+		Logger:    c.logger.WithName(f.Name).WithName("service-import"),
+		Clientset: mcsClientset,
+		SyncFunc:  c.syncFunc,
+	})
+	err = clusterServiceImport.Start(c.ctx)
+	if err != nil {
+		c.logger.Error(err, "failed start cluster service imports cache")
+	} else {
+		c.cacheServiceImport[f.Name] = clusterServiceImport
+	}
+	return nil
+}
+
+func (c *HubController) disableMCS(f *v1alpha2.Hub) error {
+	if c.cacheServiceExport[f.Name] != nil {
+		c.cacheServiceExport[f.Name].Close()
+	}
+	delete(c.cacheServiceExport, f.Name)
+	if c.cacheServiceImport[f.Name] != nil {
+		c.cacheServiceImport[f.Name].Close()
+	}
+	delete(c.cacheServiceImport, f.Name)
+	return nil
+}
+
+func (c *HubController) updateMCS(f *v1alpha2.Hub, restConfig *rest.Config) error {
+	mcsClientset, err := mcsversioned.NewForConfig(restConfig)
+	if err == nil {
+		return err
+	}
+	if c.cacheServiceExport[f.Name] != nil {
+		c.cacheServiceExport[f.Name].ResetClientset(mcsClientset)
+	}
+
+	if c.cacheServiceImport[f.Name] != nil {
+		c.cacheServiceImport[f.Name].ResetClientset(mcsClientset)
+	}
+	return nil
+}
+
+func (c *HubController) ListMCS(namespace string) (map[string][]*v1alpha1.ServiceImport, map[string][]*v1alpha1.ServiceExport) {
+	c.mut.RLock()
+	defer c.mut.RUnlock()
+	if len(c.cacheServiceImport) == 0 && len(c.cacheServiceExport) == 0 {
+		return nil, nil
+	}
+
+	importMap := map[string][]*v1alpha1.ServiceImport{}
+	for name, imports := range c.cacheServiceImport {
+		list := imports.ListByNamespace(namespace)
+		if len(list) == 0 {
+			continue
+		}
+		importMap[name] = list
+	}
+
+	exportMap := map[string][]*v1alpha1.ServiceExport{}
+	for name, exports := range c.cacheServiceExport {
+		list := exports.ListByNamespace(namespace)
+		if len(list) == 0 {
+			continue
+		}
+		exportMap[name] = list
+	}
+	return importMap, exportMap
 }
 
 func (c *HubController) onDelete(obj interface{}) {
@@ -388,6 +562,7 @@ func (c *HubController) onDelete(obj interface{}) {
 	}
 	delete(c.cacheService, f.Name)
 	delete(c.cacheIdentity, f.Name)
+	c.disableMCS(f)
 
 	c.syncFunc()
 }

@@ -25,7 +25,7 @@ import (
 	"k8s.io/client-go/util/flowcontrol"
 )
 
-func NewClientsetFromKubeconfig(kubeconfig []byte) (kubernetes.Interface, error) {
+func NewRestConfigFromKubeconfig(kubeconfig []byte) (*rest.Config, error) {
 	cfg, err := clientcmd.BuildConfigFromKubeconfigGetter("", func() (conf *clientcmdapi.Config, err error) {
 		return clientcmd.Load(kubeconfig)
 	})
@@ -33,6 +33,14 @@ func NewClientsetFromKubeconfig(kubeconfig []byte) (kubernetes.Interface, error)
 		return nil, err
 	}
 	err = setConfigDefaults(cfg)
+	if err != nil {
+		return nil, err
+	}
+	return cfg, nil
+}
+
+func NewClientsetFromKubeconfig(kubeconfig []byte) (kubernetes.Interface, error) {
+	cfg, err := NewRestConfigFromKubeconfig(kubeconfig)
 	if err != nil {
 		return nil, err
 	}

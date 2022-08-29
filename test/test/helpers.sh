@@ -26,6 +26,16 @@ function resource-apply() {
   kubectl --kubeconfig="${KUBECONFIG_DIR}/${cluster}.yaml" apply -f -
 }
 
+function resource-delete() {
+  local cluster=$1
+  kubectl --kubeconfig="${KUBECONFIG_DIR}/${cluster}.yaml" delete -f -
+}
+
+function fetch-routepolicy() {
+  local cluster=$1
+  kubectl --kubeconfig="${KUBECONFIG_DIR}/${cluster}.yaml" get routepolicy.traffic.ferryproxy.io -n ferry-system
+}
+
 function fetch-route() {
   local cluster=$1
   kubectl --kubeconfig="${KUBECONFIG_DIR}/${cluster}.yaml" get route.traffic.ferryproxy.io -n ferry-system

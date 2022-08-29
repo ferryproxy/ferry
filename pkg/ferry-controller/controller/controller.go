@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/ferryproxy/ferry/pkg/ferry-controller/controller/hub"
+	"github.com/ferryproxy/ferry/pkg/ferry-controller/controller/mcs"
 	"github.com/ferryproxy/ferry/pkg/ferry-controller/controller/route"
 	"github.com/ferryproxy/ferry/pkg/ferry-controller/controller/route_policy"
 	"github.com/ferryproxy/ferry/pkg/utils/trybuffer"
@@ -38,6 +39,7 @@ type Controller struct {
 	hubController         *hub.HubController
 	routeController       *route.RouteController
 	routePolicyController *route_policy.RoutePolicyController
+	mcsController         *mcs.MCSController
 	try                   *trybuffer.TryBuffer
 }
 
@@ -94,6 +96,17 @@ func (c *Controller) Run(ctx context.Context) error {
 		cancel()
 	}()
 
+	mcsController := mcs.NewMCSController(&mcs.MCSControllerConfig{
+		Config:       c.config,
+		ClusterCache: hubController,
+		Logger:       c.logger.WithName("mcs"),
+	})
+	c.mcsController = mcsController
+	err := mcsController.Start(ctx)
+	if err != nil {
+		c.logger.Error(err, "Start MCSController")
+	}
+
 	go func() {
 		err := routeController.Run(c.ctx)
 		if err != nil {
@@ -134,6 +147,9 @@ func (c *Controller) sync() {
 	defer c.mut.Unlock()
 
 	ctx := c.ctx
+
+	c.mcsController.Sync(ctx)
+
 	c.routePolicyController.Sync(ctx)
 
 	c.routeController.Sync(ctx)
