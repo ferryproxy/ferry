@@ -51,7 +51,7 @@ type HubController struct {
 	ctx              context.Context
 	logger           logr.Logger
 	config           *restclient.Config
-	clientset        *versioned.Clientset
+	clientset        versioned.Interface
 	kubeClientset    kubernetes.Interface
 	cacheHub         map[string]*v1alpha2.Hub
 	cacheClientset   map[string]kubernetes.Interface

@@ -54,7 +54,7 @@ type RoutePolicyController struct {
 	ctx                    context.Context
 	mut                    sync.RWMutex
 	config                 *restclient.Config
-	clientset              *versioned.Clientset
+	clientset              versioned.Interface
 	clusterCache           ClusterCache
 	cache                  map[string]*v1alpha2.RoutePolicy
 	namespace              string

@@ -47,7 +47,7 @@ type RouteController struct {
 	ctx                    context.Context
 	mut                    sync.RWMutex
 	config                 *restclient.Config
-	clientset              *versioned.Clientset
+	clientset              versioned.Interface
 	clusterCache           mapping.ClusterCache
 	cache                  map[string]*v1alpha2.Route
 	cacheMappingController map[clusterPair]*mapping.MappingController
