@@ -20,20 +20,22 @@ set -o pipefail
 
 ROOT="$(dirname "${BASH_SOURCE[0]}")/.."
 
-failed=()
+ROOT="$(realpath "${ROOT}")"
 
-if [[ "${VERIFY_BOILERPLATE:-true}" == "true" ]]; then
-  echo "[*] Verifying boilerplate..."
-  "${ROOT}"/hack/verify-boilerplate.sh || failed+=(boilerplate)
-fi
+function check_ends() {
+  find . \
+    -iname "*.md"\
+     -o -iname "*.sh" \
+     -o -iname "*.bash" \
+     -o -iname "*.go" \
+     -o -iname "*.yaml" \
+     -o -iname "*.yml" | \
+     xargs -I {} bash -c "[ -n \"\$(tail -c 1 {})\" ] && echo {}" || :
+}
 
-if [[ "${VERIFY_ENDS_NEWLINE:-true}" == "true" ]]; then
-  echo "[*] Verifying ends newline..."
-  "${ROOT}"/hack/verify-ends-newline.sh || failed+=(ends-newline)
-fi
-
-# exit based on verify scripts
-if [[ "${#failed[@]}" != 0 ]]; then
-  echo "Verify failed for: ${failed[*]}"
+out="$(check_ends)"
+if [[ "${out}" != "" ]]; then
+  echo "Add a new line in ends for blow files"
+  echo "${out}"
   exit 1
 fi
