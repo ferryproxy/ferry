@@ -234,7 +234,7 @@ func (c *RoutePolicyController) Sync(ctx context.Context) {
 	}
 
 	for _, policy := range ferryPolicies {
-		err := c.updateStatus(policy.Name, "Worked", len(updated))
+		err := c.updateStatus(policy.Name, "Worked", len(policy.Spec.Exports)*len(policy.Spec.Imports))
 		if err != nil {
 			c.logger.Error(err, "failed to update status")
 		}
