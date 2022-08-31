@@ -206,6 +206,7 @@ func Test_policiesToRoutes(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name:            "test-export-1-default-app-1-import-1-default-app-1",
 						OwnerReferences: ownerReferences,
+						Labels:          labelsForRoute,
 					},
 					Spec: v1alpha2.RouteSpec{
 						Import: v1alpha2.RouteSpecRule{
@@ -228,6 +229,7 @@ func Test_policiesToRoutes(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name:            "test-export-1-default-app-2-import-1-default-app-2",
 						OwnerReferences: ownerReferences,
+						Labels:          labelsForRoute,
 					},
 					Spec: v1alpha2.RouteSpec{
 						Import: v1alpha2.RouteSpecRule{
@@ -278,6 +280,7 @@ func Test_policiesToRoutes(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name:            "test-export-1-default-app-1-import-1-default-app-1",
 						OwnerReferences: ownerReferences,
+						Labels:          labelsForRoute,
 					},
 					Spec: v1alpha2.RouteSpec{
 						Import: v1alpha2.RouteSpecRule{
@@ -328,6 +331,7 @@ func Test_policiesToRoutes(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name:            "test-export-1-default-app-1-import-1-default-app-1",
 						OwnerReferences: ownerReferences,
+						Labels:          labelsForRoute,
 					},
 					Spec: v1alpha2.RouteSpec{
 						Import: v1alpha2.RouteSpecRule{
@@ -350,6 +354,7 @@ func Test_policiesToRoutes(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name:            "test-export-1-default-app-2-import-1-default-app-2",
 						OwnerReferences: ownerReferences,
+						Labels:          labelsForRoute,
 					},
 					Spec: v1alpha2.RouteSpec{
 						Import: v1alpha2.RouteSpecRule{
@@ -400,6 +405,7 @@ func Test_policiesToRoutes(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name:            "test-export-1-default-app-1-import-1-default-app-1",
 						OwnerReferences: ownerReferences,
+						Labels:          labelsForRoute,
 					},
 					Spec: v1alpha2.RouteSpec{
 						Import: v1alpha2.RouteSpecRule{
@@ -452,6 +458,7 @@ func Test_policiesToRoutes(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name:            "test-export-1-default-app-1-import-1-default-app-1",
 						OwnerReferences: ownerReferences,
+						Labels:          labelsForRoute,
 					},
 					Spec: v1alpha2.RouteSpec{
 						Import: v1alpha2.RouteSpecRule{
@@ -474,6 +481,7 @@ func Test_policiesToRoutes(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name:            "test-export-1-test-app-1-import-1-test-app-1",
 						OwnerReferences: ownerReferences,
+						Labels:          labelsForRoute,
 					},
 					Spec: v1alpha2.RouteSpec{
 						Import: v1alpha2.RouteSpecRule{
@@ -526,6 +534,7 @@ func Test_policiesToRoutes(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name:            "test-export-1-default-app-1-import-1-default-app-1",
 						OwnerReferences: ownerReferences,
+						Labels:          labelsForRoute,
 					},
 					Spec: v1alpha2.RouteSpec{
 						Import: v1alpha2.RouteSpecRule{
@@ -578,6 +587,7 @@ func Test_policiesToRoutes(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name:            "test-export-1-default-app-1-import-1-default-app-1",
 						OwnerReferences: ownerReferences,
+						Labels:          labelsForRoute,
 					},
 					Spec: v1alpha2.RouteSpec{
 						Import: v1alpha2.RouteSpecRule{
@@ -600,6 +610,7 @@ func Test_policiesToRoutes(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name:            "test-export-1-test-app-1-import-1-test-app-1",
 						OwnerReferences: ownerReferences,
+						Labels:          labelsForRoute,
 					},
 					Spec: v1alpha2.RouteSpec{
 						Import: v1alpha2.RouteSpecRule{
@@ -652,6 +663,7 @@ func Test_policiesToRoutes(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name:            "test-export-1-default-app-1-import-1-default-app-1",
 						OwnerReferences: ownerReferences,
+						Labels:          labelsForRoute,
 					},
 					Spec: v1alpha2.RouteSpec{
 						Import: v1alpha2.RouteSpecRule{
@@ -720,6 +732,7 @@ func Test_policiesToRoutes(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name:            "test-export-1-default-app-1-import-1-default-app-1",
 						OwnerReferences: ownerReferences,
+						Labels:          labelsForRoute,
 					},
 					Spec: v1alpha2.RouteSpec{
 						Import: v1alpha2.RouteSpecRule{
@@ -742,6 +755,7 @@ func Test_policiesToRoutes(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name:            "test-export-2-default-app-1-import-1-default-app-1",
 						OwnerReferences: ownerReferences,
+						Labels:          labelsForRoute,
 					},
 					Spec: v1alpha2.RouteSpec{
 						Import: v1alpha2.RouteSpecRule{

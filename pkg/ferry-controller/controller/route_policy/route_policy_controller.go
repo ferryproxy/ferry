@@ -26,6 +26,7 @@ import (
 	"github.com/ferryproxy/api/apis/traffic/v1alpha2"
 	versioned "github.com/ferryproxy/client-go/generated/clientset/versioned"
 	externalversions "github.com/ferryproxy/client-go/generated/informers/externalversions"
+	"github.com/ferryproxy/ferry/pkg/consts"
 	"github.com/ferryproxy/ferry/pkg/ferry-controller/router/resource"
 	"github.com/ferryproxy/ferry/pkg/utils/diffobjs"
 	"github.com/ferryproxy/ferry/pkg/utils/maps"
@@ -103,6 +104,20 @@ func (c *RoutePolicyController) Run(ctx context.Context) error {
 	}
 	c.clientset = clientset
 	c.ctx = ctx
+
+	list, err := c.clientset.
+		TrafficV1alpha2().
+		Routes(c.namespace).
+		List(ctx, metav1.ListOptions{
+			LabelSelector: labels.FormatLabels(labelsForRoute),
+		})
+	if err != nil {
+		return err
+	}
+	for _, item := range list.Items {
+		c.cacheRoutePolicyRoutes = append(c.cacheRoutePolicyRoutes, item.DeepCopy())
+	}
+
 	informerFactory := externalversions.NewSharedInformerFactoryWithOptions(clientset, 0,
 		externalversions.WithNamespace(c.namespace))
 	informer := informerFactory.
@@ -325,7 +340,7 @@ func policiesToRoutes(clusterCache ClusterCache, policies []*v1alpha2.RoutePolic
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      fmt.Sprintf("%s-%s-%s-%s-%s-%s-%s", policy.Name, exportHubName, exportNamespace, exportName, importHubName, importNamespace, importName),
 							Namespace: policy.Namespace,
-							Labels:    policy.Labels,
+							Labels:    maps.Merge(policy.Labels, labelsForRoute),
 							OwnerReferences: []metav1.OwnerReference{
 								{
 									APIVersion: v1alpha2.GroupVersion.String(),
@@ -398,4 +413,8 @@ type groupRoutePolicy struct {
 	Policy *v1alpha2.RoutePolicy
 	Export v1alpha2.RoutePolicySpecRuleService
 	Import v1alpha2.RoutePolicySpecRuleService
+}
+
+var labelsForRoute = map[string]string{
+	consts.LabelGeneratedKey: consts.LabelGeneratedValue,
 }
