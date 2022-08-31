@@ -7,10 +7,6 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
-env:
-  FERRY_CONTROLLER_IMAGE: ferry-controller:test
-  FERRY_TUNNEL_IMAGE: ferry-tunnel:test
-
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -44,7 +40,7 @@ jobs:
       - run: |
           go test ./pkg/...
 
-  build-ferrctl:
+  build:
     runs-on: ubuntu-latest
     needs:
       - verify
@@ -57,45 +53,17 @@ jobs:
           go-version: 1.18
 
       - run: |
-          go build -o ferryctl ./cmd/ferryctl
+          make build image
+          mv bin/*/*/ferryctl ./
+          docker save -o ferry-images.tar $(docker images | grep ghcr.io/ferryproxy/ferry/ | awk '{print $1 ":" $2}')
 
-      - name: Upload ferryctl
+      - name: Upload
         uses: actions/upload-artifact@v2
         with:
-          name: ferryctl
-          path: ferryctl
-
-  build-ferry-controller:
-    runs-on: ubuntu-latest
-    needs:
-      - verify
-    steps:
-      - uses: actions/checkout@v3
-
-      - run: |
-          docker build -t ${FERRY_CONTROLLER_IMAGE} -f ./images/ferry-controller/Dockerfile . && docker save -o ferry-controller.tar ${FERRY_CONTROLLER_IMAGE}
-
-      - name: Upload ferry
-        uses: actions/upload-artifact@v2
-        with:
-          name: ferry-controller
-          path: ferry-controller.tar
-
-  build-ferry-tunnel:
-    runs-on: ubuntu-latest
-    needs:
-      - verify
-    steps:
-      - uses: actions/checkout@v3
-
-      - run: |
-          docker build -t ${FERRY_TUNNEL_IMAGE} -f ./images/ferry-tunnel/Dockerfile . && docker save -o ferry-tunnel.tar ${FERRY_TUNNEL_IMAGE}
-
-      - name: Upload ferry-tunnel
-        uses: actions/upload-artifact@v2
-        with:
-          name: ferry-tunnel
-          path: ferry-tunnel.tar
+          name: artifacts
+          path: |
+            ferryctl
+            ferry-images.tar
 
   test-mcs:
     continue-on-error: true
@@ -105,32 +73,19 @@ jobs:
           - mcs
     runs-on: ubuntu-latest
     needs:
-      - build-ferrctl
-      - build-ferry-controller
-      - build-ferry-tunnel
+      - build
     steps:
       - uses: actions/checkout@v3
 
-      - name: Download for ferry-controller
+      - name: Download
         uses: actions/download-artifact@v2
         with:
-          name: ferry-controller
-
-      - name: Download for ferry-tunnel
-        uses: actions/download-artifact@v2
-        with:
-          name: ferry-tunnel
-
-      - name: Download for ferryctl
-        uses: actions/download-artifact@v2
-        with:
-          name: ferryctl
+          name: artifacts
 
       - name: Setup
         run: |
           cp ferryctl /usr/local/bin/ferryctl && chmod +x /usr/local/bin/ferryctl
-          docker load -i ferry-controller.tar
-          docker load -i ferry-tunnel.tar
+          docker load -i ferry-images.tar
 
       - name: Start cluster
         run: |
@@ -157,32 +112,19 @@ jobs:
           - data-plane-unreachable
     runs-on: ubuntu-latest
     needs:
-      - build-ferrctl
-      - build-ferry-controller
-      - build-ferry-tunnel
+      - build
     steps:
       - uses: actions/checkout@v3
 
-      - name: Download for ferry-controller
+      - name: Download
         uses: actions/download-artifact@v2
         with:
-          name: ferry-controller
-
-      - name: Download for ferry-tunnel
-        uses: actions/download-artifact@v2
-        with:
-          name: ferry-tunnel
-
-      - name: Download for ferryctl
-        uses: actions/download-artifact@v2
-        with:
-          name: ferryctl
+          name: artifacts
 
       - name: Setup
         run: |
           cp ferryctl /usr/local/bin/ferryctl && chmod +x /usr/local/bin/ferryctl
-          docker load -i ferry-controller.tar
-          docker load -i ferry-tunnel.tar
+          docker load -i ferry-images.tar
 
       - name: Start cluster
         run: |
@@ -208,32 +150,19 @@ jobs:
           - data-plane-unreachable-3-clusters
     runs-on: ubuntu-latest
     needs:
-      - build-ferrctl
-      - build-ferry-controller
-      - build-ferry-tunnel
+      - build
     steps:
       - uses: actions/checkout@v3
 
-      - name: Download for ferry-controller
+      - name: Download
         uses: actions/download-artifact@v2
         with:
-          name: ferry-controller
-
-      - name: Download for ferry-tunnel
-        uses: actions/download-artifact@v2
-        with:
-          name: ferry-tunnel
-
-      - name: Download for ferryctl
-        uses: actions/download-artifact@v2
-        with:
-          name: ferryctl
+          name: artifacts
 
       - name: Setup
         run: |
           cp ferryctl /usr/local/bin/ferryctl && chmod +x /usr/local/bin/ferryctl
-          docker load -i ferry-controller.tar
-          docker load -i ferry-tunnel.tar
+          docker load -i ferry-images.tar
 
       - name: Start cluster
         run: |
@@ -269,25 +198,19 @@ jobs:
           - manual
     runs-on: ubuntu-latest
     needs:
-      - build-ferrctl
-      - build-ferry-tunnel
+      - build
     steps:
       - uses: actions/checkout@v2
 
-      - name: Download for ferry-tunnel
+      - name: Download
         uses: actions/download-artifact@v2
         with:
-          name: ferry-tunnel
-
-      - name: Download for ferryctl
-        uses: actions/download-artifact@v2
-        with:
-          name: ferryctl
+          name: artifacts
 
       - name: Setup
         run: |
           cp ferryctl /usr/local/bin/ferryctl && chmod +x /usr/local/bin/ferryctl
-          docker load -i ferry-tunnel.tar
+          docker load -i ferry-images.tar
 
       - name: Start cluster
         run: |

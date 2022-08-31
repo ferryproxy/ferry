@@ -16,6 +16,11 @@ limitations under the License.
 
 package consts
 
+var (
+	Version     = "unknown"
+	ImagePrefix = "ghcr.io/ferryproxy/ferry"
+)
+
 const (
 	FerryName            = "ferry"
 	FerryNamespace       = FerryName + "-system"
