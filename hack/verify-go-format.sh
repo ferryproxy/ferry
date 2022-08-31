@@ -19,20 +19,10 @@ set -o pipefail
 
 ROOT_DIR="$(dirname "${BASH_SOURCE[0]}")/.."
 
-function check_ends() {
-  find . \
-    -iname "*.md" \
-    -o -iname "*.sh" \
-    -o -iname "*.go" \
-    -o -iname "*.yaml" \
-    -o -iname "*.yml" |
-    xargs -I {} bash -c "[ -n \"\$(tail -c 1 {})\" ] && echo {}" || :
-}
-
 function check() {
-  out="$(check_ends)"
-  if [[ "${out}" != "" ]]; then
-    echo "Add a new line in ends for below files"
+  echo "Verify gofmt"
+  out="$(gofmt -l -d $(find . -name '*.go'))"
+  if [[ -n "${out}" ]]; then
     echo "${out}"
     return 1
   fi
