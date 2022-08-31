@@ -18,18 +18,28 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-ROOT="$(dirname "${BASH_SOURCE[0]}")/.."
+ROOT_DIR="$(dirname "${BASH_SOURCE[0]}")/.."
 
 failed=()
 
 if [[ "${VERIFY_BOILERPLATE:-true}" == "true" ]]; then
   echo "[*] Verifying boilerplate..."
-  "${ROOT}"/hack/verify-boilerplate.sh || failed+=(boilerplate)
+  "${ROOT_DIR}"/hack/verify-boilerplate.sh || failed+=(boilerplate)
 fi
 
 if [[ "${VERIFY_ENDS_NEWLINE:-true}" == "true" ]]; then
   echo "[*] Verifying ends newline..."
-  "${ROOT}"/hack/verify-ends-newline.sh || failed+=(ends-newline)
+  "${ROOT_DIR}"/hack/verify-ends-newline.sh || failed+=(ends-newline)
+fi
+
+if [[ "${VERIFY_GO_MOD:-true}" == "true" ]]; then
+  echo "[*] Verifying go mod..."
+  "${ROOT_DIR}"/hack/verify-go-mod.sh || failed+=(go-mod)
+fi
+
+if [[ "${VERIFY_GO_FORMAT:-true}" == "true" ]]; then
+  echo "[*] Verifying go format..."
+  "${ROOT_DIR}"/hack/verify-go-format.sh || failed+=(go-format)
 fi
 
 # exit based on verify scripts

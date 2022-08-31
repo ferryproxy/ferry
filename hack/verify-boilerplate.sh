@@ -18,6 +18,10 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-ROOT="$(dirname "${BASH_SOURCE[0]}")/.."
+ROOT_DIR="$(dirname "${BASH_SOURCE[0]}")/.."
 
-git ls-files | grep -v "vendor\/" | xargs go run "${ROOT}"/hack/verify-boilerplate.go
+function check() {
+  git ls-files | grep -v "vendor\/" | xargs go run "${ROOT_DIR}"/hack/verify-boilerplate.go
+}
+
+check || exit 1
