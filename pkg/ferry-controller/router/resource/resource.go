@@ -39,6 +39,58 @@ type Resourcer interface {
 	Delete(ctx context.Context, clientset kubernetes.Interface) (err error)
 }
 
+type RoutePolicy struct {
+	*v1alpha2.RoutePolicy
+}
+
+func (r RoutePolicy) Apply(ctx context.Context, clientset versioned.Interface) (err error) {
+	logger := logr.FromContextOrDiscard(ctx)
+	ori, err := clientset.
+		TrafficV1alpha2().
+		RoutePolicies(r.Namespace).
+		Get(ctx, r.Name, metav1.GetOptions{})
+	if err != nil {
+		if !errors.IsNotFound(err) {
+			return fmt.Errorf("get RoutePolicies %s: %w", objref.KObj(r), err)
+		}
+		logger.Info("Creating RoutePolicies", "RoutePolicies", objref.KObj(r))
+		_, err = clientset.
+			TrafficV1alpha2().
+			RoutePolicies(r.Namespace).
+			Create(ctx, r.RoutePolicy, metav1.CreateOptions{
+				FieldManager: consts.LabelFerryManagedByValue,
+			})
+		if err != nil {
+			return fmt.Errorf("create RoutePolicies %s: %w", objref.KObj(r), err)
+		}
+	} else {
+		_, err = clientset.
+			TrafficV1alpha2().
+			RoutePolicies(r.Namespace).
+			Update(ctx, ori, metav1.UpdateOptions{
+				FieldManager: consts.LabelFerryManagedByValue,
+			})
+		if err != nil {
+			return fmt.Errorf("update RoutePolicies %s: %w", objref.KObj(r), err)
+		}
+	}
+	return nil
+}
+
+func (r RoutePolicy) Delete(ctx context.Context, clientset versioned.Interface) (err error) {
+	logger := logr.FromContextOrDiscard(ctx)
+	logger.Info("Deleting RoutePolicies", "RoutePolicies", objref.KObj(r))
+
+	err = clientset.
+		TrafficV1alpha2().
+		RoutePolicies(r.Namespace).
+		Delete(ctx, r.Name, metav1.DeleteOptions{})
+	if err != nil && !errors.IsNotFound(err) {
+		return fmt.Errorf("delete RoutePolicies %s: %w", objref.KObj(r), err)
+	}
+	return nil
+}
+
 type Route struct {
 	*v1alpha2.Route
 }

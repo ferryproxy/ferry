@@ -97,6 +97,56 @@ jobs:
           name: ferry-tunnel
           path: ferry-tunnel.tar
 
+  test-mcs:
+    continue-on-error: true
+    strategy:
+      matrix:
+        case:
+          - mcs
+    runs-on: ubuntu-latest
+    needs:
+      - build-ferrctl
+      - build-ferry-controller
+      - build-ferry-tunnel
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Download for ferry-controller
+        uses: actions/download-artifact@v2
+        with:
+          name: ferry-controller
+
+      - name: Download for ferry-tunnel
+        uses: actions/download-artifact@v2
+        with:
+          name: ferry-tunnel
+
+      - name: Download for ferryctl
+        uses: actions/download-artifact@v2
+        with:
+          name: ferryctl
+
+      - name: Setup
+        run: |
+          cp ferryctl /usr/local/bin/ferryctl && chmod +x /usr/local/bin/ferryctl
+          docker load -i ferry-controller.tar
+          docker load -i ferry-tunnel.tar
+
+      - name: Start cluster
+        run: |
+          ulimit -n 4096
+          ./test/hack/start-environment.sh ${{ matrix.case }}
+
+      - name: Test control-plane and cluster-1
+        run: ./test/test/test-in-both-mcs.sh
+        env:
+          ROUTE_NAME: ferry-test
+          CONTROL_PLANE: control-plane
+          CLUSTER_1: cluster-1
+          CLUSTER_2: control-plane
+          TARGET_1: web-1
+          TARGET_2: web-0
+
   test-2-cluster-cases:
     continue-on-error: true
     strategy:

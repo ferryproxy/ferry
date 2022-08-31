@@ -78,6 +78,25 @@ rules:
       - get
       - list
       - watch
+
+  # For mcs-api
+  - apiGroups:
+      - multicluster.x-k8s.io
+    resources:
+      - serviceimports
+      - serviceexports
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - apiextensions.k8s.io
+    resources:
+      - customresourcedefinitions
+    verbs:
+      - get
+      - list
+      - watch
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding

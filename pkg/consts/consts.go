@@ -33,4 +33,10 @@ const (
 
 	LabelFerryTunnelKey   = "tunnel.ferryproxy.io/service"
 	LabelFerryTunnelValue = "inject"
+
+	LabelGeneratedKey   = "generated.ferryproxy.io"
+	LabelGeneratedValue = "ferry-controller"
+
+	LabelMCSMarkHubKey   = "mcs.traffic.ferryproxy.io/service"
+	LabelMCSMarkHubValue = "enabled"
 )

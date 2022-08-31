@@ -1,0 +1,5 @@
+
+resources:
+- https://github.com/kubernetes-sigs/mcs-api/raw/v0.1.0/config/crd/multicluster.x-k8s.io_serviceexports.yaml
+- https://github.com/kubernetes-sigs/mcs-api/raw/v0.1.0/config/crd/multicluster.x-k8s.io_serviceimports.yaml
+- svc.yaml

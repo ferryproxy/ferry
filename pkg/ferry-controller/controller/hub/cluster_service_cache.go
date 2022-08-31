@@ -18,6 +18,7 @@ package hub
 
 import (
 	"context"
+	"sort"
 	"sync"
 	"time"
 
@@ -42,7 +43,7 @@ type clusterServiceCache struct {
 	logger logr.Logger
 	try    *trybuffer.TryBuffer
 
-	mut sync.Mutex
+	mut sync.RWMutex
 }
 
 type clusterServiceCacheConfig struct {
@@ -102,12 +103,24 @@ func (c *clusterServiceCache) Close() {
 }
 
 func (c *clusterServiceCache) ForEach(fun func(svc *corev1.Service)) {
-	c.mut.Lock()
-	defer c.mut.Unlock()
+	c.mut.RLock()
+	defer c.mut.RUnlock()
 
 	for _, svc := range c.cache {
 		fun(svc)
 	}
+}
+
+func (c *clusterServiceCache) List() []*corev1.Service {
+	svcs := make([]*corev1.Service, 0, len(c.cache))
+	c.ForEach(func(svc *corev1.Service) {
+		svcs = append(svcs, svc)
+	})
+
+	sort.Slice(svcs, func(i, j int) bool {
+		return svcs[i].CreationTimestamp.Before(&svcs[j].CreationTimestamp)
+	})
+	return svcs
 }
 
 func (c *clusterServiceCache) sync() {
