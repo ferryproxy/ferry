@@ -12,15 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM docker.io/library/golang:alpine AS builder
-WORKDIR /go/src/github.com/ferryproxy/ferry/
-COPY . .
-ENV CGO_ENABLED=0
-RUN apk add git
-RUN go install ./cmd/ferry-tunnel-controller
-RUN go install ./cmd/ferry-tunnel
+FROM --platform=$TARGETPLATFORM docker.io/library/alpine:3.16
+ARG TARGETPLATFORM
+COPY --chmod=0755 bin/$TARGETPLATFORM/ferry-tunnel-controller /usr/local/bin/
+COPY --chmod=0755 bin/$TARGETPLATFORM/ferry-tunnel /usr/local/bin/
 
-FROM ghcr.io/wzshiming/bridge/bridge:v0.8.5
-COPY --from=builder /go/bin/ferry-tunnel-controller /usr/local/bin/
-COPY --from=builder /go/bin/ferry-tunnel /usr/local/bin/
 ENTRYPOINT [ "/usr/local/bin/ferry-tunnel-controller" ]

@@ -21,6 +21,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/ferryproxy/ferry/pkg/consts"
 	"github.com/ferryproxy/ferry/pkg/utils/env"
 )
 
@@ -30,9 +31,9 @@ var (
 	KubeconfigPath     = env.GetEnv("KUBECONFIG", filepath.Join(home, ".kube/config"))
 	PeerKubeconfigPath = env.GetEnv("FERRY_PEER_KUBECONFIG", "")
 
-	FerryImagePrefix = env.GetEnv("FERRY_IMAGE_PREFIX", "ghcr.io/ferryproxy/ferry")
+	FerryImagePrefix = env.GetEnv("FERRY_IMAGE_PREFIX", consts.ImagePrefix)
 
-	FerryVersion = env.GetEnv("FERRY_VERSION", "v0.5.1")
+	FerryVersion = env.GetEnv("FERRY_VERSION", consts.Version)
 
 	FerryControllerImage = env.GetEnv("FERRY_CONTROLLER_IMAGE", FerryImagePrefix+"/ferry-controller:"+FerryVersion)
 

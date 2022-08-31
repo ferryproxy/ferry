@@ -12,13 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM docker.io/library/golang:alpine AS builder
-WORKDIR /go/src/github.com/ferryproxy/ferry/
-COPY . .
-ENV CGO_ENABLED=0
-RUN apk add git
-RUN go install ./cmd/ferry-controller
+FROM --platform=$TARGETPLATFORM docker.io/library/alpine:3.16
+ARG TARGETPLATFORM
+COPY --chmod=0755 bin/$TARGETPLATFORM/ferry-controller /usr/local/bin/
 
-FROM docker.io/library/alpine
-COPY --from=builder /go/bin/ferry-controller /usr/local/bin/
 ENTRYPOINT [ "/usr/local/bin/ferry-controller" ]
