@@ -44,4 +44,6 @@ const (
 
 	LabelMCSMarkHubKey   = "mcs.traffic.ferryproxy.io/service"
 	LabelMCSMarkHubValue = "enabled"
+
+	TunnelRulesKey = "tunnel"
 )

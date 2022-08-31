@@ -137,7 +137,7 @@ func TestRouter(t *testing.T) {
 								},
 							},
 							Data: map[string]string{
-								"tunnel": toJson(
+								consts.TunnelRulesKey: toJson(
 									[]Chain{
 										{
 											Bind: []string{
@@ -308,7 +308,7 @@ func TestRouter(t *testing.T) {
 								},
 							},
 							Data: map[string]string{
-								"tunnel": toJson(
+								consts.TunnelRulesKey: toJson(
 									[]Chain{
 										{
 											Bind: []string{
@@ -432,7 +432,7 @@ func TestRouter(t *testing.T) {
 								},
 							},
 							Data: map[string]string{
-								"tunnel": toJson(
+								consts.TunnelRulesKey: toJson(
 									[]Chain{
 										{
 											Bind: []string{
@@ -463,7 +463,7 @@ func TestRouter(t *testing.T) {
 								},
 							},
 							Data: map[string]string{
-								"tunnel": toJson(
+								consts.TunnelRulesKey: toJson(
 									[]Chain{
 										{
 											Bind: []string{
