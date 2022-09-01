@@ -190,6 +190,30 @@ jobs:
           TARGET_1: web-1
           TARGET_2: web-0
 
+      - name: Test control-plane and cluster-1 and cluster-2
+        run: ./test/test/test-load-balance.sh
+        env:
+          ROUTE_NAME: ferry-test
+          CONTROL_PLANE: control-plane
+          CLUSTER_1: control-plane
+          CLUSTER_2: cluster-1
+          CLUSTER_3: cluster-2
+          TARGET_1: web-0
+          TARGET_2: web-1
+          TARGET_3: web-2
+
+      - name: Test cluster-1 and cluster-2 and control-plane
+        run: ./test/test/test-load-balance.sh
+        env:
+          ROUTE_NAME: ferry-test
+          CONTROL_PLANE: control-plane
+          CLUSTER_1: cluster-1
+          CLUSTER_2: cluster-2
+          CLUSTER_3: control-plane
+          TARGET_1: web-1
+          TARGET_2: web-2
+          TARGET_3: web-0
+
   test-not-controller-cases:
     continue-on-error: true
     strategy:
