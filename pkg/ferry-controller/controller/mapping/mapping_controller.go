@@ -126,7 +126,7 @@ func (d *MappingController) Start(ctx context.Context) error {
 		return err
 	}
 
-	d.try = trybuffer.NewTryBuffer(d.sync, time.Second/2)
+	d.try = trybuffer.NewTryBuffer(d.sync, time.Second/10)
 
 	d.clusterCache.RegistryServiceCallback(d.exportHubName, d.importHubName, d.Sync)
 

@@ -90,7 +90,7 @@ func (c *clusterServiceImportCache) ResetClientset(clientset versioned.Interface
 
 func (c *clusterServiceImportCache) Start(ctx context.Context) error {
 	c.parentCtx = ctx
-	c.try = trybuffer.NewTryBuffer(c.syncFunc, time.Second/2)
+	c.try = trybuffer.NewTryBuffer(c.syncFunc, time.Second/10)
 	err := c.ResetClientset(c.clientset)
 	if err != nil {
 		return err

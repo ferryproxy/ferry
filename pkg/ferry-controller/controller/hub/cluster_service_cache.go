@@ -89,7 +89,7 @@ func (c *clusterServiceCache) ResetClientset(clientset kubernetes.Interface) err
 
 func (c *clusterServiceCache) Start(ctx context.Context) error {
 	c.parentCtx = ctx
-	c.try = trybuffer.NewTryBuffer(c.sync, time.Second/2)
+	c.try = trybuffer.NewTryBuffer(c.sync, time.Second/10)
 	err := c.ResetClientset(c.clientset)
 	if err != nil {
 		return err
