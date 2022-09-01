@@ -32,11 +32,10 @@ import (
 )
 
 var (
-	serviceName   = env.GetEnv("SERVICE_NAME", consts.FerryTunnelName)
-	namespace     = env.GetEnv("NAMESPACE", consts.FerryTunnelNamespace)
-	labelSelector = env.GetEnv("LABEL_SELECTOR", "tunnel.ferryproxy.io/service=inject")
-	master        = env.GetEnv("MASTER", "")
-	kubeconfig    = env.GetEnv("KUBECONFIG", "")
+	serviceName = env.GetEnv("SERVICE_NAME", consts.FerryTunnelName)
+	namespace   = env.GetEnv("NAMESPACE", consts.FerryTunnelNamespace)
+	master      = env.GetEnv("MASTER", "")
+	kubeconfig  = env.GetEnv("KUBECONFIG", "")
 )
 
 const (
@@ -72,10 +71,11 @@ func main() {
 	}()
 
 	if serviceName != "" {
-		svcSyncer := controller.NewServiceSyncer(&controller.ServiceSyncerConfig{
+		svcSyncer := controller.NewDiscoveryController(&controller.DiscoveryControllerConfig{
 			Clientset:     clientset,
-			Logger:        log.WithName("service-syncer"),
-			LabelSelector: labelSelector,
+			Logger:        log.WithName("discovery-controller"),
+			Namespace:     namespace,
+			LabelSelector: consts.TunnelDiscoverConfigMapsKey + "=" + consts.TunnelDiscoverConfigMapsValue,
 		})
 
 		epWatcher := controller.NewEndpointWatcher(&controller.EndpointWatcherConfig{
@@ -102,7 +102,7 @@ func main() {
 
 	ctr := controller.NewRuntimeController(&controller.RuntimeControllerConfig{
 		Namespace:     namespace,
-		LabelSelector: labelSelector,
+		LabelSelector: consts.TunnelRulesConfigMapsKey + "=" + consts.TunnelRulesConfigMapsValue,
 		Clientset:     clientset,
 		Logger:        log.WithName("runtime-controller"),
 		Conf:          conf,

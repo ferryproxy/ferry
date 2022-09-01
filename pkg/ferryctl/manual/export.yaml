@@ -4,9 +4,9 @@ kind: ConfigMap
 metadata:
   labels:
     app: ferry-tunnel
-    tunnel.ferryproxy.io/service: inject
+    tunnel.ferryproxy.io/rules: enabled
   name: {{ .ExportName }}
-  namespace: {{ .ExportNamespace }}
+  namespace: ferry-tunnel-system
 data:
   tunnel: |
     [

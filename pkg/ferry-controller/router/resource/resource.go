@@ -168,7 +168,7 @@ func (s Service) Apply(ctx context.Context, clientset kubernetes.Interface) (err
 			return fmt.Errorf("create service %s: %w", objref.KObj(s), err)
 		}
 	} else {
-		if ori.Labels[consts.LabelFerryManagedByKey] != consts.LabelFerryManagedByValue {
+		if ori.Labels[consts.LabelGeneratedKey] == "" {
 			return fmt.Errorf("service %s is not managed by ferry", objref.KObj(s))
 		}
 		if reflect.DeepEqual(ori.Spec.Ports, s.Spec.Ports) {
@@ -177,8 +177,6 @@ func (s Service) Apply(ctx context.Context, clientset kubernetes.Interface) (err
 
 		copyLabel(ori.Labels, s.Labels)
 
-		logger.Info("Update Service", "Service", objref.KObj(s))
-		logger.Info(cmp.Diff(ori.Spec.Ports, s.Spec.Ports), "Service", objref.KObj(s))
 		ori.Spec.Ports = s.Spec.Ports
 		_, err = clientset.
 			CoreV1().
@@ -203,6 +201,65 @@ func (s Service) Delete(ctx context.Context, clientset kubernetes.Interface) (er
 		Delete(ctx, s.Name, metav1.DeleteOptions{})
 	if err != nil && !errors.IsNotFound(err) {
 		return fmt.Errorf("delete service %s: %w", objref.KObj(s), err)
+	}
+	return nil
+}
+
+type Endpoints struct {
+	*corev1.Endpoints
+}
+
+func (s Endpoints) Apply(ctx context.Context, clientset kubernetes.Interface) (err error) {
+	logger := logr.FromContextOrDiscard(ctx)
+	ori, err := clientset.
+		CoreV1().
+		Endpoints(s.Namespace).
+		Get(ctx, s.Name, metav1.GetOptions{})
+	if err != nil {
+		if !errors.IsNotFound(err) {
+			return fmt.Errorf("get Endpoints %s: %w", objref.KObj(s), err)
+		}
+		logger.Info("Creating Endpoints", "Endpoints", objref.KObj(s))
+		_, err = clientset.
+			CoreV1().
+			Endpoints(s.Namespace).
+			Create(ctx, s.Endpoints, metav1.CreateOptions{
+				FieldManager: consts.LabelFerryManagedByValue,
+			})
+		if err != nil {
+			return fmt.Errorf("create Endpoints %s: %w", objref.KObj(s), err)
+		}
+	} else {
+		if ori.Labels[consts.LabelGeneratedKey] == "" {
+			return fmt.Errorf("endpoints %s is not managed by ferry", objref.KObj(s))
+		}
+		if reflect.DeepEqual(ori.Subsets, s.Subsets) {
+			return nil
+		}
+		ori.Subsets = s.Subsets
+		_, err = clientset.
+			CoreV1().
+			Endpoints(s.Namespace).
+			Update(ctx, ori, metav1.UpdateOptions{
+				FieldManager: consts.LabelFerryManagedByValue,
+			})
+		if err != nil {
+			return fmt.Errorf("update Endpoints %s: %w", objref.KObj(s), err)
+		}
+	}
+	return nil
+}
+
+func (s Endpoints) Delete(ctx context.Context, clientset kubernetes.Interface) (err error) {
+	logger := logr.FromContextOrDiscard(ctx)
+	logger.Info("Deleting Endpoints", "Endpoints", objref.KObj(s))
+
+	err = clientset.
+		CoreV1().
+		Endpoints(s.Namespace).
+		Delete(ctx, s.Name, metav1.DeleteOptions{})
+	if err != nil && !errors.IsNotFound(err) {
+		return fmt.Errorf("delete Endpoints %s: %w", objref.KObj(s), err)
 	}
 	return nil
 }
@@ -233,7 +290,7 @@ func (s ConfigMap) Apply(ctx context.Context, clientset kubernetes.Interface) (e
 			return fmt.Errorf("create ConfigMap %s: %w", objref.KObj(s), err)
 		}
 	} else {
-		if ori.Labels[consts.LabelFerryManagedByKey] != consts.LabelFerryManagedByValue {
+		if ori.Labels[consts.LabelGeneratedKey] == "" {
 			return fmt.Errorf("configmap %s is not managed by ferry", objref.KObj(s))
 		}
 
@@ -278,11 +335,7 @@ func (s ConfigMap) Delete(ctx context.Context, clientset kubernetes.Interface) (
 func copyLabel(old, new map[string]string) {
 	keys := []string{
 		consts.LabelFerryExportedFromKey,
-		consts.LabelFerryExportedFromNamespaceKey,
-		consts.LabelFerryExportedFromNameKey,
-		consts.LabelFerryExportedFromPortsKey,
 		consts.LabelFerryImportedToKey,
-		consts.LabelFerryTunnelKey,
 	}
 	for _, key := range keys {
 		if v, ok := new[key]; ok {

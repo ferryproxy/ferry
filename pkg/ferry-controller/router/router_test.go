@@ -27,7 +27,6 @@ import (
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 func TestRouter(t *testing.T) {
@@ -130,10 +129,7 @@ func TestRouter(t *testing.T) {
 								Name:      "import-test-svc1-80-export-test-svc1-10001-tunnel",
 								Namespace: "ferry-tunnel-system",
 								Labels: map[string]string{
-									"traffic.ferryproxy.io/exported-from-name":      "svc1",
-									"traffic.ferryproxy.io/exported-from-namespace": "test",
-									"traffic.ferryproxy.io/exported-from-ports":     "10001",
-									"tunnel.ferryproxy.io/service":                  "inject",
+									"tunnel.ferryproxy.io/rules": "enabled",
 								},
 							},
 							Data: map[string]string{
@@ -155,27 +151,22 @@ func TestRouter(t *testing.T) {
 							},
 						},
 					},
-					resource.Service{
-						Service: &corev1.Service{
+					resource.ConfigMap{
+						ConfigMap: &corev1.ConfigMap{
 							ObjectMeta: metav1.ObjectMeta{
-								Name:      "svc1",
-								Namespace: "test",
+								Name:      "import-test-svc1-export-test-svc1-service",
+								Namespace: "ferry-tunnel-system",
 								Labels: map[string]string{
-									"traffic.ferryproxy.io/exported-from-name":      "svc1",
-									"traffic.ferryproxy.io/exported-from-namespace": "test",
-									"traffic.ferryproxy.io/exported-from-ports":     "10001",
-									"tunnel.ferryproxy.io/service":                  "inject",
+									"tunnel.ferryproxy.io/service": "enabled",
 								},
 							},
-							Spec: corev1.ServiceSpec{
-								Ports: []corev1.ServicePort{
-									{
-										Name:       "http",
-										Protocol:   "TCP",
-										Port:       80,
-										TargetPort: intstr.IntOrString{IntVal: 10001},
-									},
-								},
+							Data: map[string]string{
+								"export_hub_name":          "export",
+								"export_service_name":      "svc1",
+								"export_service_namespace": "test",
+								"import_service_name":      "svc1",
+								"import_service_namespace": "test",
+								"ports":                    `[{"name":"http","protocol":"TCP","port":80,"targetPort":10001}]`,
 							},
 						},
 					},
@@ -269,27 +260,22 @@ func TestRouter(t *testing.T) {
 			},
 			want: map[string][]resource.Resourcer{
 				"import": {
-					resource.Service{
-						Service: &corev1.Service{
+					resource.ConfigMap{
+						ConfigMap: &corev1.ConfigMap{
 							ObjectMeta: metav1.ObjectMeta{
-								Name:      "svc1",
-								Namespace: "test",
+								Name:      "import-test-svc1-export-test-svc1-service",
+								Namespace: "ferry-tunnel-system",
 								Labels: map[string]string{
-									"traffic.ferryproxy.io/exported-from-name":      "svc1",
-									"traffic.ferryproxy.io/exported-from-namespace": "test",
-									"traffic.ferryproxy.io/exported-from-ports":     "10001",
-									"tunnel.ferryproxy.io/service":                  "inject",
+									"tunnel.ferryproxy.io/service": "enabled",
 								},
 							},
-							Spec: corev1.ServiceSpec{
-								Ports: []corev1.ServicePort{
-									{
-										Name:       "http",
-										Protocol:   "TCP",
-										Port:       80,
-										TargetPort: intstr.IntOrString{IntVal: 10001},
-									},
-								},
+							Data: map[string]string{
+								"export_hub_name":          "export",
+								"export_service_name":      "svc1",
+								"export_service_namespace": "test",
+								"import_service_name":      "svc1",
+								"import_service_namespace": "test",
+								"ports":                    `[{"name":"http","protocol":"TCP","port":80,"targetPort":10001}]`,
 							},
 						},
 					},
@@ -301,10 +287,7 @@ func TestRouter(t *testing.T) {
 								Name:      "import-test-svc1-80-export-test-svc1-10001-tunnel",
 								Namespace: "ferry-tunnel-system",
 								Labels: map[string]string{
-									"traffic.ferryproxy.io/exported-from-name":      "svc1",
-									"traffic.ferryproxy.io/exported-from-namespace": "test",
-									"traffic.ferryproxy.io/exported-from-ports":     "10001",
-									"tunnel.ferryproxy.io/service":                  "inject",
+									"tunnel.ferryproxy.io/rules": "enabled",
 								},
 							},
 							Data: map[string]string{
@@ -425,10 +408,7 @@ func TestRouter(t *testing.T) {
 								Name:      "import-test-svc1-80-export-test-svc1-10001-tunnel",
 								Namespace: "ferry-tunnel-system",
 								Labels: map[string]string{
-									"traffic.ferryproxy.io/exported-from-name":      "svc1",
-									"traffic.ferryproxy.io/exported-from-namespace": "test",
-									"traffic.ferryproxy.io/exported-from-ports":     "10001",
-									"tunnel.ferryproxy.io/service":                  "inject",
+									"tunnel.ferryproxy.io/rules": "enabled",
 								},
 							},
 							Data: map[string]string{
@@ -456,10 +436,7 @@ func TestRouter(t *testing.T) {
 								Name:      "import-test-svc1-80-export-test-svc1-10001-tunnel",
 								Namespace: "ferry-tunnel-system",
 								Labels: map[string]string{
-									"traffic.ferryproxy.io/exported-from-name":      "svc1",
-									"traffic.ferryproxy.io/exported-from-namespace": "test",
-									"traffic.ferryproxy.io/exported-from-ports":     "10001",
-									"tunnel.ferryproxy.io/service":                  "inject",
+									"tunnel.ferryproxy.io/rules": "enabled",
 								},
 							},
 							Data: map[string]string{
@@ -479,27 +456,22 @@ func TestRouter(t *testing.T) {
 							},
 						},
 					},
-					resource.Service{
-						Service: &corev1.Service{
+					resource.ConfigMap{
+						ConfigMap: &corev1.ConfigMap{
 							ObjectMeta: metav1.ObjectMeta{
-								Name:      "svc1",
-								Namespace: "test",
+								Name:      "import-test-svc1-export-test-svc1-service",
+								Namespace: "ferry-tunnel-system",
 								Labels: map[string]string{
-									"traffic.ferryproxy.io/exported-from-name":      "svc1",
-									"traffic.ferryproxy.io/exported-from-namespace": "test",
-									"traffic.ferryproxy.io/exported-from-ports":     "10001",
-									"tunnel.ferryproxy.io/service":                  "inject",
+									"tunnel.ferryproxy.io/service": "enabled",
 								},
 							},
-							Spec: corev1.ServiceSpec{
-								Ports: []corev1.ServicePort{
-									{
-										Name:       "http",
-										Protocol:   "TCP",
-										Port:       80,
-										TargetPort: intstr.IntOrString{IntVal: 10001},
-									},
-								},
+							Data: map[string]string{
+								"export_hub_name":          "export",
+								"export_service_name":      "svc1",
+								"export_service_namespace": "test",
+								"import_service_name":      "svc1",
+								"import_service_namespace": "test",
+								"ports":                    `[{"name":"http","protocol":"TCP","port":80,"targetPort":10001}]`,
 							},
 						},
 					},

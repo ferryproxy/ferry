@@ -1,14 +1,20 @@
 apiVersion: v1
-kind: Service
+kind: ConfigMap
 metadata:
   labels:
-    traffic.ferryproxy.io/exported-from-ports: '{{ .TargetPort }}'
-    tunnel.ferryproxy.io/service: inject
-  name: {{ .ServiceName }}
-  namespace: {{ .ServiceNamespace }}
-spec:
-  ports:
-    - port: {{ .Port }}
-      protocol: TCP
-      targetPort: {{ .TargetPort }}
-  type: ClusterIP
+    app: ferry-tunnel
+    tunnel.ferryproxy.io/service: enabled
+  name: {{ .ServiceName }}-service
+  namespace: ferry-tunnel-system
+data:
+  import_service_namespace: {{ .ServiceNamespace }}
+  import_service_name: {{ .ServiceName }}
+  ports: |
+    [
+      {
+        "name": "",
+        "port": {{ .Port }},
+        "protocol": "TCP",
+        "targetPort": {{ .TargetPort }}
+      }
+    ]
