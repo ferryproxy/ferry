@@ -33,6 +33,6 @@ for name in $(ls ${ENVIRONMENT_DIR} | grep -v in-cluster | grep .yaml); do
     continue
   fi
 
-  kind delete clusters "${ENVIRONMENT_NAME}-${name}" || :
+  kind delete clusters "ferry-test-${name}" || :
   rm -f "${KUBECONFIG_DIR}/${name}.yaml" "${KUBECONFIG_DIR}/${name}-in-cluster.yaml" || :
 done
