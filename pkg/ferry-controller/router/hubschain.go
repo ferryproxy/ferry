@@ -22,6 +22,7 @@ import (
 	"strings"
 
 	"github.com/ferryproxy/api/apis/traffic/v1alpha2"
+	"github.com/ferryproxy/ferry/pkg/consts"
 	"github.com/ferryproxy/ferry/pkg/ferry-controller/router/resource"
 	"github.com/ferryproxy/ferry/pkg/utils/objref"
 	corev1 "k8s.io/api/core/v1"
@@ -270,7 +271,7 @@ func convertChainToResourcer(name, namespace string, labels map[string]string, c
 			Labels:    labels,
 		},
 		Data: map[string]string{
-			"tunnel": string(data),
+			consts.TunnelRulesKey: string(data),
 		},
 	}
 

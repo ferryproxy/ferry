@@ -23,6 +23,7 @@ import (
 	"sort"
 	"sync"
 
+	"github.com/ferryproxy/ferry/pkg/consts"
 	"github.com/ferryproxy/ferry/pkg/utils/objref"
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
@@ -101,53 +102,27 @@ func (c *ConfigWatcher) Reload() {
 
 func (c *ConfigWatcher) update(cm *corev1.ConfigMap) {
 	data := make([]json.RawMessage, 0, len(cm.Data)+len(cm.BinaryData))
-	for key, content := range cm.Data {
-		tmp := []json.RawMessage{}
-		err := json.Unmarshal([]byte(content), &tmp)
-		if err != nil {
-			c.logger.Error(err, "unmarshal context failed",
-				"configmap", objref.KObj(cm),
-				"key", key,
-				"context", content,
-			)
-			continue
-		}
-		for _, item := range tmp {
-			v, err := shrinkJSON(item)
-			if err != nil {
-				c.logger.Error(err, "shrink json failed",
-					"configmap", objref.KObj(cm),
-					"key", key,
-					"item", item,
-				)
-				continue
-			}
-			data = append(data, v)
-		}
+	content := cm.Data[consts.TunnelRulesKey]
+
+	tmp := []json.RawMessage{}
+	err := json.Unmarshal([]byte(content), &tmp)
+	if err != nil {
+		c.logger.Error(err, "unmarshal context failed",
+			"configmap", objref.KObj(cm),
+			"context", content,
+		)
+		return
 	}
-	for key, content := range cm.BinaryData {
-		tmp := []json.RawMessage{}
-		err := json.Unmarshal(content, &tmp)
+	for _, item := range tmp {
+		v, err := shrinkJSON(item)
 		if err != nil {
-			c.logger.Error(err, "unmarshal context failed",
+			c.logger.Error(err, "shrink json failed",
 				"configmap", objref.KObj(cm),
-				"key", key,
-				"context", string(content),
+				"item", item,
 			)
 			continue
 		}
-		for _, item := range tmp {
-			v, err := shrinkJSON(item)
-			if err != nil {
-				c.logger.Error(err, "shrink json failed",
-					"configmap", objref.KObj(cm),
-					"key", key,
-					"item", item,
-				)
-				continue
-			}
-			data = append(data, v)
-		}
+		data = append(data, v)
 	}
 
 	defer c.Reload()
