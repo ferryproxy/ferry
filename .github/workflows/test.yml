@@ -146,6 +146,7 @@ jobs:
     strategy:
       matrix:
         case:
+          - default-3-clusters
           - control-plane-unreachable-3-clusters
           - data-plane-unreachable-3-clusters
     runs-on: ubuntu-latest
