@@ -78,7 +78,7 @@ func (r *RuntimeController) Run(ctx context.Context) error {
 		if err != nil {
 			r.logger.Error(err, "reload")
 		}
-	}, time.Second/2)
+	}, time.Second/10)
 
 	go r.watch(ctx)
 

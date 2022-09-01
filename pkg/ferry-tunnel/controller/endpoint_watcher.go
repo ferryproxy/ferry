@@ -68,7 +68,7 @@ func (e *EndpointWatcher) Run(ctx context.Context) error {
 		return fmt.Errorf("failed to watch service: %w", err)
 	}
 
-	e.try = trybuffer.NewTryBuffer(e.sync, time.Second/2)
+	e.try = trybuffer.NewTryBuffer(e.sync, time.Second/10)
 
 	for {
 		select {

@@ -60,7 +60,7 @@ func NewController(conf *ControllerConfig) *Controller {
 func (c *Controller) Run(ctx context.Context) error {
 	ctx, cancel := context.WithCancel(ctx)
 	c.ctx = ctx
-	c.try = trybuffer.NewTryBuffer(c.sync, time.Second/2)
+	c.try = trybuffer.NewTryBuffer(c.sync, time.Second/10)
 
 	hubController := hub.NewHubController(hub.HubControllerConfig{
 		Config:    c.config,
