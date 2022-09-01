@@ -217,5 +217,5 @@ jobs:
           ulimit -n 4096
           ./test/hack/start-environment.sh ${{ matrix.case }}
 
-      - name: Test forward
+      - name: Test ${{ matrix.case }}
         run: ./test/test/test-${{ matrix.case }}.sh
