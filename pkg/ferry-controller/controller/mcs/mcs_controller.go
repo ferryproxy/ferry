@@ -95,7 +95,7 @@ func (m *MCSController) Sync(ctx context.Context) {
 	m.mut.Lock()
 	defer m.mut.Unlock()
 
-	importMap, exportMap := m.clusterCache.ListMCS(m.namespace)
+	importMap, exportMap := m.clusterCache.ListMCS("")
 
 	updated := mcsToRoutePolicies(importMap, exportMap)
 

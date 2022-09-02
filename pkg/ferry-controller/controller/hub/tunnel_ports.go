@@ -17,12 +17,8 @@ limitations under the License.
 package hub
 
 import (
-	"strconv"
-	"strings"
-
-	"github.com/ferryproxy/ferry/pkg/consts"
+	"github.com/ferryproxy/ferry/pkg/services"
 	"github.com/go-logr/logr"
-	corev1 "k8s.io/api/core/v1"
 )
 
 type portPeer struct {
@@ -81,73 +77,31 @@ func (d *tunnelPorts) GetPort(cluster, namespace, name string, port int32) int32
 	return p
 }
 
-func (d *tunnelPorts) LoadPortPeer(list *corev1.ServiceList) {
-	for _, item := range list.Items {
-		d.loadPortPeerForService(&item)
-	}
-}
-
-func (d *tunnelPorts) loadPortPeerForService(svc *corev1.Service) {
-	if svc.Labels == nil ||
-		svc.Labels[consts.LabelFerryExportedFromKey] == "" ||
-		svc.Labels[consts.LabelFerryExportedFromNamespaceKey] == "" ||
-		svc.Labels[consts.LabelFerryExportedFromNameKey] == "" ||
-		svc.Labels[consts.LabelFerryExportedFromPortsKey] == "" {
-		return
-	}
-	cluster := svc.Labels[consts.LabelFerryExportedFromKey]
-	namespace := svc.Labels[consts.LabelFerryExportedFromNamespaceKey]
-	name := svc.Labels[consts.LabelFerryExportedFromNameKey]
-	ports := strings.Split(svc.Labels[consts.LabelFerryExportedFromPortsKey], "-")
-	logger := d.logger.WithValues(
-		"cluster", cluster,
-		"namespace", namespace,
-		"name", name,
-	)
-	for _, portStr := range ports {
-		portRaw, err := strconv.ParseInt(portStr, 10, 32)
-		if err != nil {
-			logger.Error(err, "Failed to parse port")
-			continue
-		}
-
-		var serverPort int32
-		for _, svcPort := range svc.Spec.Ports {
-			if svcPort.TargetPort.String() == portStr {
-				serverPort = svcPort.Port
-				break
-			}
-		}
-
-		if serverPort == 0 {
-			logger.Info("no match service port")
-			continue
-		}
-
-		port := int32(portRaw)
+func (d *tunnelPorts) LoadPortPeer(cluster, namespace, name string, ports []services.MappingPort) {
+	for _, port := range ports {
 		peer := portPeer{
 			Cluster:   cluster,
 			Namespace: namespace,
 			Name:      name,
-			Port:      serverPort,
+			Port:      port.TargetPort,
 		}
 
-		if v, ok := d.portToPeer[port]; ok {
+		if v, ok := d.portToPeer[port.Port]; ok {
 			if v != peer {
-				logger.Info("duplicate port", "port", port, "peer", peer, "duplicate", v)
+				d.logger.Info("duplicate port", "port", port.Port, "peer", peer, "duplicate", v)
 				continue
 			}
 		} else {
-			d.portToPeer[port] = peer
+			d.portToPeer[port.Port] = peer
 		}
 
 		if v, ok := d.peerToPort[peer]; ok {
-			if v != port {
-				logger.Info("duplicate peer", "port", port, "peer", peer, "duplicate", v)
+			if v != port.Port {
+				d.logger.Info("duplicate peer", "port", port.Port, "peer", peer, "duplicate", v)
 				continue
 			}
 		} else {
-			d.peerToPort[peer] = port
+			d.peerToPort[peer] = port.Port
 		}
 	}
 }

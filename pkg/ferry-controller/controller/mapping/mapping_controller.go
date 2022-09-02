@@ -25,6 +25,7 @@ import (
 	"github.com/ferryproxy/ferry/pkg/consts"
 	"github.com/ferryproxy/ferry/pkg/ferry-controller/router"
 	"github.com/ferryproxy/ferry/pkg/ferry-controller/router/resource"
+	"github.com/ferryproxy/ferry/pkg/services"
 	"github.com/ferryproxy/ferry/pkg/utils/diffobjs"
 	"github.com/ferryproxy/ferry/pkg/utils/trybuffer"
 	"github.com/go-logr/logr"
@@ -40,7 +41,7 @@ type ClusterCache interface {
 	GetHubGateway(hubName string, forHub string) v1alpha2.HubSpecGateway
 	GetIdentity(name string) string
 	Clientset(name string) kubernetes.Interface
-	LoadPortPeer(importHubName string, list *corev1.ServiceList)
+	LoadPortPeer(importHubName string, cluster, namespace, name string, ports []services.MappingPort)
 	GetPortPeer(importHubName string, cluster, namespace, name string, port int32) int32
 	RegistryServiceCallback(exportHubName, importHubName string, cb func())
 	UnregistryServiceCallback(exportHubName, importHubName string)
@@ -121,11 +122,6 @@ func (d *MappingController) Start(ctx context.Context) error {
 		}
 	}
 
-	err = d.loadLastService(ctx, way[len(way)-1], opt)
-	if err != nil {
-		return err
-	}
-
 	d.try = trybuffer.NewTryBuffer(d.sync, time.Second/10)
 
 	d.clusterCache.RegistryServiceCallback(d.exportHubName, d.importHubName, d.Sync)
@@ -171,23 +167,21 @@ func (d *MappingController) loadLastConfigMap(ctx context.Context, name string, 
 	for _, item := range cmList.Items {
 		d.cacheResources[name] = append(d.cacheResources[name], resource.ConfigMap{item.DeepCopy()})
 	}
+	for _, item := range cmList.Items {
+		if item.Labels != nil && item.Labels[consts.TunnelDiscoverConfigMapsKey] == consts.TunnelDiscoverConfigMapsValue {
+			d.loadPorts(name, &item)
+		}
+	}
 	return nil
 }
 
-func (d *MappingController) loadLastService(ctx context.Context, name string, opt metav1.ListOptions) error {
-	svcList, err := d.clusterCache.Clientset(name).
-		CoreV1().
-		Services("").
-		List(ctx, opt)
+func (d *MappingController) loadPorts(importHubName string, cm *corev1.ConfigMap) {
+	data, err := services.ServiceFrom(cm.Data)
 	if err != nil {
-		return err
+		d.logger.Error(err, "ServiceFrom")
+		return
 	}
-	for _, item := range svcList.Items {
-		d.cacheResources[name] = append(d.cacheResources[name], resource.Service{item.DeepCopy()})
-	}
-
-	d.clusterCache.LoadPortPeer(name, svcList)
-	return nil
+	d.clusterCache.LoadPortPeer(importHubName, data.ExportHubName, data.ExportServiceNamespace, data.ExportServiceName, data.Ports)
 }
 
 func (d *MappingController) getLabel() map[string]string {
@@ -195,7 +189,7 @@ func (d *MappingController) getLabel() map[string]string {
 		return d.labels
 	}
 	d.labels = map[string]string{
-		consts.LabelFerryManagedByKey:    consts.LabelFerryManagedByValue,
+		consts.LabelGeneratedKey:         consts.LabelGeneratedValue,
 		consts.LabelFerryExportedFromKey: d.exportHubName,
 		consts.LabelFerryImportedToKey:   d.importHubName,
 	}

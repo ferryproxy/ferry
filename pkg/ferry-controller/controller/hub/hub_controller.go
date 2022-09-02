@@ -29,6 +29,7 @@ import (
 	externalversions "github.com/ferryproxy/client-go/generated/informers/externalversions"
 	"github.com/ferryproxy/ferry/pkg/client"
 	"github.com/ferryproxy/ferry/pkg/consts"
+	"github.com/ferryproxy/ferry/pkg/services"
 	"github.com/ferryproxy/ferry/pkg/utils/objref"
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
@@ -180,10 +181,10 @@ func (c *HubController) UnregistryServiceCallback(exportHubName, importHubName s
 	c.cacheService[exportHubName].UnregistryCallback(importHubName)
 }
 
-func (c *HubController) LoadPortPeer(importHubName string, list *corev1.ServiceList) {
+func (c *HubController) LoadPortPeer(importHubName string, cluster, namespace, name string, ports []services.MappingPort) {
 	c.mut.RLock()
 	defer c.mut.RUnlock()
-	c.cacheTunnelPorts[importHubName].LoadPortPeer(list)
+	c.cacheTunnelPorts[importHubName].LoadPortPeer(cluster, namespace, name, ports)
 }
 
 func (c *HubController) GetPortPeer(importHubName string, cluster, namespace, name string, port int32) int32 {

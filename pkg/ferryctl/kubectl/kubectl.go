@@ -34,6 +34,7 @@ import (
 
 	"github.com/ferryproxy/ferry/pkg/consts"
 	"github.com/ferryproxy/ferry/pkg/ferryctl/vars"
+	"github.com/ferryproxy/ferry/pkg/services"
 	corev1 "k8s.io/api/core/v1"
 	apimachineryversion "k8s.io/apimachinery/pkg/version"
 	"sigs.k8s.io/yaml"
@@ -273,15 +274,28 @@ func (c *Kubectl) GetTunnelAddress(ctx context.Context) (string, error) {
 }
 
 func (c *Kubectl) GetUnusedPort(ctx context.Context) (string, error) {
-	data, err := commandRun(ctx, "kubectl", "--kubeconfig="+vars.KubeconfigPath, "get", "-A", "svc", "-l", "traffic.ferryproxy.io/exported-from-ports", "-o", "jsonpath={$.items[*].spec.ports[*].targetPort}")
+	used := map[string]struct{}{}
+	data, err := commandRun(ctx, "kubectl", "--kubeconfig="+vars.KubeconfigPath, "get", "-n", "ferry-tunnel-system", "cm", "-l", "tunnel.ferryproxy.io/service=enabled", "-o", "jsonpath={$.items[*].data.ports}")
 	if err != nil {
 		return "", err
 	}
 
-	used := map[string]struct{}{}
-	for _, i := range strings.Split(string(data), " ") {
-		used[i] = struct{}{}
+	reader := json.NewDecoder(bytes.NewBuffer(data))
+
+	for {
+		m := []services.MappingPort{}
+		err = reader.Decode(&m)
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return "", err
+		}
+		for _, port := range m {
+			used[strconv.Itoa(int(port.TargetPort))] = struct{}{}
+		}
 	}
+
 	var port int64 = 20000
 	for ; ; port++ {
 		p := strconv.FormatInt(port, 10)

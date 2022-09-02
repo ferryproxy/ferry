@@ -27,23 +27,21 @@ const (
 	FerryTunnelName      = FerryName + "-tunnel"
 	FerryTunnelNamespace = FerryTunnelName + "-system"
 
-	LabelPrefix                        = "traffic.ferryproxy.io/"
-	LabelFerryExportedFromKey          = LabelPrefix + "exported-from"
-	LabelFerryExportedFromNamespaceKey = LabelPrefix + "exported-from-namespace"
-	LabelFerryExportedFromNameKey      = LabelPrefix + "exported-from-name"
-	LabelFerryExportedFromPortsKey     = LabelPrefix + "exported-from-ports"
-	LabelFerryImportedToKey            = LabelPrefix + "imported-to"
-	LabelFerryManagedByKey             = LabelPrefix + "managed-by"
-	LabelFerryManagedByValue           = "ferry-controller"
+	LabelPrefix               = "traffic.ferryproxy.io/"
+	LabelFerryExportedFromKey = LabelPrefix + "exported-from"
+	LabelFerryImportedToKey   = LabelPrefix + "imported-to"
+	LabelFerryManagedByValue  = "ferry"
 
-	LabelFerryTunnelKey   = "tunnel.ferryproxy.io/service"
-	LabelFerryTunnelValue = "inject"
-
-	LabelGeneratedKey   = "generated.ferryproxy.io"
-	LabelGeneratedValue = "ferry-controller"
+	LabelGeneratedKey         = "generated.ferryproxy.io"
+	LabelGeneratedValue       = "ferry-controller"
+	LabelGeneratedTunnelValue = "ferry-tunnel"
 
 	LabelMCSMarkHubKey   = "mcs.traffic.ferryproxy.io/service"
 	LabelMCSMarkHubValue = "enabled"
 
-	TunnelRulesKey = "tunnel"
+	TunnelRulesKey                = "tunnel"
+	TunnelRulesConfigMapsKey      = "tunnel.ferryproxy.io/rules"
+	TunnelRulesConfigMapsValue    = "enabled"
+	TunnelDiscoverConfigMapsKey   = "tunnel.ferryproxy.io/service"
+	TunnelDiscoverConfigMapsValue = "enabled"
 )

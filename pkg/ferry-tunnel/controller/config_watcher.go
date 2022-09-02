@@ -141,19 +141,19 @@ func (c *ConfigWatcher) delete(cm *corev1.ConfigMap) {
 
 func (c *ConfigWatcher) onAdd(obj interface{}) {
 	cm := obj.(*corev1.ConfigMap)
-	c.logger.Info("add configmap", "configmap", objref.KObj(cm))
+	c.logger.Info("add configmap for rules", "configmap", objref.KObj(cm))
 	c.update(cm)
 }
 
 func (c *ConfigWatcher) onUpdate(oldObj, newObj interface{}) {
 	cm := newObj.(*corev1.ConfigMap)
-	c.logger.Info("update configmap", "configmap", objref.KObj(cm))
+	c.logger.Info("update configmap for rules", "configmap", objref.KObj(cm))
 	c.update(cm)
 }
 
 func (c *ConfigWatcher) onDelete(obj interface{}) {
 	cm := obj.(*corev1.ConfigMap)
-	c.logger.Info("delete configmap", "configmap", objref.KObj(cm))
+	c.logger.Info("delete configmap for rules", "configmap", objref.KObj(cm))
 	c.delete(cm)
 }
 

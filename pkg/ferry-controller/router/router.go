@@ -22,9 +22,11 @@ import (
 	"github.com/ferryproxy/api/apis/traffic/v1alpha2"
 	"github.com/ferryproxy/ferry/pkg/consts"
 	"github.com/ferryproxy/ferry/pkg/ferry-controller/router/resource"
+	"github.com/ferryproxy/ferry/pkg/services"
 	"github.com/ferryproxy/ferry/pkg/utils/maps"
 	"github.com/ferryproxy/ferry/pkg/utils/objref"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 type RouterConfig struct {
@@ -71,6 +73,7 @@ type Router struct {
 
 func (d *Router) SetRoutes(rules []*v1alpha2.Route) {
 	mappings := map[objref.ObjectRef][]objref.ObjectRef{}
+
 	for _, rule := range rules {
 		exportRef := objref.ObjectRef{Name: rule.Spec.Export.Service.Name, Namespace: rule.Spec.Export.Service.Namespace}
 		importRef := objref.ObjectRef{Name: rule.Spec.Import.Service.Name, Namespace: rule.Spec.Import.Service.Namespace}
@@ -85,25 +88,28 @@ func (d *Router) BuildResource(ways []string) (out map[string][]resource.Resourc
 
 	for _, svc := range svcs {
 		origin := objref.KObj(svc)
-		labels := maps.Merge(d.labels, map[string]string{
-			consts.LabelFerryExportedFromNamespaceKey: origin.Namespace,
-			consts.LabelFerryExportedFromNameKey:      origin.Name,
-			consts.LabelFerryTunnelKey:                consts.LabelFerryTunnelValue,
-		})
 		for _, destination := range d.mappings[origin] {
+			labelsForRules := maps.Merge(d.labels, map[string]string{
+				consts.TunnelRulesConfigMapsKey: consts.TunnelRulesConfigMapsValue,
+			})
+			labelsForDiscover := maps.Merge(d.labels, map[string]string{
+				consts.TunnelDiscoverConfigMapsKey: consts.TunnelDiscoverConfigMapsValue,
+			})
 
 			peerPortMapping := map[int32]int32{}
 			for _, port := range svc.Spec.Ports {
 
-				peerPort := d.getPortPeer(d.importHubName, d.exportHubName, destination.Namespace, destination.Name, port.Port)
+				peerPort := d.getPortPeer(d.importHubName, d.exportHubName, origin.Namespace, origin.Name, port.Port)
 				peerPortMapping[port.Port] = peerPort
 
-				name := fmt.Sprintf("%s-%s-%s-%d-%s-%s-%s-%d-tunnel", d.importHubName, destination.Namespace, destination.Name, port.Port, d.exportHubName, origin.Namespace, origin.Name, peerPort)
-				hubsChains, err := d.hubsChain.Build(name, origin, destination, port.Port, peerPort, ways)
+				tunnelName := fmt.Sprintf("%s-%s-%s-%d-%s-%s-%s-%d-tunnel",
+					d.importHubName, destination.Namespace, destination.Name, port.Port,
+					d.exportHubName, origin.Namespace, origin.Name, peerPort)
+				hubsChains, err := d.hubsChain.Build(tunnelName, origin, destination, port.Port, peerPort, ways)
 				if err != nil {
 					return nil, err
 				}
-				resources, err := ConvertChainsToResourcers(name, consts.FerryTunnelNamespace, labels, hubsChains)
+				resources, err := ConvertChainsToResourcers(tunnelName, consts.FerryTunnelNamespace, labelsForRules, hubsChains)
 				if err != nil {
 					return nil, err
 				}
@@ -112,13 +118,51 @@ func (d *Router) BuildResource(ways []string) (out map[string][]resource.Resourc
 				}
 			}
 
-			resources, err := BuildServiceDiscovery(destination.Name, destination.Namespace, labels, peerPortMapping, &svc.Spec)
+			serviceName := fmt.Sprintf("%s-%s-%s-%s-%s-%s-service",
+				d.importHubName, destination.Namespace, destination.Name,
+				d.exportHubName, origin.Namespace, origin.Name)
+
+			ports := buildPorts(peerPortMapping, &svc.Spec)
+
+			svcConfig := services.Service{
+				ExportHubName:          d.exportHubName,
+				ExportServiceNamespace: origin.Namespace,
+				ExportServiceName:      origin.Name,
+				ImportServiceNamespace: destination.Namespace,
+				ImportServiceName:      destination.Name,
+				Ports:                  ports,
+			}
+			data, err := svcConfig.ToMap()
 			if err != nil {
 				return nil, err
 			}
-			out[d.importHubName] = append(out[d.importHubName], resources...)
+			configMap := &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      serviceName,
+					Namespace: consts.FerryTunnelNamespace,
+					Labels:    labelsForDiscover,
+				},
+				Data: data,
+			}
+			out[d.importHubName] = append(out[d.importHubName], resource.ConfigMap{configMap})
 		}
 	}
-
 	return out, nil
+}
+
+func buildPorts(peerPortMapping map[int32]int32, spec *corev1.ServiceSpec) []services.MappingPort {
+	ports := []services.MappingPort{}
+	for _, port := range spec.Ports {
+		if port.Protocol != corev1.ProtocolTCP {
+			continue
+		}
+		svcPort := peerPortMapping[port.Port]
+		ports = append(ports, services.MappingPort{
+			Name:       port.Name,
+			Port:       port.Port,
+			Protocol:   string(port.Protocol),
+			TargetPort: svcPort,
+		})
+	}
+	return ports
 }

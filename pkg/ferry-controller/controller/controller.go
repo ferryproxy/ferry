@@ -98,6 +98,7 @@ func (c *Controller) Run(ctx context.Context) error {
 
 	mcsController := mcs.NewMCSController(&mcs.MCSControllerConfig{
 		Config:       c.config,
+		Namespace:    c.namespace,
 		ClusterCache: hubController,
 		Logger:       c.logger.WithName("mcs"),
 	})
