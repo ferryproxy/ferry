@@ -40,6 +40,7 @@ import (
 type ClusterCache interface {
 	ListMCS(namespace string) (map[string][]*v1alpha1.ServiceImport, map[string][]*v1alpha1.ServiceExport)
 }
+
 type MCSControllerConfig struct {
 	Logger       logr.Logger
 	Config       *restclient.Config
@@ -100,7 +101,7 @@ func (m *MCSController) Sync(ctx context.Context) {
 	updated := mcsToRoutePolicies(importMap, exportMap)
 
 	if reflect.DeepEqual(m.cacheRoutePolicies, updated) {
-		m.logger.Info("RoutePolicy no modify")
+		m.logger.Info("RoutePolicy not modified")
 		return
 	}
 
@@ -167,6 +168,9 @@ func mcsToRoutePolicies(importMap map[string][]*v1alpha1.ServiceImport, exportMa
 				},
 			})
 		}
+		if len(exports) == 0 {
+			continue
+		}
 
 		imports := []v1alpha2.RoutePolicySpecRule{}
 		for _, r := range rule {
@@ -178,7 +182,7 @@ func mcsToRoutePolicies(importMap map[string][]*v1alpha1.ServiceImport, exportMa
 				},
 			})
 		}
-		if len(exports) == 0 || len(imports) == 0 {
+		if len(imports) == 0 {
 			continue
 		}
 
