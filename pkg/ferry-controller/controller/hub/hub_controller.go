@@ -19,6 +19,7 @@ package hub
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"sync"
@@ -34,6 +35,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apiextensions "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	restclient "k8s.io/client-go/rest"
@@ -129,10 +131,16 @@ func (c *HubController) updateStatus(name string, phase string) error {
 	ci.Status.LastSynchronizationTimestamp = metav1.Now()
 	ci.Status.Phase = phase
 
-	_, err := c.clientset.
+	data, err := json.Marshal(map[string]interface{}{
+		"status": ci.Status,
+	})
+	if err != nil {
+		return err
+	}
+	_, err = c.clientset.
 		TrafficV1alpha2().
-		Hubs(c.namespace).
-		UpdateStatus(c.ctx, ci, metav1.UpdateOptions{})
+		Hubs(ci.Namespace).
+		Patch(c.ctx, ci.Name, types.MergePatchType, data, metav1.PatchOptions{}, "status")
 	return err
 }
 

@@ -20,6 +20,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"sort"
@@ -37,6 +38,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/types"
 	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 )
@@ -149,10 +151,16 @@ func (c *RoutePolicyController) updateStatus(name string, phase string, routeCou
 	fp.Status.Phase = phase
 	fp.Status.RouteCount = routeCount
 
-	_, err := c.clientset.
+	data, err := json.Marshal(map[string]interface{}{
+		"status": fp.Status,
+	})
+	if err != nil {
+		return err
+	}
+	_, err = c.clientset.
 		TrafficV1alpha2().
-		RoutePolicies(c.namespace).
-		UpdateStatus(c.ctx, fp, metav1.UpdateOptions{})
+		RoutePolicies(fp.Namespace).
+		Patch(c.ctx, fp.Name, types.MergePatchType, data, metav1.PatchOptions{}, "status")
 	return err
 }
 
