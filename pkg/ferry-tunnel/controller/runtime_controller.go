@@ -142,11 +142,11 @@ func (r *RuntimeController) reload() error {
 	r.mut.Lock()
 	defer r.mut.Unlock()
 
-	tunnelConfig, err := json.MarshalIndent(struct {
+	tunnelConfig, err := json.Marshal(struct {
 		Chains []json.RawMessage `json:"chains"`
 	}{
 		Chains: r.chains,
-	}, "", "  ")
+	})
 	if err != nil {
 		return fmt.Errorf("failed to marshal tunnel config: %w", err)
 	}

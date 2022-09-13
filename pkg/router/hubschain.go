@@ -345,7 +345,7 @@ func ConvertInboundToResourcers(name, namespace string, labels map[string]string
 }
 
 func convertInboundToResourcer(name, namespace string, labels map[string]string, b *Bound) ([]resource.Resourcer, error) {
-	inbound, err := json.MarshalIndent(b.Inbound, "", "  ")
+	inbound, err := json.Marshal(b.Inbound)
 	if err != nil {
 		return nil, err
 	}
@@ -419,7 +419,7 @@ func ConvertOutboundToResourcers(name, namespace string, labels map[string]strin
 }
 
 func convertOutboundToResourcer(name, namespace string, labels map[string]string, b *Bound) ([]resource.Resourcer, error) {
-	outbound, err := json.MarshalIndent(b.Outbound, "", "  ")
+	outbound, err := json.Marshal(b.Outbound)
 	if err != nil {
 		return nil, err
 	}

@@ -639,7 +639,7 @@ func TestRouter(t *testing.T) {
 }
 
 func toJson(c interface{}) string {
-	data, _ := json.MarshalIndent(c, "", "  ")
+	data, _ := json.Marshal(c)
 	return string(data)
 }
 
