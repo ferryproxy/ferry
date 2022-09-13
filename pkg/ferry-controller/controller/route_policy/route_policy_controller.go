@@ -18,6 +18,8 @@ package route_policy
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"reflect"
 	"sort"
@@ -336,9 +338,12 @@ func policiesToRoutes(clusterCache ClusterCache, policies []*v1alpha2.RoutePolic
 
 					policy := match.Policy
 
+					suffix := hash(fmt.Sprintf("%s|%s|%s|%s|%s|%s",
+						exportHubName, exportNamespace, exportName,
+						importHubName, importNamespace, importName))
 					out = append(out, &v1alpha2.Route{
 						ObjectMeta: metav1.ObjectMeta{
-							Name:      fmt.Sprintf("%s-%s-%s-%s-%s-%s-%s", policy.Name, exportHubName, exportNamespace, exportName, importHubName, importNamespace, importName),
+							Name:      fmt.Sprintf("%s-%s", policy.Name, suffix),
 							Namespace: policy.Namespace,
 							Labels:    maps.Merge(policy.Labels, labelsForRoute),
 							OwnerReferences: []metav1.OwnerReference{
@@ -417,4 +422,9 @@ type groupRoutePolicy struct {
 
 var labelsForRoute = map[string]string{
 	consts.LabelGeneratedKey: consts.LabelGeneratedValue,
+}
+
+func hash(s string) string {
+	d := sha256.Sum256([]byte(s))
+	return hex.EncodeToString(d[:6])
 }

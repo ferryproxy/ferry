@@ -38,6 +38,7 @@ func TestManualBuildResource(t *testing.T) {
 	}{
 		{
 			args: ManualConfig{
+				RouteName:        "manual",
 				ExportHubName:    "export-hub",
 				ExportName:       "export-name",
 				ExportNamespace:  "export-namespace",
@@ -74,7 +75,7 @@ func TestManualBuildResource(t *testing.T) {
 					}},
 					resource.ConfigMap{&corev1.ConfigMap{
 						ObjectMeta: metav1.ObjectMeta{
-							Name:      "import-hub-import-namespace-import-name-80-export-hub-export-namespace-export-name-10000-allows",
+							Name:      "manual-allows-80-10000",
 							Namespace: "ferry-tunnel-system",
 							Labels: map[string]string{
 								"tunnel.ferryproxy.io/config": "allows",
@@ -98,7 +99,24 @@ func TestManualBuildResource(t *testing.T) {
 				"import-hub": {
 					resource.ConfigMap{&corev1.ConfigMap{
 						ObjectMeta: metav1.ObjectMeta{
-							Name:      "import-hub-import-namespace-import-name-80-export-hub-export-namespace-export-name-10000-tunnel",
+							Name:      "manual-service",
+							Namespace: "ferry-tunnel-system",
+							Labels: map[string]string{
+								"tunnel.ferryproxy.io/config": "service",
+							},
+						},
+						Data: map[string]string{
+							"export_hub_name":          "export-hub",
+							"export_service_name":      "export-name",
+							"export_service_namespace": "export-namespace",
+							"import_service_name":      "import-name",
+							"import_service_namespace": "import-namespace",
+							"ports":                    `[{"protocol":"TCP","port":80,"targetPort":10000}]`,
+						},
+					}},
+					resource.ConfigMap{&corev1.ConfigMap{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "manual-tunnel-80-10000",
 							Namespace: "ferry-tunnel-system",
 							Labels: map[string]string{
 								"tunnel.ferryproxy.io/config": "rules",
@@ -120,28 +138,12 @@ func TestManualBuildResource(t *testing.T) {
 							),
 						},
 					}},
-					resource.ConfigMap{&corev1.ConfigMap{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      "import-hub-import-namespace-import-name-export-hub-export-namespace-export-name-service",
-							Namespace: "ferry-tunnel-system",
-							Labels: map[string]string{
-								"tunnel.ferryproxy.io/config": "service",
-							},
-						},
-						Data: map[string]string{
-							"export_hub_name":          "export-hub",
-							"export_service_name":      "export-name",
-							"export_service_namespace": "export-namespace",
-							"import_service_name":      "import-name",
-							"import_service_namespace": "import-namespace",
-							"ports":                    `[{"protocol":"TCP","port":80,"targetPort":10000}]`,
-						},
-					}},
 				},
 			},
 		},
 		{
 			args: ManualConfig{
+				RouteName:        "manual",
 				ExportHubName:    "export-hub",
 				ExportName:       "export-name",
 				ExportNamespace:  "export-namespace",
@@ -165,7 +167,7 @@ func TestManualBuildResource(t *testing.T) {
 				"export-hub": {
 					resource.ConfigMap{&corev1.ConfigMap{
 						ObjectMeta: metav1.ObjectMeta{
-							Name:      "import-hub-import-namespace-import-name-80-export-hub-export-namespace-export-name-10000-tunnel",
+							Name:      "manual-tunnel-80-10000",
 							Namespace: "ferry-tunnel-system",
 							Labels: map[string]string{
 								"tunnel.ferryproxy.io/config": "rules",
@@ -204,7 +206,7 @@ func TestManualBuildResource(t *testing.T) {
 					}},
 					resource.ConfigMap{&corev1.ConfigMap{
 						ObjectMeta: metav1.ObjectMeta{
-							Name:      "import-hub-import-namespace-import-name-80-export-hub-export-namespace-export-name-10000-allows",
+							Name:      "manual-allows-80-10000",
 							Namespace: "ferry-tunnel-system",
 							Labels: map[string]string{
 								"tunnel.ferryproxy.io/config": "allows",
@@ -226,7 +228,7 @@ func TestManualBuildResource(t *testing.T) {
 					}},
 					resource.ConfigMap{&corev1.ConfigMap{
 						ObjectMeta: metav1.ObjectMeta{
-							Name:      "import-hub-import-namespace-import-name-export-hub-export-namespace-export-name-service",
+							Name:      "manual-service",
 							Namespace: "ferry-tunnel-system",
 							Labels: map[string]string{
 								"tunnel.ferryproxy.io/config": "service",

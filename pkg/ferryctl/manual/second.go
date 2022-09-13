@@ -20,13 +20,14 @@ import (
 	"encoding/base64"
 	"fmt"
 	"strconv"
-	"strings"
+	"time"
 
 	"github.com/ferryproxy/api/apis/traffic/v1alpha2"
 	"github.com/ferryproxy/ferry/pkg/ferry-controller/router/resource"
 )
 
 type SecondConfig struct {
+	RouteName              string
 	ImportHub              string
 	ExportHub              string
 	IsImport               bool
@@ -51,16 +52,19 @@ func Second(conf SecondConfig) (applyResource, otherResource, importAddress stri
 		return "", "", "", err
 	}
 
-	name := strings.ReplaceAll(conf.ImportService, ".", "-")
+	suffix := time.Now().Format("20060102150405")
 	exportHubName := conf.ExportHub
 	if exportHubName == "" {
-		exportHubName = fmt.Sprintf("manual-%s-export", name)
+		exportHubName = fmt.Sprintf("manual-export-%s", suffix)
 	}
 	importHubName := conf.ImportHub
 	if importHubName == "" {
-		importHubName = fmt.Sprintf("manual-%s-import", name)
+		importHubName = fmt.Sprintf("manual-import-%s", suffix)
 	}
-
+	routeName := conf.RouteName
+	if routeName == "" {
+		routeName = fmt.Sprintf("manual-%s", suffix)
+	}
 	importAuthorized, err := base64.StdEncoding.DecodeString(conf.ImportTunnelAuthorized)
 	if err != nil {
 		return "", "", "", err
@@ -74,6 +78,7 @@ func Second(conf SecondConfig) (applyResource, otherResource, importAddress stri
 	importName, importNamespace := GetService(conf.ImportService)
 	exportName, exportNamespace := GetService(conf.ExportService)
 	mc := ManualConfig{
+		RouteName:       routeName,
 		ImportHubName:   importHubName,
 		ImportName:      importName,
 		ImportNamespace: importNamespace,

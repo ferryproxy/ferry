@@ -25,6 +25,7 @@ import (
 )
 
 type FirstConfig struct {
+	RouteName         string
 	ImportHub         string
 	ExportHub         string
 	Next              string
@@ -51,6 +52,9 @@ func First(conf FirstConfig) (next string, err error) {
 		"--first=false",
 		"--reachable=" + strconv.FormatBool(!conf.Reachable),
 	}
+
+	args = append(args, "--route-name="+conf.RouteName)
+
 	if conf.ExportHub != "" {
 		args = append(args, "--export-hub="+conf.ExportHub)
 	}

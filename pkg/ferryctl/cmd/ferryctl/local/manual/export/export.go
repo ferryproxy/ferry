@@ -31,6 +31,7 @@ import (
 
 func NewCommand(logger log.Logger) *cobra.Command {
 	var (
+		routeName          string
 		importHub          string
 		exportHub          string
 		first              = true
@@ -83,6 +84,7 @@ func NewCommand(logger log.Logger) *cobra.Command {
 
 			if first {
 				second, err := manual.First(manual.FirstConfig{
+					RouteName:         routeName,
 					ExportHub:         exportHub,
 					ImportHub:         importHub,
 					Next:              next,
@@ -106,6 +108,7 @@ func NewCommand(logger log.Logger) *cobra.Command {
 				return nil
 			}
 			applyResource, otherResource, importAddress, err := manual.Second(manual.SecondConfig{
+				RouteName:              routeName,
 				ExportHub:              exportHub,
 				ImportHub:              importHub,
 				IsImport:               isImport,
@@ -148,6 +151,7 @@ func NewCommand(logger log.Logger) *cobra.Command {
 
 	flags := cmd.Flags()
 	flags.BoolVar(&first, "first", first, "first step")
+	flags.StringVar(&routeName, "route-name", "", "route name")
 	flags.StringVar(&exportHub, "export-hub", "", "export hub name")
 	flags.StringVar(&importHub, "import-hub", "", "import hub name")
 	flags.StringVar(&exportService, "export-service", "", "name.namespaces")

@@ -25,6 +25,7 @@ import (
 )
 
 type ManualConfig struct {
+	RouteName        string
 	ExportHubName    string
 	ExportName       string
 	ExportNamespace  string
@@ -46,6 +47,7 @@ type ManualRouter struct {
 func NewManual(conf ManualConfig) *ManualRouter {
 	return &ManualRouter{
 		dateSource: dateSource{
+			routeName:        conf.RouteName,
 			exportHubName:    conf.ExportHubName,
 			exportName:       conf.ExportName,
 			exportNamespace:  conf.ExportNamespace,
@@ -63,6 +65,7 @@ func NewManual(conf ManualConfig) *ManualRouter {
 }
 
 type dateSource struct {
+	routeName        string
 	exportHubName    string
 	exportName       string
 	exportNamespace  string
@@ -141,6 +144,9 @@ func (f *ManualRouter) BuildResource() (out map[string][]resource.Resourcer, err
 
 	router.SetRoutes([]*v1alpha2.Route{
 		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: f.dateSource.routeName,
+			},
 			Spec: v1alpha2.RouteSpec{
 				Import: v1alpha2.RouteSpecRule{
 					HubName: f.dateSource.importHubName,
