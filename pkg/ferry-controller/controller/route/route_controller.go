@@ -230,6 +230,9 @@ func (c *RouteController) Sync(ctx context.Context) {
 
 	for _, key := range updated {
 		mc := c.getMappingController(key)
+		if mc == nil {
+			continue
+		}
 		for _, rule := range newerRoutes[key] {
 			err := c.updateStatus(rule.Name, "Worked", mc.Way())
 			if err != nil {
