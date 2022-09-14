@@ -38,10 +38,6 @@ var (
 	kubeconfig  = env.GetEnv("KUBECONFIG", "")
 )
 
-const (
-	conf = "./bridge.conf"
-)
-
 func main() {
 	logConfig := zap.NewDevelopmentConfig()
 	zapLog, err := logConfig.Build()
@@ -75,7 +71,7 @@ func main() {
 			Clientset:     clientset,
 			Logger:        log.WithName("discovery-controller"),
 			Namespace:     namespace,
-			LabelSelector: consts.TunnelDiscoverConfigMapsKey + "=" + consts.TunnelDiscoverConfigMapsValue,
+			LabelSelector: consts.TunnelConfigKey + "=" + consts.TunnelConfigDiscoverValue,
 		})
 
 		epWatcher := controller.NewEndpointWatcher(&controller.EndpointWatcherConfig{
@@ -83,6 +79,20 @@ func main() {
 			Name:      serviceName,
 			Namespace: namespace,
 			SyncFunc:  svcSyncer.UpdateIPs,
+		})
+
+		authorizedController := controller.NewAuthorizedController(&controller.AuthorizedControllerConfig{
+			Clientset:     clientset,
+			Logger:        log.WithName("authorized-controller"),
+			Namespace:     namespace,
+			LabelSelector: consts.TunnelConfigKey + "=" + consts.TunnelConfigAuthorizedValue,
+		})
+
+		allowController := controller.NewAllowController(&controller.AllowControllerConfig{
+			Clientset:     clientset,
+			Logger:        log.WithName("allow-controller"),
+			Namespace:     namespace,
+			LabelSelector: consts.TunnelConfigKey + "=" + consts.TunnelConfigAllowValue,
 		})
 
 		go func() {
@@ -98,14 +108,27 @@ func main() {
 				log.Error(err, "failed to run service syncer")
 			}
 		}()
+
+		go func() {
+			err := authorizedController.Run(ctx)
+			if err != nil {
+				log.Error(err, "failed to run authorized controller")
+			}
+		}()
+
+		go func() {
+			err := allowController.Run(ctx)
+			if err != nil {
+				log.Error(err, "failed to run allow controller")
+			}
+		}()
 	}
 
 	ctr := controller.NewRuntimeController(&controller.RuntimeControllerConfig{
 		Namespace:     namespace,
-		LabelSelector: consts.TunnelRulesConfigMapsKey + "=" + consts.TunnelRulesConfigMapsValue,
+		LabelSelector: consts.TunnelConfigKey + "=" + consts.TunnelConfigRulesValue,
 		Clientset:     clientset,
 		Logger:        log.WithName("runtime-controller"),
-		Conf:          conf,
 	})
 
 	err = ctr.Run(ctx)

@@ -17,30 +17,33 @@ limitations under the License.
 package manual
 
 import (
-	"context"
 	"fmt"
 	"strconv"
 	"strings"
+
+	"github.com/ferryproxy/ferry/pkg/consts"
 )
 
 type FirstConfig struct {
+	ImportHub         string
+	ExportHub         string
 	Next              string
 	Reachable         bool
 	BindPort          string
 	TunnelAddress     string
-	TunnelIdentity    string
+	TunnelAuthorized  string
 	ExportPort        string
-	ExportHost        string
-	ImportServiceName string
+	ExportService     string
+	ImportService     string
 	PeerTunnelAddress string
 }
 
-func First(ctx context.Context, conf FirstConfig) (next string, err error) {
+func First(conf FirstConfig) (next string, err error) {
 	tunnelAddress := conf.TunnelAddress
-	tunnelIdentity := conf.TunnelIdentity
-	exportHost := conf.ExportHost
+	tunnelAuthorized := conf.TunnelAuthorized
+	exportService := conf.ExportService
 	exportPort := conf.ExportPort
-	importServiceName := conf.ImportServiceName
+	importService := conf.ImportService
 	bindPort := conf.BindPort
 	peerTunnelAddress := conf.PeerTunnelAddress
 
@@ -48,20 +51,27 @@ func First(ctx context.Context, conf FirstConfig) (next string, err error) {
 		"--first=false",
 		"--reachable=" + strconv.FormatBool(!conf.Reachable),
 	}
-	if conf.Reachable {
-		args = append(args, "--peer-identity-data="+tunnelIdentity)
-	} else {
+	if conf.ExportHub != "" {
+		args = append(args, "--export-hub="+conf.ExportHub)
+	}
+	if conf.ImportHub != "" {
+		args = append(args, "--import-hub="+conf.ImportHub)
+	}
+	if !conf.Reachable {
+		args = append(args, "--peer-authorized-data="+tunnelAuthorized)
 		tunnelAddress = ""
 	}
 	args = append(args, "--peer-tunnel-address="+tunnelAddress)
 
-	args = append(args, "--export-host-port="+exportHost+":"+exportPort)
+	args = append(args, "--export-service="+exportService)
 
-	if importServiceName == "" {
-		importServiceName = fmt.Sprintf("%s-%s", strings.ReplaceAll(exportHost, ".", "-"), exportPort)
+	args = append(args, "--port="+exportPort)
+
+	if importService == "" {
+		importService = fmt.Sprintf("%s-%s.%s", strings.ReplaceAll(exportService, ".", "-"), exportPort, consts.FerryTunnelNamespace)
 	}
 	args = append(args, "--bind-port="+bindPort)
-	args = append(args, "--import-service-name="+importServiceName)
+	args = append(args, "--import-service="+importService)
 	args = append(args, "--tunnel-address="+peerTunnelAddress)
 
 	return fmt.Sprintf("ferryctl local manual %s %s\n",

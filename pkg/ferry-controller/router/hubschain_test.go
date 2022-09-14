@@ -23,6 +23,7 @@ import (
 	"github.com/ferryproxy/api/apis/traffic/v1alpha2"
 	"github.com/ferryproxy/ferry/pkg/utils/objref"
 	"github.com/google/go-cmp/cmp"
+	"github.com/wzshiming/sshproxy/permissions"
 )
 
 func TestHubsChain_Build(t *testing.T) {
@@ -34,11 +35,11 @@ func TestHubsChain_Build(t *testing.T) {
 	)
 
 	tests := []struct {
-		name           string
-		hubs           map[string]*v1alpha2.Hub
-		ways           []string
-		wantHubsChains map[string][]*Chain
-		wantErr        bool
+		name      string
+		hubs      map[string]*v1alpha2.Hub
+		ways      []string
+		wantBound map[string]*Bound
+		wantErr   bool
 	}{
 
 		// the 0x0 is can reachable to export, the 0x1 is not
@@ -64,16 +65,28 @@ func TestHubsChain_Build(t *testing.T) {
 				"export",
 				"import",
 			},
-			wantHubsChains: map[string][]*Chain{
-				"export": nil,
-				"import": {
-					{
-						Bind: []string{
-							"0.0.0.0:10000",
+			wantBound: map[string]*Bound{
+				"export": {
+					Inbound: map[string]*AllowList{
+						"import": {
+							DirectTcpip: permissions.Permission{
+								Allows: []string{
+									"oname.ons.svc:80",
+								},
+							},
 						},
-						Proxy: []string{
-							"oname.ons.svc:80",
-							"ssh://export:8080?identity_data=export-identity",
+					},
+				},
+				"import": {
+					Outbound: []*Chain{
+						{
+							Bind: []string{
+								":10000",
+							},
+							Proxy: []string{
+								"oname.ons.svc:80",
+								"ssh://import@export:8080?identity_file=/var/ferry/ssh/identity&target_hub=export",
+							},
 						},
 					},
 				},
@@ -99,19 +112,30 @@ func TestHubsChain_Build(t *testing.T) {
 				"export",
 				"import",
 			},
-			wantHubsChains: map[string][]*Chain{
+			wantBound: map[string]*Bound{
 				"export": {
-					{
-						Bind: []string{
-							"0.0.0.0:10000",
-							"ssh://import:8080?identity_data=import-identity",
-						},
-						Proxy: []string{
-							"oname.ons.svc:80",
+					Outbound: []*Chain{
+						{
+							Bind: []string{
+								":10000",
+								"ssh://export@import:8080?identity_file=/var/ferry/ssh/identity&target_hub=import",
+							},
+							Proxy: []string{
+								"oname.ons.svc:80"},
 						},
 					},
 				},
-				"import": nil,
+				"import": {
+					Inbound: map[string]*AllowList{
+						"export": {
+							TcpipForward: permissions.Permission{
+								Allows: []string{
+									":10000",
+								},
+							},
+						},
+					},
+				},
 			},
 		},
 
@@ -140,30 +164,53 @@ func TestHubsChain_Build(t *testing.T) {
 				"repeater",
 				"import",
 			},
-			wantHubsChains: map[string][]*Chain{
+			wantBound: map[string]*Bound{
 				"export": {
-					{
-						Bind: []string{
-							"unix:///dev/shm/dns-dname-80-ons-oname-10000-tunnel.socks",
-							"ssh://repeater:8080?identity_data=repeater-identity",
-						},
-						Proxy: []string{
-							"oname.ons.svc:80",
+					Outbound: []*Chain{
+						{
+							Bind: []string{
+								"unix:///dev/shm/dns-dname-80-ons-oname-10000-tunnel.socks",
+								"ssh://export@repeater:8080?identity_file=/var/ferry/ssh/identity&target_hub=repeater",
+							},
+							Proxy: []string{
+								"oname.ons.svc:80",
+							},
 						},
 					},
+					Inbound: nil,
 				},
 				"import": {
-					{
-						Bind: []string{
-							"0.0.0.0:10000",
+					Outbound: []*Chain{
+						{
+							Bind: []string{
+								":10000",
+							},
+							Proxy: []string{
+								"unix:///dev/shm/dns-dname-80-ons-oname-10000-tunnel.socks",
+								"ssh://import@repeater:8080?identity_file=/var/ferry/ssh/identity&target_hub=repeater",
+							},
 						},
-						Proxy: []string{
-							"unix:///dev/shm/dns-dname-80-ons-oname-10000-tunnel.socks",
-							"ssh://repeater:8080?identity_data=repeater-identity",
+					},
+					Inbound: nil,
+				},
+				"repeater": {
+					Inbound: map[string]*AllowList{
+						"export": {
+							StreamlocalForward: permissions.Permission{
+								Allows: []string{
+									"/dev/shm/dns-dname-80-ons-oname-10000-tunnel.socks",
+								},
+							},
+						},
+						"import": {
+							DirectStreamlocal: permissions.Permission{
+								Allows: []string{
+									"/dev/shm/dns-dname-80-ons-oname-10000-tunnel.socks",
+								},
+							},
 						},
 					},
 				},
-				"repeater": nil,
 			},
 		},
 		// 0b01
@@ -195,18 +242,40 @@ func TestHubsChain_Build(t *testing.T) {
 				"repeater",
 				"import",
 			},
-			wantHubsChains: map[string][]*Chain{
-				"export": nil,
-				"import": nil,
-				"repeater": {
-					{
-						Bind: []string{
-							"0.0.0.0:10000",
-							"ssh://import:8080?identity_data=import-identity",
+			wantBound: map[string]*Bound{
+				"export": {
+					Inbound: map[string]*AllowList{
+						"repeater": {
+							DirectTcpip: permissions.Permission{
+								Allows: []string{
+									"oname.ons.svc:80",
+								},
+							},
 						},
-						Proxy: []string{
-							"oname.ons.svc:80",
-							"ssh://export:8080?identity_data=export-identity",
+					},
+				},
+				"import": {
+					Inbound: map[string]*AllowList{
+						"repeater": {
+							TcpipForward: permissions.Permission{
+								Allows: []string{
+									":10000",
+								},
+							},
+						},
+					},
+				},
+				"repeater": {
+					Outbound: []*Chain{
+						{
+							Bind: []string{
+								":10000",
+								"ssh://repeater@import:8080?identity_file=/var/ferry/ssh/identity&target_hub=import",
+							},
+							Proxy: []string{
+								"oname.ons.svc:80",
+								"ssh://repeater@export:8080?identity_file=/var/ferry/ssh/identity&target_hub=export",
+							},
 						},
 					},
 				},
@@ -245,21 +314,43 @@ func TestHubsChain_Build(t *testing.T) {
 				"repeater",
 				"import",
 			},
-			wantHubsChains: map[string][]*Chain{
-				"export": nil,
-				"import": {
-					{
-						Bind: []string{
-							"0.0.0.0:10000",
-						},
-						Proxy: []string{
-							"oname.ons.svc:80",
-							"ssh://export:8080?identity_data=export-identity",
-							"ssh://repeater:8080?identity_data=repeater-identity",
+			wantBound: map[string]*Bound{
+				"export": {
+					Inbound: map[string]*AllowList{
+						"import": {
+							DirectTcpip: permissions.Permission{
+								Allows: []string{
+									"oname.ons.svc:80",
+								},
+							},
 						},
 					},
 				},
-				"repeater": nil,
+				"import": {
+					Outbound: []*Chain{
+						{
+							Bind: []string{
+								":10000",
+							},
+							Proxy: []string{
+								"oname.ons.svc:80",
+								"ssh://import@export:8080?identity_file=/var/ferry/ssh/identity&target_hub=export",
+								"ssh://import@repeater:8080?identity_file=/var/ferry/ssh/identity&target_hub=repeater",
+							},
+						},
+					},
+				},
+				"repeater": {
+					Outbound: []*Chain{},
+					Inbound: map[string]*AllowList{
+						"import": {
+							DirectTcpip: permissions.Permission{
+								Allows: []string{
+									"export:8080"},
+							},
+						},
+					},
+				},
 			},
 		},
 		// 0b11
@@ -295,21 +386,40 @@ func TestHubsChain_Build(t *testing.T) {
 				"repeater",
 				"import",
 			},
-			wantHubsChains: map[string][]*Chain{
+			wantBound: map[string]*Bound{
 				"export": {
-					{
-						Bind: []string{
-							"0.0.0.0:10000",
-							"ssh://import:8080?identity_data=import-identity",
-							"ssh://repeater:8080?identity_data=repeater-identity",
-						},
-						Proxy: []string{
-							"oname.ons.svc:80",
+					Outbound: []*Chain{
+						{Bind: []string{
+							":10000",
+							"ssh://export@import:8080?identity_file=/var/ferry/ssh/identity&target_hub=import",
+							"ssh://export@repeater:8080?identity_file=/var/ferry/ssh/identity&target_hub=repeater",
+						}, Proxy: []string{
+							"oname.ons.svc:80"},
 						},
 					},
 				},
-				"import":   nil,
-				"repeater": nil,
+				"import": {
+					Inbound: map[string]*AllowList{
+						"export": {
+							TcpipForward: permissions.Permission{
+								Allows: []string{
+									":10000",
+								},
+							},
+						},
+					},
+				},
+				"repeater": {
+					Outbound: []*Chain{},
+					Inbound: map[string]*AllowList{
+						"export": {
+							DirectTcpip: permissions.Permission{
+								Allows: []string{
+									"import:8080"},
+							},
+						},
+					},
+				},
 			},
 		},
 
@@ -358,23 +468,54 @@ func TestHubsChain_Build(t *testing.T) {
 				"repeater-import",
 				"import",
 			},
-			wantHubsChains: map[string][]*Chain{
-				"export": nil,
-				"import": {
-					{
-						Bind: []string{
-							"0.0.0.0:10000",
-						},
-						Proxy: []string{
-							"oname.ons.svc:80",
-							"ssh://export:8080?identity_data=export-identity",
-							"ssh://repeater-export:8080?identity_data=repeater-export-identity",
-							"ssh://repeater-import:8080?identity_data=repeater-import-identity",
+			wantBound: map[string]*Bound{
+				"export": {
+					Inbound: map[string]*AllowList{
+						"import": {
+							DirectTcpip: permissions.Permission{
+								Allows: []string{
+									"oname.ons.svc:80"},
+							},
 						},
 					},
 				},
-				"repeater-import": nil,
-				"repeater-export": nil,
+				"import": {
+					Outbound: []*Chain{
+						{
+							Bind: []string{
+								":10000",
+							},
+							Proxy: []string{
+								"oname.ons.svc:80",
+								"ssh://import@export:8080?identity_file=/var/ferry/ssh/identity&target_hub=export",
+								"ssh://import@repeater-export:8080?identity_file=/var/ferry/ssh/identity&target_hub=repeater-export",
+								"ssh://import@repeater-import:8080?identity_file=/var/ferry/ssh/identity&target_hub=repeater-import",
+							},
+						},
+					},
+				},
+				"repeater-export": {
+					Outbound: []*Chain{},
+					Inbound: map[string]*AllowList{
+						"import": {
+							DirectTcpip: permissions.Permission{
+								Allows: []string{
+									"export:8080"},
+							},
+						},
+					},
+				},
+				"repeater-import": {
+					Outbound: []*Chain{},
+					Inbound: map[string]*AllowList{
+						"import": {
+							DirectTcpip: permissions.Permission{
+								Allows: []string{
+									"repeater-export:8080"},
+							},
+						},
+					},
+				},
 			},
 		},
 		// 0b111
@@ -421,23 +562,53 @@ func TestHubsChain_Build(t *testing.T) {
 				"repeater-import",
 				"import",
 			},
-			wantHubsChains: map[string][]*Chain{
+			wantBound: map[string]*Bound{
 				"export": {
-					{
-						Bind: []string{
-							"0.0.0.0:10000",
-							"ssh://import:8080?identity_data=import-identity",
-							"ssh://repeater-import:8080?identity_data=repeater-import-identity",
-							"ssh://repeater-export:8080?identity_data=repeater-export-identity",
+					Outbound: []*Chain{
+						{Bind: []string{
+							":10000",
+							"ssh://export@import:8080?identity_file=/var/ferry/ssh/identity&target_hub=import",
+							"ssh://export@repeater-import:8080?identity_file=/var/ferry/ssh/identity&target_hub=repeater-import",
+							"ssh://export@repeater-export:8080?identity_file=/var/ferry/ssh/identity&target_hub=repeater-export",
 						},
-						Proxy: []string{
-							"oname.ons.svc:80",
+							Proxy: []string{
+								"oname.ons.svc:80"},
 						},
 					},
 				},
-				"import":          nil,
-				"repeater-import": nil,
-				"repeater-export": nil,
+				"import": {
+					Inbound: map[string]*AllowList{
+						"export": {
+							TcpipForward: permissions.Permission{
+								Allows: []string{
+									":10000",
+								},
+							},
+						},
+					},
+				},
+				"repeater-export": {
+					Outbound: []*Chain{},
+					Inbound: map[string]*AllowList{
+						"export": {
+							DirectTcpip: permissions.Permission{
+								Allows: []string{
+									"repeater-import:8080"},
+							},
+						},
+					},
+				},
+				"repeater-import": {
+					Outbound: []*Chain{},
+					Inbound: map[string]*AllowList{
+						"export": {
+							DirectTcpip: permissions.Permission{
+								Allows: []string{
+									"import:8080"},
+							},
+						},
+					},
+				},
 			},
 		},
 		// 0b100
@@ -481,30 +652,58 @@ func TestHubsChain_Build(t *testing.T) {
 				"repeater-import",
 				"import",
 			},
-			wantHubsChains: map[string][]*Chain{
+			wantBound: map[string]*Bound{
 				"export": {
-					{
-						Bind: []string{
+					Outbound: []*Chain{
+						{Bind: []string{
 							"unix:///dev/shm/dns-dname-80-ons-oname-10000-tunnel.socks",
-							"ssh://repeater-export:8080?identity_data=repeater-export-identity",
+							"ssh://export@repeater-export:8080?identity_file=/var/ferry/ssh/identity&target_hub=repeater-export",
 						},
-						Proxy: []string{
-							"oname.ons.svc:80",
+							Proxy: []string{
+								"oname.ons.svc:80"},
 						},
 					},
 				},
 				"import": {
-					{
-						Bind: []string{"0.0.0.0:10000"},
-						Proxy: []string{
-							"unix:///dev/shm/dns-dname-80-ons-oname-10000-tunnel.socks",
-							"ssh://repeater-export:8080?identity_data=repeater-export-identity",
-							"ssh://repeater-import:8080?identity_data=repeater-import-identity",
+					Outbound: []*Chain{
+						{Bind: []string{
+							":10000",
+						},
+							Proxy: []string{
+								"unix:///dev/shm/dns-dname-80-ons-oname-10000-tunnel.socks",
+								"ssh://import@repeater-export:8080?identity_file=/var/ferry/ssh/identity&target_hub=repeater-export",
+								"ssh://import@repeater-import:8080?identity_file=/var/ferry/ssh/identity&target_hub=repeater-import",
+							},
 						},
 					},
 				},
-				"repeater-import": nil,
-				"repeater-export": nil,
+				"repeater-export": {
+					Inbound: map[string]*AllowList{
+						"export": {
+							StreamlocalForward: permissions.Permission{
+								Allows: []string{
+									"/dev/shm/dns-dname-80-ons-oname-10000-tunnel.socks"},
+							},
+						},
+						"import": {
+							DirectStreamlocal: permissions.Permission{
+								Allows: []string{
+									"/dev/shm/dns-dname-80-ons-oname-10000-tunnel.socks"},
+							},
+						},
+					},
+				},
+				"repeater-import": {
+					Outbound: []*Chain{},
+					Inbound: map[string]*AllowList{
+						"import": {
+							DirectTcpip: permissions.Permission{
+								Allows: []string{
+									"repeater-export:8080"},
+							},
+						},
+					},
+				},
 			},
 		},
 		// 0b011
@@ -551,20 +750,50 @@ func TestHubsChain_Build(t *testing.T) {
 				"repeater-import",
 				"import",
 			},
-			wantHubsChains: map[string][]*Chain{
-				"export":          nil,
-				"import":          nil,
-				"repeater-import": nil,
-				"repeater-export": {
-					{
-						Bind: []string{
-							"0.0.0.0:10000",
-							"ssh://import:8080?identity_data=import-identity",
-							"ssh://repeater-import:8080?identity_data=repeater-import-identity",
+			wantBound: map[string]*Bound{
+				"export": {
+					Inbound: map[string]*AllowList{
+						"repeater-export": {
+							DirectTcpip: permissions.Permission{
+								Allows: []string{
+									"oname.ons.svc:80"},
+							},
 						},
-						Proxy: []string{
-							"oname.ons.svc:80",
-							"ssh://export:8080?identity_data=export-identity",
+					},
+				},
+				"import": {
+					Inbound: map[string]*AllowList{
+						"repeater-export": {
+							TcpipForward: permissions.Permission{
+								Allows: []string{
+									":10000",
+								},
+							},
+						},
+					},
+				},
+				"repeater-export": {
+					Outbound: []*Chain{
+						{Bind: []string{
+							":10000",
+							"ssh://repeater-export@import:8080?identity_file=/var/ferry/ssh/identity&target_hub=import",
+							"ssh://repeater-export@repeater-import:8080?identity_file=/var/ferry/ssh/identity&target_hub=repeater-import",
+						},
+							Proxy: []string{
+								"oname.ons.svc:80",
+								"ssh://repeater-export@export:8080?identity_file=/var/ferry/ssh/identity&target_hub=export",
+							},
+						},
+					},
+				},
+				"repeater-import": {
+					Outbound: []*Chain{},
+					Inbound: map[string]*AllowList{
+						"repeater-export": {
+							DirectTcpip: permissions.Permission{
+								Allows: []string{
+									"import:8080"},
+							},
 						},
 					},
 				},
@@ -611,30 +840,59 @@ func TestHubsChain_Build(t *testing.T) {
 				"repeater-import",
 				"import",
 			},
-			wantHubsChains: map[string][]*Chain{
+			wantBound: map[string]*Bound{
 				"export": {
-					{
-						Bind: []string{
-							"unix:///dev/shm/dns-dname-80-ons-oname-10000-tunnel.socks",
-							"ssh://repeater-import:8080?identity_data=repeater-import-identity",
-							"ssh://repeater-export:8080?identity_data=repeater-export-identity",
-						},
-						Proxy: []string{
-							"oname.ons.svc:80",
+					Outbound: []*Chain{
+						{
+							Bind: []string{
+								"unix:///dev/shm/dns-dname-80-ons-oname-10000-tunnel.socks",
+								"ssh://export@repeater-import:8080?identity_file=/var/ferry/ssh/identity&target_hub=repeater-import",
+								"ssh://export@repeater-export:8080?identity_file=/var/ferry/ssh/identity&target_hub=repeater-export",
+							},
+							Proxy: []string{
+								"oname.ons.svc:80"},
 						},
 					},
 				},
 				"import": {
-					{
-						Bind: []string{"0.0.0.0:10000"},
-						Proxy: []string{
-							"unix:///dev/shm/dns-dname-80-ons-oname-10000-tunnel.socks",
-							"ssh://repeater-import:8080?identity_data=repeater-import-identity",
+					Outbound: []*Chain{
+						{Bind: []string{
+							":10000",
+						},
+							Proxy: []string{
+								"unix:///dev/shm/dns-dname-80-ons-oname-10000-tunnel.socks",
+								"ssh://import@repeater-import:8080?identity_file=/var/ferry/ssh/identity&target_hub=repeater-import",
+							},
 						},
 					},
 				},
-				"repeater-import": nil,
-				"repeater-export": nil,
+				"repeater-export": {
+					Outbound: []*Chain{},
+					Inbound: map[string]*AllowList{
+						"export": {
+							DirectTcpip: permissions.Permission{
+								Allows: []string{
+									"repeater-import:8080"},
+							},
+						},
+					},
+				},
+				"repeater-import": {
+					Inbound: map[string]*AllowList{
+						"export": {
+							StreamlocalForward: permissions.Permission{
+								Allows: []string{
+									"/dev/shm/dns-dname-80-ons-oname-10000-tunnel.socks"},
+							},
+						},
+						"import": {
+							DirectStreamlocal: permissions.Permission{
+								Allows: []string{
+									"/dev/shm/dns-dname-80-ons-oname-10000-tunnel.socks"},
+							},
+						},
+					},
+				},
 			},
 		},
 		// 0b001
@@ -688,23 +946,53 @@ func TestHubsChain_Build(t *testing.T) {
 				"repeater-import",
 				"import",
 			},
-			wantHubsChains: map[string][]*Chain{
-				"export": nil,
-				"import": nil,
-				"repeater-import": {
-					{
-						Bind: []string{
-							"0.0.0.0:10000",
-							"ssh://import:8080?identity_data=import-identity",
-						},
-						Proxy: []string{
-							"oname.ons.svc:80",
-							"ssh://export:8080?identity_data=export-identity",
-							"ssh://repeater-export:8080?identity_data=repeater-export-identity",
+			wantBound: map[string]*Bound{
+				"export": {
+					Inbound: map[string]*AllowList{
+						"repeater-import": {
+							DirectTcpip: permissions.Permission{
+								Allows: []string{
+									"oname.ons.svc:80"},
+							},
 						},
 					},
 				},
-				"repeater-export": nil,
+				"import": {
+					Inbound: map[string]*AllowList{
+						"repeater-import": {
+							TcpipForward: permissions.Permission{
+								Allows: []string{
+									":10000",
+								},
+							},
+						},
+					},
+				},
+				"repeater-export": {
+					Outbound: []*Chain{},
+					Inbound: map[string]*AllowList{
+						"repeater-import": {
+							DirectTcpip: permissions.Permission{
+								Allows: []string{
+									"export:8080"},
+							},
+						},
+					},
+				},
+				"repeater-import": {
+					Outbound: []*Chain{
+						{Bind: []string{
+							":10000",
+							"ssh://repeater-import@import:8080?identity_file=/var/ferry/ssh/identity&target_hub=import",
+						},
+							Proxy: []string{
+								"oname.ons.svc:80",
+								"ssh://repeater-import@export:8080?identity_file=/var/ferry/ssh/identity&target_hub=export",
+								"ssh://repeater-import@repeater-export:8080?identity_file=/var/ferry/ssh/identity&target_hub=repeater-export",
+							},
+						},
+					},
+				},
 			},
 		},
 		// 0b101
@@ -750,32 +1038,59 @@ func TestHubsChain_Build(t *testing.T) {
 				"repeater-import",
 				"import",
 			},
-			wantHubsChains: map[string][]*Chain{
+			wantBound: map[string]*Bound{
 				"export": {
-					{
-						Bind: []string{
+					Outbound: []*Chain{
+						{Bind: []string{
 							"unix:///dev/shm/dns-dname-80-ons-oname-10000-tunnel.socks",
-							"ssh://repeater-export:8080?identity_data=repeater-export-identity",
+							"ssh://export@repeater-export:8080?identity_file=/var/ferry/ssh/identity&target_hub=repeater-export",
 						},
-						Proxy: []string{
-							"oname.ons.svc:80",
+							Proxy: []string{
+								"oname.ons.svc:80"},
 						},
 					},
 				},
-				"import": nil,
+				"import": {
+					Inbound: map[string]*AllowList{
+						"repeater-import": {
+							TcpipForward: permissions.Permission{
+								Allows: []string{
+									":10000",
+								},
+							},
+						},
+					},
+				},
+				"repeater-export": {
+					Inbound: map[string]*AllowList{
+						"export": {
+							StreamlocalForward: permissions.Permission{
+								Allows: []string{
+									"/dev/shm/dns-dname-80-ons-oname-10000-tunnel.socks"},
+							},
+						},
+						"repeater-import": {
+							DirectStreamlocal: permissions.Permission{
+								Allows: []string{
+									"/dev/shm/dns-dname-80-ons-oname-10000-tunnel.socks"},
+							},
+						},
+					},
+				},
 				"repeater-import": {
-					{
-						Bind: []string{
-							"0.0.0.0:10000",
-							"ssh://import:8080?identity_data=import-identity",
-						},
-						Proxy: []string{
-							"unix:///dev/shm/dns-dname-80-ons-oname-10000-tunnel.socks",
-							"ssh://repeater-export:8080?identity_data=repeater-export-identity",
+					Outbound: []*Chain{
+						{
+							Bind: []string{
+								":10000",
+								"ssh://repeater-import@import:8080?identity_file=/var/ferry/ssh/identity&target_hub=import",
+							},
+							Proxy: []string{
+								"unix:///dev/shm/dns-dname-80-ons-oname-10000-tunnel.socks",
+								"ssh://repeater-import@repeater-export:8080?identity_file=/var/ferry/ssh/identity&target_hub=repeater-export",
+							},
 						},
 					},
 				},
-				"repeater-export": nil,
 			},
 		},
 		// 0b010
@@ -823,29 +1138,57 @@ func TestHubsChain_Build(t *testing.T) {
 				"repeater-import",
 				"import",
 			},
-			wantHubsChains: map[string][]*Chain{
-				"export": nil,
-				"import": {
-					{
-						Bind: []string{
-							"0.0.0.0:10000",
-						},
-						Proxy: []string{
-							"unix:///dev/shm/dns-dname-80-ons-oname-10000-tunnel.socks",
-							"ssh://repeater-import:8080?identity_data=repeater-import-identity",
+			wantBound: map[string]*Bound{
+				"export": {
+					Inbound: map[string]*AllowList{
+						"repeater-export": {
+							DirectTcpip: permissions.Permission{
+								Allows: []string{
+									"oname.ons.svc:80"},
+							},
 						},
 					},
 				},
-				"repeater-import": nil,
-				"repeater-export": {
-					{
-						Bind: []string{
-							"unix:///dev/shm/dns-dname-80-ons-oname-10000-tunnel.socks",
-							"ssh://repeater-import:8080?identity_data=repeater-import-identity",
+				"import": {
+					Outbound: []*Chain{
+						{
+							Bind: []string{
+								":10000",
+							},
+							Proxy: []string{
+								"unix:///dev/shm/dns-dname-80-ons-oname-10000-tunnel.socks",
+								"ssh://import@repeater-import:8080?identity_file=/var/ferry/ssh/identity&target_hub=repeater-import",
+							},
 						},
-						Proxy: []string{
-							"oname.ons.svc:80",
-							"ssh://export:8080?identity_data=export-identity",
+					},
+				},
+				"repeater-export": {
+					Outbound: []*Chain{
+						{
+							Bind: []string{
+								"unix:///dev/shm/dns-dname-80-ons-oname-10000-tunnel.socks",
+								"ssh://repeater-export@repeater-import:8080?identity_file=/var/ferry/ssh/identity&target_hub=repeater-import",
+							},
+							Proxy: []string{
+								"oname.ons.svc:80",
+								"ssh://repeater-export@export:8080?identity_file=/var/ferry/ssh/identity&target_hub=export",
+							},
+						},
+					},
+				},
+				"repeater-import": {
+					Inbound: map[string]*AllowList{
+						"import": {
+							DirectStreamlocal: permissions.Permission{
+								Allows: []string{
+									"/dev/shm/dns-dname-80-ons-oname-10000-tunnel.socks"},
+							},
+						},
+						"repeater-export": {
+							StreamlocalForward: permissions.Permission{
+								Allows: []string{
+									"/dev/shm/dns-dname-80-ons-oname-10000-tunnel.socks"},
+							},
 						},
 					},
 				},
@@ -892,20 +1235,31 @@ func TestHubsChain_Build(t *testing.T) {
 				"export",
 				"import",
 			},
-			wantHubsChains: map[string][]*Chain{
-				"export": nil,
-				"import": {
-					{
-						Bind: []string{
-							"0.0.0.0:10000",
+			wantBound: map[string]*Bound{
+				"export": {
+					Inbound: map[string]*AllowList{
+						"import": {
+							DirectTcpip: permissions.Permission{
+								Allows: []string{
+									"oname.ons.svc:80"},
+							},
 						},
-						Proxy: []string{
-							"oname.ons.svc:80",
-							"ssh://export:8080?identity_data=export-identity",
-							"socks5://export-reception-1:8080",
-							"socks5://export-reception-2:8080",
-							"socks5://import-navigation-1:8080",
-							"socks5://import-navigation-2:8080",
+					},
+				},
+				"import": {
+					Outbound: []*Chain{
+						{
+							Bind: []string{
+								":10000",
+							},
+							Proxy: []string{
+								"oname.ons.svc:80",
+								"ssh://import@export:8080?identity_file=/var/ferry/ssh/identity&target_hub=export",
+								"socks5://export-reception-1:8080",
+								"socks5://export-reception-2:8080",
+								"socks5://import-navigation-1:8080",
+								"socks5://import-navigation-2:8080",
+							},
 						},
 					},
 				},
@@ -950,23 +1304,31 @@ func TestHubsChain_Build(t *testing.T) {
 				"export",
 				"import",
 			},
-			wantHubsChains: map[string][]*Chain{
+			wantBound: map[string]*Bound{
 				"export": {
-					{
-						Bind: []string{
-							"0.0.0.0:10000",
-							"ssh://import:8080?identity_data=import-identity",
-							"socks5://import-reception-1:8080",
-							"socks5://import-reception-2:8080",
-							"socks5://export-navigation-1:8080",
-							"socks5://export-navigation-2:8080",
+					Outbound: []*Chain{
+						{Bind: []string{
+							":10000",
+							"ssh://export@import:8080?identity_file=/var/ferry/ssh/identity&target_hub=import",
+							"socks5://import-reception-1:8080", "socks5://import-reception-2:8080",
+							"socks5://export-navigation-1:8080", "socks5://export-navigation-2:8080",
 						},
-						Proxy: []string{
-							"oname.ons.svc:80",
+							Proxy: []string{
+								"oname.ons.svc:80"},
 						},
 					},
 				},
-				"import": nil,
+				"import": {
+					Inbound: map[string]*AllowList{
+						"export": {
+							TcpipForward: permissions.Permission{
+								Allows: []string{
+									":10000",
+								},
+							},
+						},
+					},
+				},
 			},
 		},
 
@@ -1025,38 +1387,50 @@ func TestHubsChain_Build(t *testing.T) {
 				"repeater",
 				"import",
 			},
-			wantHubsChains: map[string][]*Chain{
+			wantBound: map[string]*Bound{
 				"export": {
-					{
-						Bind: []string{
+					Outbound: []*Chain{
+						{Bind: []string{
 							"unix:///dev/shm/dns-dname-80-ons-oname-10000-tunnel.socks",
-							"ssh://repeater:8080?identity_data=repeater-identity",
-							"socks5://repeater-reception-1:8080",
-							"socks5://repeater-reception-2:8080",
-							"socks5://export-navigation-1:8080",
-							"socks5://export-navigation-2:8080",
+							"ssh://export@repeater:8080?identity_file=/var/ferry/ssh/identity&target_hub=repeater",
+							"socks5://repeater-reception-1:8080", "socks5://repeater-reception-2:8080",
+							"socks5://export-navigation-1:8080", "socks5://export-navigation-2:8080",
 						},
-						Proxy: []string{
-							"oname.ons.svc:80",
+							Proxy: []string{
+								"oname.ons.svc:80"},
 						},
 					},
 				},
 				"import": {
-					{
-						Bind: []string{
-							"0.0.0.0:10000",
+					Outbound: []*Chain{
+						{Bind: []string{
+							":10000",
 						},
-						Proxy: []string{
-							"unix:///dev/shm/dns-dname-80-ons-oname-10000-tunnel.socks",
-							"ssh://repeater:8080?identity_data=repeater-identity",
-							"socks5://repeater-reception-1:8080",
-							"socks5://repeater-reception-2:8080",
-							"socks5://import-navigation-1:8080",
-							"socks5://import-navigation-2:8080",
+							Proxy: []string{
+								"unix:///dev/shm/dns-dname-80-ons-oname-10000-tunnel.socks",
+								"ssh://import@repeater:8080?identity_file=/var/ferry/ssh/identity&target_hub=repeater",
+								"socks5://repeater-reception-1:8080", "socks5://repeater-reception-2:8080",
+								"socks5://import-navigation-1:8080", "socks5://import-navigation-2:8080",
+							},
 						},
 					},
 				},
-				"repeater": nil,
+				"repeater": {
+					Inbound: map[string]*AllowList{
+						"export": {
+							StreamlocalForward: permissions.Permission{
+								Allows: []string{
+									"/dev/shm/dns-dname-80-ons-oname-10000-tunnel.socks"},
+							},
+						},
+						"import": {
+							DirectStreamlocal: permissions.Permission{
+								Allows: []string{
+									"/dev/shm/dns-dname-80-ons-oname-10000-tunnel.socks"},
+							},
+						},
+					},
+				},
 			},
 		},
 		// 0b01
@@ -1115,26 +1489,47 @@ func TestHubsChain_Build(t *testing.T) {
 				"repeater",
 				"import",
 			},
-			wantHubsChains: map[string][]*Chain{
-				"export": nil,
-				"import": nil,
-				"repeater": {
-					{
-						Bind: []string{
-							"0.0.0.0:10000",
-							"ssh://import:8080?identity_data=import-identity",
-							"socks5://import-reception-1:8080",
-							"socks5://import-reception-2:8080",
-							"socks5://repeater-navigation-1:8080",
-							"socks5://repeater-navigation-2:8080",
+			wantBound: map[string]*Bound{
+				"export": {
+					Inbound: map[string]*AllowList{
+						"repeater": {
+							DirectTcpip: permissions.Permission{
+								Allows: []string{
+									"oname.ons.svc:80"},
+							},
 						},
-						Proxy: []string{
-							"oname.ons.svc:80",
-							"ssh://export:8080?identity_data=export-identity",
-							"socks5://export-reception-1:8080",
-							"socks5://export-reception-2:8080",
-							"socks5://repeater-navigation-1:8080",
-							"socks5://repeater-navigation-2:8080",
+					},
+				},
+				"import": {
+					Inbound: map[string]*AllowList{
+						"repeater": {
+							TcpipForward: permissions.Permission{
+								Allows: []string{
+									":10000",
+								},
+							},
+						},
+					},
+				},
+				"repeater": {
+					Outbound: []*Chain{
+						{
+							Bind: []string{
+								":10000",
+								"ssh://repeater@import:8080?identity_file=/var/ferry/ssh/identity&target_hub=import",
+								"socks5://import-reception-1:8080",
+								"socks5://import-reception-2:8080",
+								"socks5://repeater-navigation-1:8080",
+								"socks5://repeater-navigation-2:8080",
+							},
+							Proxy: []string{
+								"oname.ons.svc:80",
+								"ssh://repeater@export:8080?identity_file=/var/ferry/ssh/identity&target_hub=export",
+								"socks5://export-reception-1:8080",
+								"socks5://export-reception-2:8080",
+								"socks5://repeater-navigation-1:8080",
+								"socks5://repeater-navigation-2:8080",
+							},
 						},
 					},
 				},
@@ -1218,29 +1613,45 @@ func TestHubsChain_Build(t *testing.T) {
 				"repeater",
 				"import",
 			},
-			wantHubsChains: map[string][]*Chain{
-				"export": nil,
-				"import": {
-					{
-						Bind: []string{
-							"0.0.0.0:10000",
-						},
-						Proxy: []string{
-							"oname.ons.svc:80",
-							"ssh://export:8080?identity_data=export-identity",
-							"socks5://export-reception-1:8080",
-							"socks5://export-reception-2:8080",
-							"socks5://repeater-navigation-1:8080",
-							"socks5://repeater-navigation-2:8080",
-							"ssh://repeater:8080?identity_data=repeater-identity",
-							"socks5://repeater-reception-1:8080",
-							"socks5://repeater-reception-2:8080",
-							"socks5://import-navigation-1:8080",
-							"socks5://import-navigation-2:8080",
+			wantBound: map[string]*Bound{
+				"export": {
+					Inbound: map[string]*AllowList{
+						"import": {
+							DirectTcpip: permissions.Permission{
+								Allows: []string{
+									"oname.ons.svc:80"},
+							},
 						},
 					},
 				},
-				"repeater": nil,
+				"import": {
+					Outbound: []*Chain{
+						{
+							Bind: []string{
+								":10000",
+							},
+							Proxy: []string{
+								"oname.ons.svc:80",
+								"ssh://import@export:8080?identity_file=/var/ferry/ssh/identity&target_hub=export",
+								"socks5://export-reception-1:8080",
+								"socks5://export-reception-2:8080",
+								"socks5://repeater-navigation-1:8080",
+								"socks5://repeater-navigation-2:8080",
+								"ssh://import@repeater:8080?identity_file=/var/ferry/ssh/identity&target_hub=repeater",
+								"socks5://repeater-reception-1:8080",
+								"socks5://repeater-reception-2:8080",
+								"socks5://import-navigation-1:8080",
+								"socks5://import-navigation-2:8080",
+							},
+						},
+					},
+				},
+				"repeater": {
+					Outbound: []*Chain{},
+					Inbound: map[string]*AllowList{
+						"import": {},
+					},
+				},
 			},
 		},
 		// 0b11
@@ -1321,29 +1732,44 @@ func TestHubsChain_Build(t *testing.T) {
 				"repeater",
 				"import",
 			},
-			wantHubsChains: map[string][]*Chain{
+			wantBound: map[string]*Bound{
 				"export": {
-					{
-						Bind: []string{
-							"0.0.0.0:10000",
-							"ssh://import:8080?identity_data=import-identity",
+					Outbound: []*Chain{
+						{Bind: []string{
+							":10000",
+							"ssh://export@import:8080?identity_file=/var/ferry/ssh/identity&target_hub=import",
 							"socks5://import-reception-1:8080",
 							"socks5://import-reception-2:8080",
 							"socks5://repeater-navigation-1:8080",
 							"socks5://repeater-navigation-2:8080",
-							"ssh://repeater:8080?identity_data=repeater-identity",
+							"ssh://export@repeater:8080?identity_file=/var/ferry/ssh/identity&target_hub=repeater",
 							"socks5://repeater-reception-1:8080",
 							"socks5://repeater-reception-2:8080",
 							"socks5://export-navigation-1:8080",
 							"socks5://export-navigation-2:8080",
 						},
-						Proxy: []string{
-							"oname.ons.svc:80",
+							Proxy: []string{
+								"oname.ons.svc:80"},
 						},
 					},
 				},
-				"import":   nil,
-				"repeater": nil,
+				"import": {
+					Inbound: map[string]*AllowList{
+						"export": {
+							TcpipForward: permissions.Permission{
+								Allows: []string{
+									":10000",
+								},
+							},
+						},
+					},
+				},
+				"repeater": {
+					Outbound: []*Chain{},
+					Inbound: map[string]*AllowList{
+						"export": {},
+					},
+				},
 			},
 		},
 	}
@@ -1353,18 +1779,18 @@ func TestHubsChain_Build(t *testing.T) {
 				hubs: tt.hubs,
 			}
 			h := &HubsChain{
-				getIdentity:   d.GetIdentity,
 				getHubGateway: d.GetHubGateway,
 			}
 			name := fmt.Sprintf("%s-%s-%d-%s-%s-%d-tunnel", destination.Namespace, destination.Name, originPort, origin.Namespace, origin.Name, peerPort)
-			gotHubsChains, err := h.Build(name, origin, destination, originPort, peerPort, tt.ways)
+			gotBound, err := h.Build(name, origin, destination, originPort, peerPort, tt.ways)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("BuildServiceDiscovery() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 
-			if diff := cmp.Diff(gotHubsChains, tt.wantHubsChains); diff != "" {
+			if diff := cmp.Diff(gotBound, tt.wantBound); diff != "" {
 				t.Errorf("BuildServiceDiscovery(): got want + \n%s", diff)
+				fmt.Printf("====\n%#3v\n====\n", gotBound)
 			}
 		})
 	}
@@ -1374,8 +1800,8 @@ type fakeDataSource struct {
 	hubs map[string]*v1alpha2.Hub
 }
 
-func (f *fakeDataSource) GetIdentity(hubName string) string {
-	return fmt.Sprintf("%s-%s", hubName, "identity")
+func (f *fakeDataSource) GetAuthorized(hubName string) string {
+	return fmt.Sprintf("%s-%s", hubName, "authorized")
 }
 
 func (f *fakeDataSource) GetHubGateway(hubName string, forHub string) v1alpha2.HubSpecGateway {

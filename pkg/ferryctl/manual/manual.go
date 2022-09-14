@@ -17,70 +17,148 @@ limitations under the License.
 package manual
 
 import (
-	"fmt"
-	"strings"
-
-	"github.com/ferryproxy/ferry/pkg/consts"
+	"github.com/ferryproxy/api/apis/traffic/v1alpha2"
+	"github.com/ferryproxy/ferry/pkg/ferry-controller/router"
+	"github.com/ferryproxy/ferry/pkg/ferry-controller/router/resource"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-type BuildManualPortConfig struct {
-	ImportServiceName string
-
-	BindPort   string
-	ExportPort string
-	ExportHost string
-
-	ExportHubName string
-
-	ExportTunnelHost     string
-	ExportTunnelPort     string
-	ExportTunnelIdentity string
-
-	ImportTunnelHost     string
-	ImportTunnelPort     string
-	ImportTunnelIdentity string
+type ManualConfig struct {
+	ExportHubName    string
+	ExportName       string
+	ExportNamespace  string
+	ExportAuthorized string
+	ExportGateway    v1alpha2.HubSpecGateway
+	ImportHubName    string
+	ImportName       string
+	ImportNamespace  string
+	ImportAuthorized string
+	ImportGateway    v1alpha2.HubSpecGateway
+	Port             int32
+	BindPort         int32
 }
 
-func BuildManualPort(conf BuildManualPortConfig) (exportPortResource, importPortResource, importAddress string, err error) {
-	namespace := consts.FerryTunnelNamespace
-	exportName := fmt.Sprintf("%s-%s", conf.ImportServiceName, "export")
-	importName := fmt.Sprintf("%s-%s", conf.ImportServiceName, "import")
-	exportPortResource, err = buildExport(buildExportConfig{
-		ExportName:      exportName,
-		ExportNamespace: namespace,
-		BindPort:        conf.BindPort,
-		ExportPort:      conf.ExportPort,
-		ExportHost:      conf.ExportHost,
+type ManualRouter struct {
+	dateSource dateSource
+}
 
-		ImportTunnelHost:     conf.ImportTunnelHost,
-		ImportTunnelPort:     conf.ImportTunnelPort,
-		ImportTunnelIdentity: conf.ImportTunnelIdentity,
-	})
-	if err != nil {
-		return "", "", "", err
+func NewManual(conf ManualConfig) *ManualRouter {
+	return &ManualRouter{
+		dateSource: dateSource{
+			exportHubName:    conf.ExportHubName,
+			exportName:       conf.ExportName,
+			exportNamespace:  conf.ExportNamespace,
+			exportGateway:    conf.ExportGateway,
+			exportAuthorized: conf.ExportAuthorized,
+			importHubName:    conf.ImportHubName,
+			importName:       conf.ImportName,
+			importNamespace:  conf.ImportNamespace,
+			importGateway:    conf.ImportGateway,
+			importAuthorized: conf.ImportAuthorized,
+			port:             conf.Port,
+			bindPort:         conf.BindPort,
+		},
 	}
-	importPortResource, err = buildImport(buildImportConfig{
-		ImportServiceName: conf.ImportServiceName,
-		ImportName:        importName,
-		ImportNamespace:   namespace,
-		BindPort:          conf.BindPort,
-		ExportPort:        conf.ExportPort,
-		ExportHost:        conf.ExportHost,
+}
 
-		ExportHubName: conf.ExportHubName,
+type dateSource struct {
+	exportHubName    string
+	exportName       string
+	exportNamespace  string
+	exportAuthorized string
+	exportGateway    v1alpha2.HubSpecGateway
+	importHubName    string
+	importName       string
+	importNamespace  string
+	importAuthorized string
+	importGateway    v1alpha2.HubSpecGateway
+	port             int32
+	bindPort         int32
+}
 
-		ExportTunnelHost:     conf.ExportTunnelHost,
-		ExportTunnelPort:     conf.ExportTunnelPort,
-		ExportTunnelIdentity: conf.ExportTunnelIdentity,
+func (f *dateSource) GetPortPeer(importHubName string, cluster, namespace, name string, port int32) int32 {
+	return f.bindPort
+}
+
+func (f *dateSource) ListServices(name string) []*corev1.Service {
+	if name != f.exportHubName {
+		return nil
+	}
+	svc := &corev1.Service{
+
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      f.exportName,
+			Namespace: f.exportNamespace,
+		},
+		Spec: corev1.ServiceSpec{
+			Ports: []corev1.ServicePort{
+				{
+					Port:     f.port,
+					Protocol: corev1.ProtocolTCP,
+				},
+			},
+		},
+	}
+	return []*corev1.Service{
+		svc,
+	}
+}
+func (f *dateSource) GetHubGateway(hubName string, forHub string) v1alpha2.HubSpecGateway {
+	if hubName == f.importHubName {
+		return f.importGateway
+	} else if hubName == f.exportHubName {
+		return f.exportGateway
+	}
+	return v1alpha2.HubSpecGateway{}
+}
+
+func (f *dateSource) GetAuthorized(name string) string {
+	if name == f.importHubName {
+		return f.importAuthorized
+	} else if name == f.exportHubName {
+		return f.exportAuthorized
+	}
+	return ""
+}
+
+func (f *ManualRouter) BuildResource() (out map[string][]resource.Resourcer, err error) {
+	solution := router.NewSolution(router.SolutionConfig{
+		GetHubGateway: f.dateSource.GetHubGateway,
 	})
+
+	ways, err := solution.CalculateWays(f.dateSource.exportHubName, f.dateSource.importHubName)
 	if err != nil {
-		return "", "", "", err
+		return nil, err
 	}
 
-	exportPortResource = strings.TrimSpace(exportPortResource)
-	importPortResource = strings.TrimSpace(importPortResource)
+	router := router.NewRouter(router.RouterConfig{
+		Labels:        map[string]string{},
+		ExportHubName: f.dateSource.exportHubName,
+		ImportHubName: f.dateSource.importHubName,
+		ClusterCache:  &f.dateSource,
+	})
 
-	importAddress = fmt.Sprintf("%s.%s.svc:%s", conf.ImportServiceName, namespace, conf.ExportPort)
+	router.SetRoutes([]*v1alpha2.Route{
+		{
+			Spec: v1alpha2.RouteSpec{
+				Import: v1alpha2.RouteSpecRule{
+					HubName: f.dateSource.importHubName,
+					Service: v1alpha2.RouteSpecRuleService{
+						Name:      f.dateSource.importName,
+						Namespace: f.dateSource.importNamespace,
+					},
+				},
+				Export: v1alpha2.RouteSpecRule{
+					HubName: f.dateSource.exportHubName,
+					Service: v1alpha2.RouteSpecRuleService{
+						Name:      f.dateSource.exportName,
+						Namespace: f.dateSource.exportNamespace,
+					},
+				},
+			},
+		},
+	})
 
-	return exportPortResource, importPortResource, importAddress, nil
+	return router.BuildResource(ways)
 }

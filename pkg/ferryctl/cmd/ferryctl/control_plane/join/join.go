@@ -79,8 +79,11 @@ func NewCommand(logger log.Logger) *cobra.Command {
 				fargs = []string{
 					"--reachable=false",
 					"--peer-tunnel-address=" + dataPlaneTunnelAddress,
-					"--export-host-port=kubernetes.default.svc:443",
-					"--import-service-name=" + dataPlaneName + "-apiserver",
+					"--export-service=kubernetes.default",
+					"--port=443",
+					"--import-service=" + dataPlaneName + "-apiserver.ferry-tunnel-system",
+					"--import-hub=" + vars.ControlPlaneName + "-" + dataPlaneName + "-apiserver",
+					"--export-hub=" + dataPlaneName + "-apiserver",
 				}
 				dataPlaneApiserverAddress = dataPlaneName + "-apiserver.ferry-tunnel-system:443"
 			} else {
@@ -88,8 +91,11 @@ func NewCommand(logger log.Logger) *cobra.Command {
 					fargs = []string{
 						"--reachable=true",
 						"--tunnel-address=" + controlPlaneTunnelAddress,
-						"--export-host-port=kubernetes.default.svc:443",
-						"--import-service-name=" + dataPlaneName + "-apiserver",
+						"--export-service=kubernetes.default",
+						"--port=443",
+						"--import-service=" + dataPlaneName + "-apiserver.ferry-tunnel-system",
+						"--import-hub=" + vars.ControlPlaneName + "-" + dataPlaneName + "-apiserver",
+						"--export-hub=" + dataPlaneName + "-apiserver",
 					}
 					dataPlaneApiserverAddress = dataPlaneName + "-apiserver.ferry-tunnel-system:443"
 				}

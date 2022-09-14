@@ -44,7 +44,7 @@ function fetch-route() {
 function fetch-tunnel-config() {
   local cluster=$1
   echo "==== Fetch ${cluster} tunnel config ===="
-  kubectl --kubeconfig="${KUBECONFIG_DIR}/${cluster}.yaml" exec deploy/ferry-tunnel -n ferry-tunnel-system -- cat bridge.conf
+  kubectl --kubeconfig="${KUBECONFIG_DIR}/${cluster}.yaml" exec deploy/ferry-tunnel -n ferry-tunnel-system -- cat /var/ferry/bridge.conf
   echo
 }
 

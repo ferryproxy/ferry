@@ -7,16 +7,15 @@ metadata:
   namespace: ferry-tunnel-system
 type: traffic.ferryproxy.io/ssh-key
 data:
-  identity: {{ .Identity }}
-  authorized: {{ .Authorized }}
-  hostkey: {{ .Hostkey }}
+  identity: "{{ .Identity }}"
+  authorized_keys: "{{ .Authorized }}"
 ---
 apiVersion: v1
 kind: ConfigMap
 metadata:
   labels:
     app: ferry-tunnel
-    tunnel.ferryproxy.io/rules: enabled
+    tunnel.ferryproxy.io/config: rules
   name: ferry-tunnel
   namespace: ferry-tunnel-system
 data:
@@ -24,7 +23,7 @@ data:
     [
       {
         "bind": [
-          "ssh://0.0.0.0:31087?authenticate=true&authorized_data={{ .Authorized }}&hostkey_data={{ .Hostkey }}"
+          "ssh://0.0.0.0:31087?authenticate=true&hostkey_file=/var/ferry/ssh/identity&home_dir=/var/ferry/home/&permissions_file_name=permissions.json"
         ],
         "proxy": [
           "-"

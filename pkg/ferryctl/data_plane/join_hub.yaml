@@ -3,16 +3,16 @@ kind: Secret
 metadata:
   annotations:
     traffic.ferryproxy.io/ssh-key: default
-  name: {{ .DataPlaneName }}
+  name: "{{ .DataPlaneName }}"
   namespace: ferry-system
 type: traffic.ferryproxy.io/kubeconfig-key
 data:
-  kubeconfig: {{ .DataPlaneKubeconfig }}
+  kubeconfig: "{{ .DataPlaneKubeconfig }}"
 ---
 apiVersion: traffic.ferryproxy.io/v1alpha2
 kind: Hub
 metadata:
-  name: {{ .DataPlaneName }}
+  name: "{{ .DataPlaneName }}"
   namespace: ferry-system
 spec:
   gateway:

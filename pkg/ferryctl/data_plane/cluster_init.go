@@ -62,7 +62,6 @@ func ClusterInit(ctx context.Context, conf ClusterInitConfig) error {
 	key, err := BuildInitKey(BuildInitKeyConfig{
 		Identity:   identity,
 		Authorized: authorized,
-		Hostkey:    identity,
 	})
 	if err != nil {
 		return err

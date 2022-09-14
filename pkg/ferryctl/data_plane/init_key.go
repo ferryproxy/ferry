@@ -25,7 +25,6 @@ import (
 type BuildInitKeyConfig struct {
 	Identity   string
 	Authorized string
-	Hostkey    string
 }
 
 func BuildInitKey(conf BuildInitKeyConfig) (string, error) {

@@ -19,6 +19,7 @@ package diffobjs
 import (
 	"fmt"
 	"reflect"
+	"sort"
 
 	"github.com/ferryproxy/ferry/pkg/utils/objref"
 )
@@ -54,4 +55,28 @@ func ShouldDeleted[T objref.KMetadata](older, newer []T) (deleted []T) {
 		deleted = append(deleted, r)
 	}
 	return deleted
+}
+
+// Unique remove duplicate data
+func Unique[T objref.KMetadata](older []T) (newer []T) {
+	if len(older) <= 1 {
+		return older
+	}
+
+	exist := map[string]T{}
+
+	for _, r := range older {
+		name := uniqName(r)
+		exist[name] = r
+	}
+
+	newer = make([]T, 0, len(exist))
+	for _, r := range exist {
+		newer = append(newer, r)
+	}
+
+	sort.Slice(newer, func(i, j int) bool {
+		return uniqName(newer[i]) < uniqName(newer[j])
+	})
+	return newer
 }

@@ -25,7 +25,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var example = []string{"exec", "deploy/" + consts.FerryTunnelName, "-n", consts.FerryTunnelNamespace, "--", "cat", "bridge.conf"}
+var example = []string{"exec", "deploy/" + consts.FerryTunnelName, "-n", consts.FerryTunnelNamespace, "--", "cat", consts.TunnelRulesConfigPath}
 
 func NewCommand(logger log.Logger) *cobra.Command {
 	cmd := &cobra.Command{

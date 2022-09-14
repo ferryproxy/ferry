@@ -17,25 +17,25 @@ limitations under the License.
 package manual
 
 import (
-	_ "embed"
-
-	"github.com/ferryproxy/ferry/pkg/ferryctl/utils"
+	"strings"
 )
 
-type buildExportConfig struct {
-	ExportName           string
-	ExportNamespace      string
-	BindPort             string
-	ExportPort           string
-	ExportHost           string
-	ImportTunnelHost     string
-	ImportTunnelPort     string
-	ImportTunnelIdentity string
+func FormatService(s string) string {
+	if s == "" {
+		return ""
+	}
+	sl := strings.SplitN(s, ".", 3)
+	switch len(sl) {
+	case 0:
+		return ""
+	case 1:
+		return sl[0] + ".default"
+	default:
+		return strings.Join(sl[:2], ".")
+	}
 }
 
-func buildExport(conf buildExportConfig) (string, error) {
-	return utils.RenderString(exportYaml, conf), nil
+func GetService(s string) (name, namespace string) {
+	sl := strings.SplitN(s, ".", 3)
+	return sl[0], sl[1]
 }
-
-//go:embed export.yaml
-var exportYaml string
