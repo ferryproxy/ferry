@@ -26,7 +26,7 @@ import (
 	"github.com/ferryproxy/api/apis/traffic/v1alpha2"
 	ferryversioned "github.com/ferryproxy/client-go/generated/clientset/versioned"
 	"github.com/ferryproxy/ferry/pkg/consts"
-	"github.com/ferryproxy/ferry/pkg/ferry-controller/router/resource"
+	"github.com/ferryproxy/ferry/pkg/resource"
 	"github.com/ferryproxy/ferry/pkg/utils/diffobjs"
 	"github.com/ferryproxy/ferry/pkg/utils/objref"
 	"github.com/go-logr/logr"

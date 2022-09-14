@@ -29,7 +29,7 @@ import (
 	versioned "github.com/ferryproxy/client-go/generated/clientset/versioned"
 	externalversions "github.com/ferryproxy/client-go/generated/informers/externalversions"
 	"github.com/ferryproxy/ferry/pkg/consts"
-	"github.com/ferryproxy/ferry/pkg/ferry-controller/router/resource"
+	"github.com/ferryproxy/ferry/pkg/resource"
 	"github.com/ferryproxy/ferry/pkg/utils/diffobjs"
 	"github.com/ferryproxy/ferry/pkg/utils/maps"
 	"github.com/ferryproxy/ferry/pkg/utils/objref"

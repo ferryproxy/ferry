@@ -23,7 +23,8 @@ import (
 	"time"
 
 	"github.com/ferryproxy/api/apis/traffic/v1alpha2"
-	"github.com/ferryproxy/ferry/pkg/ferry-controller/router/resource"
+	"github.com/ferryproxy/ferry/pkg/resource"
+	"github.com/ferryproxy/ferry/pkg/router"
 )
 
 type SecondConfig struct {
@@ -52,19 +53,23 @@ func Second(conf SecondConfig) (applyResource, otherResource, importAddress stri
 		return "", "", "", err
 	}
 
-	suffix := time.Now().Format("20060102150405")
+	importName, importNamespace := GetService(conf.ImportService)
+	exportName, exportNamespace := GetService(conf.ExportService)
+
+	routeName := conf.RouteName
+	if routeName == "" {
+		suffix := time.Now().Format("20060102150405")
+		routeName = fmt.Sprintf("manual-%s-%s-%s", importName, importNamespace, suffix)
+	}
 	exportHubName := conf.ExportHub
 	if exportHubName == "" {
-		exportHubName = fmt.Sprintf("manual-export-%s", suffix)
+		exportHubName = fmt.Sprintf("%s-export", routeName)
 	}
 	importHubName := conf.ImportHub
 	if importHubName == "" {
-		importHubName = fmt.Sprintf("manual-import-%s", suffix)
+		importHubName = fmt.Sprintf("%s-import", routeName)
 	}
-	routeName := conf.RouteName
-	if routeName == "" {
-		routeName = fmt.Sprintf("manual-%s", suffix)
-	}
+
 	importAuthorized, err := base64.StdEncoding.DecodeString(conf.ImportTunnelAuthorized)
 	if err != nil {
 		return "", "", "", err
@@ -75,9 +80,7 @@ func Second(conf SecondConfig) (applyResource, otherResource, importAddress stri
 		return "", "", "", err
 	}
 
-	importName, importNamespace := GetService(conf.ImportService)
-	exportName, exportNamespace := GetService(conf.ExportService)
-	mc := ManualConfig{
+	mc := router.ManualConfig{
 		RouteName:       routeName,
 		ImportHubName:   importHubName,
 		ImportName:      importName,
@@ -98,7 +101,7 @@ func Second(conf SecondConfig) (applyResource, otherResource, importAddress stri
 		},
 		ExportAuthorized: string(exportAuthorized),
 	}
-	m := NewManual(mc)
+	m := router.NewManual(mc)
 	resources, err := m.BuildResource()
 	if err != nil {
 		return "", "", "", err

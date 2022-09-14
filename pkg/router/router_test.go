@@ -23,7 +23,7 @@ import (
 
 	"github.com/ferryproxy/api/apis/traffic/v1alpha2"
 	"github.com/ferryproxy/ferry/pkg/consts"
-	"github.com/ferryproxy/ferry/pkg/ferry-controller/router/resource"
+	"github.com/ferryproxy/ferry/pkg/resource"
 	"github.com/google/go-cmp/cmp"
 	"github.com/wzshiming/sshproxy/permissions"
 	corev1 "k8s.io/api/core/v1"

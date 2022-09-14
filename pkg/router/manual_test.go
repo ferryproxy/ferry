@@ -14,19 +14,18 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package manual
+package router
 
 import (
-	"encoding/json"
+	"testing"
+
 	"github.com/ferryproxy/api/apis/traffic/v1alpha2"
 	"github.com/ferryproxy/ferry/pkg/consts"
-	"github.com/ferryproxy/ferry/pkg/ferry-controller/router"
-	"github.com/ferryproxy/ferry/pkg/ferry-controller/router/resource"
+	"github.com/ferryproxy/ferry/pkg/resource"
 	"github.com/google/go-cmp/cmp"
 	"github.com/wzshiming/sshproxy/permissions"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"testing"
 )
 
 func TestManualBuildResource(t *testing.T) {
@@ -83,7 +82,7 @@ func TestManualBuildResource(t *testing.T) {
 						},
 						Data: map[string]string{
 							consts.TunnelRulesAllowKey: toJson(
-								map[string]router.AllowList{
+								map[string]AllowList{
 									"import-hub": {
 										DirectTcpip: permissions.Permission{
 											Allows: []string{
@@ -124,7 +123,7 @@ func TestManualBuildResource(t *testing.T) {
 						},
 						Data: map[string]string{
 							consts.TunnelRulesKey: toJson(
-								[]router.Chain{
+								[]Chain{
 									{
 										Bind: []string{
 											":10000",
@@ -175,7 +174,7 @@ func TestManualBuildResource(t *testing.T) {
 						},
 						Data: map[string]string{
 							consts.TunnelRulesKey: toJson(
-								[]router.Chain{
+								[]Chain{
 									{
 										Bind: []string{
 											":10000",
@@ -214,7 +213,7 @@ func TestManualBuildResource(t *testing.T) {
 						},
 						Data: map[string]string{
 							consts.TunnelRulesAllowKey: toJson(
-								map[string]router.AllowList{
+								map[string]AllowList{
 									"export-hub": {
 										TcpipForward: permissions.Permission{
 											Allows: []string{
@@ -261,9 +260,4 @@ func TestManualBuildResource(t *testing.T) {
 			}
 		})
 	}
-}
-
-func toJson(c interface{}) string {
-	data, _ := json.MarshalIndent(c, "", "  ")
-	return string(data)
 }

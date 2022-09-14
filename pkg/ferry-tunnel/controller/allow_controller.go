@@ -25,7 +25,7 @@ import (
 	"time"
 
 	"github.com/ferryproxy/ferry/pkg/consts"
-	"github.com/ferryproxy/ferry/pkg/ferry-controller/router"
+	"github.com/ferryproxy/ferry/pkg/router"
 	"github.com/ferryproxy/ferry/pkg/utils/objref"
 	"github.com/ferryproxy/ferry/pkg/utils/trybuffer"
 	"github.com/go-logr/logr"

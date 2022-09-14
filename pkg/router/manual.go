@@ -14,12 +14,11 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package manual
+package router
 
 import (
 	"github.com/ferryproxy/api/apis/traffic/v1alpha2"
-	"github.com/ferryproxy/ferry/pkg/ferry-controller/router"
-	"github.com/ferryproxy/ferry/pkg/ferry-controller/router/resource"
+	"github.com/ferryproxy/ferry/pkg/resource"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -40,12 +39,12 @@ type ManualConfig struct {
 	BindPort         int32
 }
 
-type ManualRouter struct {
+type Manual struct {
 	dateSource dateSource
 }
 
-func NewManual(conf ManualConfig) *ManualRouter {
-	return &ManualRouter{
+func NewManual(conf ManualConfig) *Manual {
+	return &Manual{
 		dateSource: dateSource{
 			routeName:        conf.RouteName,
 			exportHubName:    conf.ExportHubName,
@@ -125,8 +124,8 @@ func (f *dateSource) GetAuthorized(name string) string {
 	return ""
 }
 
-func (f *ManualRouter) BuildResource() (out map[string][]resource.Resourcer, err error) {
-	solution := router.NewSolution(router.SolutionConfig{
+func (f *Manual) BuildResource() (out map[string][]resource.Resourcer, err error) {
+	solution := NewSolution(SolutionConfig{
 		GetHubGateway: f.dateSource.GetHubGateway,
 	})
 
@@ -135,7 +134,7 @@ func (f *ManualRouter) BuildResource() (out map[string][]resource.Resourcer, err
 		return nil, err
 	}
 
-	router := router.NewRouter(router.RouterConfig{
+	router := NewRouter(RouterConfig{
 		Labels:        map[string]string{},
 		ExportHubName: f.dateSource.exportHubName,
 		ImportHubName: f.dateSource.importHubName,
