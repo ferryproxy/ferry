@@ -23,8 +23,8 @@ import (
 
 	"github.com/ferryproxy/api/apis/traffic/v1alpha2"
 	"github.com/ferryproxy/ferry/pkg/consts"
-	"github.com/ferryproxy/ferry/pkg/ferry-controller/router"
-	"github.com/ferryproxy/ferry/pkg/ferry-controller/router/resource"
+	"github.com/ferryproxy/ferry/pkg/resource"
+	"github.com/ferryproxy/ferry/pkg/router"
 	"github.com/ferryproxy/ferry/pkg/services"
 	"github.com/ferryproxy/ferry/pkg/utils/diffobjs"
 	"github.com/ferryproxy/ferry/pkg/utils/trybuffer"
@@ -39,7 +39,7 @@ type ClusterCache interface {
 	ListServices(name string) []*corev1.Service
 	GetHub(name string) *v1alpha2.Hub
 	GetHubGateway(hubName string, forHub string) v1alpha2.HubSpecGateway
-	GetIdentity(name string) string
+	GetAuthorized(name string) string
 	Clientset(name string) kubernetes.Interface
 	LoadPortPeer(importHubName string, cluster, namespace, name string, ports []services.MappingPort)
 	GetPortPeer(importHubName string, cluster, namespace, name string, port int32) int32
@@ -121,21 +121,16 @@ func (d *MappingController) Start(ctx context.Context) error {
 			return err
 		}
 	}
+	d.router = router.NewRouter(router.RouterConfig{
+		Labels:        d.getLabel(),
+		ExportHubName: d.exportHubName,
+		ImportHubName: d.importHubName,
+		ClusterCache:  d.clusterCache,
+	})
 
 	d.try = trybuffer.NewTryBuffer(d.sync, time.Second/10)
 
 	d.clusterCache.RegistryServiceCallback(d.exportHubName, d.importHubName, d.Sync)
-
-	d.router = router.NewRouter(router.RouterConfig{
-		Labels:        d.getLabel(),
-		Namespace:     d.namespace,
-		ExportHubName: d.exportHubName,
-		ImportHubName: d.importHubName,
-		GetIdentity:   d.clusterCache.GetIdentity,
-		ListServices:  d.clusterCache.ListServices,
-		GetHubGateway: d.clusterCache.GetHubGateway,
-		GetPortPeer:   d.clusterCache.GetPortPeer,
-	})
 
 	return nil
 }
@@ -168,7 +163,7 @@ func (d *MappingController) loadLastConfigMap(ctx context.Context, name string, 
 		d.cacheResources[name] = append(d.cacheResources[name], resource.ConfigMap{item.DeepCopy()})
 	}
 	for _, item := range cmList.Items {
-		if item.Labels != nil && item.Labels[consts.TunnelDiscoverConfigMapsKey] == consts.TunnelDiscoverConfigMapsValue {
+		if item.Labels != nil && item.Labels[consts.TunnelConfigKey] == consts.TunnelConfigDiscoverValue {
 			d.loadPorts(name, &item)
 		}
 	}

@@ -18,7 +18,8 @@ package services
 
 import (
 	"encoding/json"
-	"github.com/ferryproxy/ferry/pkg/ferry-controller/router/resource"
+
+	"github.com/ferryproxy/ferry/pkg/resource"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )

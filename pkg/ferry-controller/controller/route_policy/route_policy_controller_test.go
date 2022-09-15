@@ -204,7 +204,7 @@ func Test_policiesToRoutes(t *testing.T) {
 			want: []*v1alpha2.Route{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:            "test-export-1-default-app-1-import-1-default-app-1",
+						Name:            "test-cd2f4ea8a90c",
 						OwnerReferences: ownerReferences,
 						Labels:          labelsForRoute,
 					},
@@ -227,7 +227,7 @@ func Test_policiesToRoutes(t *testing.T) {
 				},
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:            "test-export-1-default-app-2-import-1-default-app-2",
+						Name:            "test-efb4858c4a53",
 						OwnerReferences: ownerReferences,
 						Labels:          labelsForRoute,
 					},
@@ -278,7 +278,7 @@ func Test_policiesToRoutes(t *testing.T) {
 			want: []*v1alpha2.Route{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:            "test-export-1-default-app-1-import-1-default-app-1",
+						Name:            "test-cd2f4ea8a90c",
 						OwnerReferences: ownerReferences,
 						Labels:          labelsForRoute,
 					},
@@ -329,7 +329,7 @@ func Test_policiesToRoutes(t *testing.T) {
 			want: []*v1alpha2.Route{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:            "test-export-1-default-app-1-import-1-default-app-1",
+						Name:            "test-cd2f4ea8a90c",
 						OwnerReferences: ownerReferences,
 						Labels:          labelsForRoute,
 					},
@@ -352,7 +352,7 @@ func Test_policiesToRoutes(t *testing.T) {
 				},
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:            "test-export-1-default-app-2-import-1-default-app-2",
+						Name:            "test-efb4858c4a53",
 						OwnerReferences: ownerReferences,
 						Labels:          labelsForRoute,
 					},
@@ -403,7 +403,7 @@ func Test_policiesToRoutes(t *testing.T) {
 			want: []*v1alpha2.Route{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:            "test-export-1-default-app-1-import-1-default-app-1",
+						Name:            "test-cd2f4ea8a90c",
 						OwnerReferences: ownerReferences,
 						Labels:          labelsForRoute,
 					},
@@ -456,7 +456,7 @@ func Test_policiesToRoutes(t *testing.T) {
 			want: []*v1alpha2.Route{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:            "test-export-1-default-app-1-import-1-default-app-1",
+						Name:            "test-786e6a1077a3",
 						OwnerReferences: ownerReferences,
 						Labels:          labelsForRoute,
 					},
@@ -465,21 +465,21 @@ func Test_policiesToRoutes(t *testing.T) {
 							HubName: "import-1",
 							Service: v1alpha2.RouteSpecRuleService{
 								Name:      "app-1",
-								Namespace: "default",
+								Namespace: "test",
 							},
 						},
 						Export: v1alpha2.RouteSpecRule{
 							HubName: "export-1",
 							Service: v1alpha2.RouteSpecRuleService{
 								Name:      "app-1",
-								Namespace: "default",
+								Namespace: "test",
 							},
 						},
 					},
 				},
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:            "test-export-1-test-app-1-import-1-test-app-1",
+						Name:            "test-cd2f4ea8a90c",
 						OwnerReferences: ownerReferences,
 						Labels:          labelsForRoute,
 					},
@@ -488,14 +488,14 @@ func Test_policiesToRoutes(t *testing.T) {
 							HubName: "import-1",
 							Service: v1alpha2.RouteSpecRuleService{
 								Name:      "app-1",
-								Namespace: "test",
+								Namespace: "default",
 							},
 						},
 						Export: v1alpha2.RouteSpecRule{
 							HubName: "export-1",
 							Service: v1alpha2.RouteSpecRuleService{
 								Name:      "app-1",
-								Namespace: "test",
+								Namespace: "default",
 							},
 						},
 					},
@@ -532,7 +532,7 @@ func Test_policiesToRoutes(t *testing.T) {
 			want: []*v1alpha2.Route{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:            "test-export-1-default-app-1-import-1-default-app-1",
+						Name:            "test-cd2f4ea8a90c",
 						OwnerReferences: ownerReferences,
 						Labels:          labelsForRoute,
 					},
@@ -585,7 +585,7 @@ func Test_policiesToRoutes(t *testing.T) {
 			want: []*v1alpha2.Route{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:            "test-export-1-default-app-1-import-1-default-app-1",
+						Name:            "test-786e6a1077a3",
 						OwnerReferences: ownerReferences,
 						Labels:          labelsForRoute,
 					},
@@ -594,21 +594,21 @@ func Test_policiesToRoutes(t *testing.T) {
 							HubName: "import-1",
 							Service: v1alpha2.RouteSpecRuleService{
 								Name:      "app-1",
-								Namespace: "default",
+								Namespace: "test",
 							},
 						},
 						Export: v1alpha2.RouteSpecRule{
 							HubName: "export-1",
 							Service: v1alpha2.RouteSpecRuleService{
 								Name:      "app-1",
-								Namespace: "default",
+								Namespace: "test",
 							},
 						},
 					},
 				},
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:            "test-export-1-test-app-1-import-1-test-app-1",
+						Name:            "test-cd2f4ea8a90c",
 						OwnerReferences: ownerReferences,
 						Labels:          labelsForRoute,
 					},
@@ -617,14 +617,14 @@ func Test_policiesToRoutes(t *testing.T) {
 							HubName: "import-1",
 							Service: v1alpha2.RouteSpecRuleService{
 								Name:      "app-1",
-								Namespace: "test",
+								Namespace: "default",
 							},
 						},
 						Export: v1alpha2.RouteSpecRule{
 							HubName: "export-1",
 							Service: v1alpha2.RouteSpecRuleService{
 								Name:      "app-1",
-								Namespace: "test",
+								Namespace: "default",
 							},
 						},
 					},
@@ -661,7 +661,7 @@ func Test_policiesToRoutes(t *testing.T) {
 			want: []*v1alpha2.Route{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:            "test-export-1-default-app-1-import-1-default-app-1",
+						Name:            "test-cd2f4ea8a90c",
 						OwnerReferences: ownerReferences,
 						Labels:          labelsForRoute,
 					},
@@ -730,30 +730,7 @@ func Test_policiesToRoutes(t *testing.T) {
 			want: []*v1alpha2.Route{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:            "test-export-1-default-app-1-import-1-default-app-1",
-						OwnerReferences: ownerReferences,
-						Labels:          labelsForRoute,
-					},
-					Spec: v1alpha2.RouteSpec{
-						Import: v1alpha2.RouteSpecRule{
-							HubName: "import-1",
-							Service: v1alpha2.RouteSpecRuleService{
-								Name:      "app-1",
-								Namespace: "default",
-							},
-						},
-						Export: v1alpha2.RouteSpecRule{
-							HubName: "export-1",
-							Service: v1alpha2.RouteSpecRuleService{
-								Name:      "app-1",
-								Namespace: "default",
-							},
-						},
-					},
-				},
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:            "test-export-2-default-app-1-import-1-default-app-1",
+						Name:            "test-5d5069c28854",
 						OwnerReferences: ownerReferences,
 						Labels:          labelsForRoute,
 					},
@@ -767,6 +744,29 @@ func Test_policiesToRoutes(t *testing.T) {
 						},
 						Export: v1alpha2.RouteSpecRule{
 							HubName: "export-2",
+							Service: v1alpha2.RouteSpecRuleService{
+								Name:      "app-1",
+								Namespace: "default",
+							},
+						},
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:            "test-cd2f4ea8a90c",
+						OwnerReferences: ownerReferences,
+						Labels:          labelsForRoute,
+					},
+					Spec: v1alpha2.RouteSpec{
+						Import: v1alpha2.RouteSpecRule{
+							HubName: "import-1",
+							Service: v1alpha2.RouteSpecRuleService{
+								Name:      "app-1",
+								Namespace: "default",
+							},
+						},
+						Export: v1alpha2.RouteSpecRule{
+							HubName: "export-1",
 							Service: v1alpha2.RouteSpecRuleService{
 								Name:      "app-1",
 								Namespace: "default",

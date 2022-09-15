@@ -3,12 +3,12 @@ kind: ConfigMap
 metadata:
   labels:
     app: ferry-tunnel
-    tunnel.ferryproxy.io/service: enabled
-  name: {{ .ServiceName }}-service
+    tunnel.ferryproxy.io/config: service
+  name: "{{ .ServiceName }}-service"
   namespace: ferry-tunnel-system
 data:
-  import_service_namespace: {{ .ServiceNamespace }}
-  import_service_name: {{ .ServiceName }}
+  import_service_namespace: "{{ .ServiceNamespace }}"
+  import_service_name: "{{ .ServiceName }}"
   ports: |
     [
       {

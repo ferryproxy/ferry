@@ -19,7 +19,6 @@ package export
 import (
 	"encoding/base64"
 	"fmt"
-	"net"
 	"strings"
 
 	"github.com/ferryproxy/ferry/pkg/ferryctl/kubectl"
@@ -32,14 +31,18 @@ import (
 
 func NewCommand(logger log.Logger) *cobra.Command {
 	var (
-		first             = true
-		exportHostPort    string
-		importServiceName string
-		tunnelAddress     = vars.AutoPlaceholders
-		reachable         = true
-		peerTunnelAddress = vars.AutoPlaceholders
-		peerIdentityData  = ""
-		bindPort          = vars.AutoPlaceholders
+		routeName          string
+		importHub          string
+		exportHub          string
+		first              = true
+		exportService      string
+		importService      string
+		tunnelAddress      = vars.AutoPlaceholders
+		reachable          = true
+		peerTunnelAddress  = vars.AutoPlaceholders
+		peerAuthorizedData = ""
+		bindPort           = vars.AutoPlaceholders
+		port               string
 	)
 	cmd := &cobra.Command{
 		Args: cobra.NoArgs,
@@ -50,7 +53,7 @@ func NewCommand(logger log.Logger) *cobra.Command {
 		Short: "export commands",
 		RunE: func(cmd *cobra.Command, _ []string) (err error) {
 			kctl := kubectl.NewKubectl()
-			tunnelIdentity := ""
+			tunnelAuthorized := ""
 			if !reachable {
 				tunnelAddress = ""
 			} else {
@@ -60,34 +63,38 @@ func NewCommand(logger log.Logger) *cobra.Command {
 						return err
 					}
 				}
-				tunnelIdentity, err = kctl.GetSecretIdentity(cmd.Context())
-				if err != nil {
-					return err
-				}
 			}
 
-			host, port, err := net.SplitHostPort(exportHostPort)
+			tunnelAuthorized, err = kctl.GetSecretAuthorized(cmd.Context())
 			if err != nil {
-				return fmt.Errorf("invalid host and port: %v", err)
+				return err
+			}
+			if tunnelAuthorized == "" {
+				return fmt.Errorf("failed get authorized key")
 			}
 
+			exportService = manual.FormatService(exportService)
+			importService = manual.FormatService(importService)
 			exportTunnelAddress := tunnelAddress
-			exportTunnelIdentity := tunnelIdentity
+			exportTunnelAuthorized := tunnelAuthorized
 			importTunnelAddress := peerTunnelAddress
-			importTunnelIdentity := peerIdentityData
+			importTunnelAuthorized := peerAuthorizedData
 			next := "import"
 			isImport := false
 
 			if first {
-				second, err := manual.First(cmd.Context(), manual.FirstConfig{
+				second, err := manual.First(manual.FirstConfig{
+					RouteName:         routeName,
+					ExportHub:         exportHub,
+					ImportHub:         importHub,
 					Next:              next,
 					Reachable:         reachable,
 					BindPort:          bindPort,
 					TunnelAddress:     tunnelAddress,
-					TunnelIdentity:    tunnelIdentity,
+					TunnelAuthorized:  tunnelAuthorized,
 					ExportPort:        port,
-					ExportHost:        host,
-					ImportServiceName: importServiceName,
+					ExportService:     exportService,
+					ImportService:     importService,
 					PeerTunnelAddress: peerTunnelAddress,
 				})
 				if err != nil {
@@ -100,19 +107,24 @@ func NewCommand(logger log.Logger) *cobra.Command {
 				)
 				return nil
 			}
-			applyResource, otherResource, importAddress, err := manual.Second(cmd.Context(), manual.SecondConfig{
-				IsImport:             isImport,
-				ImportServiceName:    importServiceName,
-				BindPort:             bindPort,
-				ExportPort:           port,
-				ExportHost:           host,
-				ExportHubName:        "manual",
-				Reachable:            reachable,
-				ImportTunnelAddress:  importTunnelAddress,
-				ImportTunnelIdentity: importTunnelIdentity,
-				ExportTunnelAddress:  exportTunnelAddress,
-				ExportTunnelIdentity: exportTunnelIdentity,
+			applyResource, otherResource, importAddress, err := manual.Second(manual.SecondConfig{
+				RouteName:              routeName,
+				ExportHub:              exportHub,
+				ImportHub:              importHub,
+				IsImport:               isImport,
+				ImportService:          importService,
+				BindPort:               bindPort,
+				ExportPort:             port,
+				ExportService:          exportService,
+				Reachable:              reachable,
+				ImportTunnelAddress:    importTunnelAddress,
+				ImportTunnelAuthorized: importTunnelAuthorized,
+				ExportTunnelAddress:    exportTunnelAddress,
+				ExportTunnelAuthorized: exportTunnelAuthorized,
 			})
+			if err != nil {
+				return err
+			}
 
 			if applyResource != "" {
 				err = kctl.ApplyWithReader(cmd.Context(), strings.NewReader(applyResource))
@@ -139,12 +151,16 @@ func NewCommand(logger log.Logger) *cobra.Command {
 
 	flags := cmd.Flags()
 	flags.BoolVar(&first, "first", first, "first step")
-	flags.StringVar(&exportHostPort, "export-host-port", "", "host:port")
-	flags.StringVar(&importServiceName, "import-service-name", "", "service name")
+	flags.StringVar(&routeName, "route-name", "", "route name")
+	flags.StringVar(&exportHub, "export-hub", "", "export hub name")
+	flags.StringVar(&importHub, "import-hub", "", "import hub name")
+	flags.StringVar(&exportService, "export-service", "", "name.namespaces")
+	flags.StringVar(&importService, "import-service", "", "name.namespaces")
 	flags.StringVar(&tunnelAddress, "tunnel-address", tunnelAddress, "tunnel address")
 	flags.BoolVar(&reachable, "reachable", reachable, "whether the tunnel is reachable")
-	flags.StringVar(&peerIdentityData, "peer-identity-data", peerIdentityData, "peer identity data")
+	flags.StringVar(&peerAuthorizedData, "peer-authorized-data", peerAuthorizedData, "peer authorized data")
 	flags.StringVar(&peerTunnelAddress, "peer-tunnel-address", peerTunnelAddress, "peer tunnel address")
 	flags.StringVar(&bindPort, "bind-port", bindPort, "bind port")
+	flags.StringVar(&port, "port", port, "port")
 	return cmd
 }

@@ -60,5 +60,5 @@ func ForwardListen(ctx context.Context, remote string, local string) error {
 	}
 
 	b := bridge.NewBridge()
-	return b.ForwardListen(ctx, "0.0.0.0:"+port, local)
+	return b.ForwardListen(ctx, ":"+port, local)
 }

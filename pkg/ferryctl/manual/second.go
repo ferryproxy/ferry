@@ -17,64 +17,118 @@ limitations under the License.
 package manual
 
 import (
-	"context"
+	"encoding/base64"
 	"fmt"
-	"net"
+	"strconv"
+	"time"
+
+	"github.com/ferryproxy/api/apis/traffic/v1alpha2"
+	"github.com/ferryproxy/ferry/pkg/resource"
+	"github.com/ferryproxy/ferry/pkg/router"
 )
 
 type SecondConfig struct {
-	IsImport             bool
-	ImportServiceName    string
-	BindPort             string
-	ExportPort           string
-	ExportHost           string
-	ExportHubName        string
-	Reachable            bool
-	ImportTunnelAddress  string
-	ImportTunnelIdentity string
-	ExportTunnelAddress  string
-	ExportTunnelIdentity string
+	RouteName              string
+	ImportHub              string
+	ExportHub              string
+	IsImport               bool
+	ImportService          string
+	BindPort               string
+	ExportPort             string
+	ExportService          string
+	Reachable              bool
+	ImportTunnelAddress    string
+	ImportTunnelAuthorized string
+	ExportTunnelAddress    string
+	ExportTunnelAuthorized string
 }
 
-func Second(ctx context.Context, config SecondConfig) (applyResource, otherResource, importAddress string, err error) {
-	conf := BuildManualPortConfig{
-		ImportServiceName: config.ImportServiceName,
-		BindPort:          config.BindPort,
-		ExportPort:        config.ExportPort,
-		ExportHost:        config.ExportHost,
-		ExportHubName:     config.ExportHubName,
-	}
-
-	if config.Reachable == config.IsImport {
-		importTunnelHost, importTunnelPort, err := net.SplitHostPort(config.ImportTunnelAddress)
-		if err != nil {
-			return "", "", "", fmt.Errorf("invalid service and port: %v", err)
-		}
-		conf.ImportTunnelHost = importTunnelHost
-		conf.ImportTunnelPort = importTunnelPort
-		conf.ImportTunnelIdentity = config.ImportTunnelIdentity
-	} else {
-		exportTunnelHost, exportTunnelPort, err := net.SplitHostPort(config.ExportTunnelAddress)
-		if err != nil {
-			return "", "", "", fmt.Errorf("invalid service and port: %v", err)
-		}
-		conf.ExportTunnelHost = exportTunnelHost
-		conf.ExportTunnelPort = exportTunnelPort
-		conf.ExportTunnelIdentity = config.ExportTunnelIdentity
-	}
-
-	exportPortResource, importPortResource, importAddress, err := BuildManualPort(conf)
+func Second(conf SecondConfig) (applyResource, otherResource, importAddress string, err error) {
+	bindPort, err := strconv.Atoi(conf.BindPort)
 	if err != nil {
-		return "", "", "", fmt.Errorf("failed to build manual port: %v", err)
+		return "", "", "", err
+	}
+	port, err := strconv.Atoi(conf.ExportPort)
+	if err != nil {
+		return "", "", "", err
 	}
 
-	if config.IsImport {
-		applyResource = importPortResource
-		otherResource = exportPortResource
-	} else {
-		applyResource = exportPortResource
-		otherResource = importPortResource
+	importName, importNamespace := GetService(conf.ImportService)
+	exportName, exportNamespace := GetService(conf.ExportService)
+
+	routeName := conf.RouteName
+	if routeName == "" {
+		suffix := time.Now().Format("20060102150405")
+		routeName = fmt.Sprintf("manual-%s-%s-%s", importName, importNamespace, suffix)
 	}
+	exportHubName := conf.ExportHub
+	if exportHubName == "" {
+		exportHubName = fmt.Sprintf("%s-export", routeName)
+	}
+	importHubName := conf.ImportHub
+	if importHubName == "" {
+		importHubName = fmt.Sprintf("%s-import", routeName)
+	}
+
+	importAuthorized, err := base64.StdEncoding.DecodeString(conf.ImportTunnelAuthorized)
+	if err != nil {
+		return "", "", "", err
+	}
+
+	exportAuthorized, err := base64.StdEncoding.DecodeString(conf.ExportTunnelAuthorized)
+	if err != nil {
+		return "", "", "", err
+	}
+
+	mc := router.ManualConfig{
+		RouteName:       routeName,
+		ImportHubName:   importHubName,
+		ImportName:      importName,
+		ImportNamespace: importNamespace,
+		ImportGateway: v1alpha2.HubSpecGateway{
+			Reachable: conf.ImportTunnelAddress != "",
+			Address:   conf.ImportTunnelAddress,
+		},
+		ImportAuthorized: string(importAuthorized),
+		BindPort:         int32(bindPort),
+		Port:             int32(port),
+		ExportHubName:    exportHubName,
+		ExportName:       exportName,
+		ExportNamespace:  exportNamespace,
+		ExportGateway: v1alpha2.HubSpecGateway{
+			Reachable: conf.ExportTunnelAddress != "",
+			Address:   conf.ExportTunnelAddress,
+		},
+		ExportAuthorized: string(exportAuthorized),
+	}
+	m := router.NewManual(mc)
+	resources, err := m.BuildResource()
+	if err != nil {
+		return "", "", "", err
+	}
+
+	if len(resources) == 0 {
+		return "", "", "", fmt.Errorf("failed build resource: output is empty")
+	}
+
+	importResource, err := resource.MarshalYAML(resources[importHubName]...)
+	if err != nil {
+		return "", "", "", err
+	}
+	exportResource, err := resource.MarshalYAML(resources[exportHubName]...)
+	if err != nil {
+		return "", "", "", err
+	}
+
+	if conf.IsImport {
+		applyResource = string(importResource)
+		otherResource = string(exportResource)
+	} else {
+		applyResource = string(exportResource)
+		otherResource = string(importResource)
+	}
+
+	importAddress = fmt.Sprintf("%s.svc:%s", conf.ImportService, conf.ExportPort)
 
 	return applyResource, otherResource, importAddress, nil
 }

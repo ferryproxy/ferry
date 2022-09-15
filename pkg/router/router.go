@@ -21,95 +21,118 @@ import (
 
 	"github.com/ferryproxy/api/apis/traffic/v1alpha2"
 	"github.com/ferryproxy/ferry/pkg/consts"
-	"github.com/ferryproxy/ferry/pkg/ferry-controller/router/resource"
+	"github.com/ferryproxy/ferry/pkg/resource"
 	"github.com/ferryproxy/ferry/pkg/services"
+	"github.com/ferryproxy/ferry/pkg/utils/diffobjs"
 	"github.com/ferryproxy/ferry/pkg/utils/maps"
 	"github.com/ferryproxy/ferry/pkg/utils/objref"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+type ClusterCache interface {
+	ListServices(name string) []*corev1.Service
+	GetHubGateway(hubName string, forHub string) v1alpha2.HubSpecGateway
+	GetAuthorized(name string) string
+	GetPortPeer(importHubName string, cluster, namespace, name string, port int32) int32
+}
+
 type RouterConfig struct {
-	Namespace     string
 	Labels        map[string]string
 	ExportHubName string
 	ImportHubName string
-	GetIdentity   func(hubName string) string
-	GetHubGateway func(hubName string, forHub string) v1alpha2.HubSpecGateway
-	ListServices  func(name string) []*corev1.Service
-	GetPortPeer   func(importHubName string, cluster, namespace, name string, port int32) int32
+	ClusterCache  ClusterCache
 }
 
 func NewRouter(conf RouterConfig) *Router {
 	return &Router{
-		namespace:     conf.Namespace,
 		labels:        conf.Labels,
 		importHubName: conf.ImportHubName,
 		exportHubName: conf.ExportHubName,
-		listServices:  conf.ListServices,
-		getPortPeer:   conf.GetPortPeer,
-		mappings:      map[objref.ObjectRef][]objref.ObjectRef{},
+		clusterCache:  conf.ClusterCache,
+		mappings:      map[objref.ObjectRef][]*v1alpha2.Route{},
 		hubsChain: NewHubsChain(HubsChainConfig{
-			GetIdentity:   conf.GetIdentity,
-			GetHubGateway: conf.GetHubGateway,
+			GetHubGateway: conf.ClusterCache.GetHubGateway,
 		}),
 	}
 }
 
 type Router struct {
-	namespace string
-	labels    map[string]string
+	labels map[string]string
 
 	exportHubName string
 	importHubName string
 
-	mappings map[objref.ObjectRef][]objref.ObjectRef
+	mappings map[objref.ObjectRef][]*v1alpha2.Route
 
-	listServices func(name string) []*corev1.Service
-	getPortPeer  func(importHubName string, cluster, namespace, name string, port int32) int32
+	clusterCache ClusterCache
 
 	hubsChain *HubsChain
 }
 
 func (d *Router) SetRoutes(rules []*v1alpha2.Route) {
-	mappings := map[objref.ObjectRef][]objref.ObjectRef{}
+	mappings := map[objref.ObjectRef][]*v1alpha2.Route{}
 
 	for _, rule := range rules {
 		exportRef := objref.ObjectRef{Name: rule.Spec.Export.Service.Name, Namespace: rule.Spec.Export.Service.Namespace}
-		importRef := objref.ObjectRef{Name: rule.Spec.Import.Service.Name, Namespace: rule.Spec.Import.Service.Namespace}
-		mappings[exportRef] = append(mappings[exportRef], importRef)
+		mappings[exportRef] = append(mappings[exportRef], rule)
 	}
 	d.mappings = mappings
 }
 
 func (d *Router) BuildResource(ways []string) (out map[string][]resource.Resourcer, err error) {
 	out = map[string][]resource.Resourcer{}
-	svcs := d.listServices(d.exportHubName)
+	svcs := d.clusterCache.ListServices(d.exportHubName)
+
+	labelsForRules := maps.Merge(d.labels, map[string]string{
+		consts.TunnelConfigKey: consts.TunnelConfigRulesValue,
+	})
+	labelsForAllow := maps.Merge(d.labels, map[string]string{
+		consts.TunnelConfigKey: consts.TunnelConfigAllowValue,
+	})
+	labelsForAuth := maps.Merge(d.labels, map[string]string{
+		consts.TunnelConfigKey: consts.TunnelConfigAuthorizedValue,
+	})
+	labelsForDiscover := maps.Merge(d.labels, map[string]string{
+		consts.TunnelConfigKey: consts.TunnelConfigDiscoverValue,
+	})
 
 	for _, svc := range svcs {
 		origin := objref.KObj(svc)
-		for _, destination := range d.mappings[origin] {
-			labelsForRules := maps.Merge(d.labels, map[string]string{
-				consts.TunnelRulesConfigMapsKey: consts.TunnelRulesConfigMapsValue,
-			})
-			labelsForDiscover := maps.Merge(d.labels, map[string]string{
-				consts.TunnelDiscoverConfigMapsKey: consts.TunnelDiscoverConfigMapsValue,
-			})
+		for _, rule := range d.mappings[origin] {
+			destination := objref.ObjectRef{Name: rule.Spec.Import.Service.Name, Namespace: rule.Spec.Import.Service.Namespace}
 
 			peerPortMapping := map[int32]int32{}
+
 			for _, port := range svc.Spec.Ports {
 
-				peerPort := d.getPortPeer(d.importHubName, d.exportHubName, origin.Namespace, origin.Name, port.Port)
+				peerPort := d.clusterCache.GetPortPeer(d.importHubName, d.exportHubName, origin.Namespace, origin.Name, port.Port)
 				peerPortMapping[port.Port] = peerPort
 
-				tunnelName := fmt.Sprintf("%s-%s-%s-%d-%s-%s-%s-%d-tunnel",
-					d.importHubName, destination.Namespace, destination.Name, port.Port,
-					d.exportHubName, origin.Namespace, origin.Name, peerPort)
-				hubsChains, err := d.hubsChain.Build(tunnelName, origin, destination, port.Port, peerPort, ways)
+				tunnelName := fmt.Sprintf("%s-tunnel-%d-%d", rule.Name, port.Port, peerPort)
+				hubsBound, err := d.hubsChain.Build(tunnelName, origin, destination, port.Port, peerPort, ways)
 				if err != nil {
 					return nil, err
 				}
-				resources, err := ConvertChainsToResourcers(tunnelName, consts.FerryTunnelNamespace, labelsForRules, hubsChains)
+				resources, err := ConvertOutboundToResourcers(tunnelName, consts.FerryTunnelNamespace, labelsForRules, hubsBound)
+				if err != nil {
+					return nil, err
+				}
+				for k, res := range resources {
+					out[k] = append(out[k], res...)
+				}
+
+				allowName := fmt.Sprintf("%s-allows-%d-%d", rule.Name, port.Port, peerPort)
+				resources, err = ConvertInboundToResourcers(allowName, consts.FerryTunnelNamespace, labelsForAllow, hubsBound)
+				if err != nil {
+					return nil, err
+				}
+				for k, res := range resources {
+					out[k] = append(out[k], res...)
+				}
+
+				authNameSuffix := "authorized"
+				resources, err = ConvertInboundAuthorizedToResourcers(authNameSuffix, consts.FerryTunnelNamespace, labelsForAuth, hubsBound, d.clusterCache.GetAuthorized)
 				if err != nil {
 					return nil, err
 				}
@@ -118,9 +141,7 @@ func (d *Router) BuildResource(ways []string) (out map[string][]resource.Resourc
 				}
 			}
 
-			serviceName := fmt.Sprintf("%s-%s-%s-%s-%s-%s-service",
-				d.importHubName, destination.Namespace, destination.Name,
-				d.exportHubName, origin.Namespace, origin.Name)
+			serviceName := fmt.Sprintf("%s-service", rule.Name)
 
 			ports := buildPorts(peerPortMapping, &svc.Spec)
 
@@ -146,6 +167,10 @@ func (d *Router) BuildResource(ways []string) (out map[string][]resource.Resourc
 			}
 			out[d.importHubName] = append(out[d.importHubName], resource.ConfigMap{configMap})
 		}
+	}
+
+	for name := range out {
+		out[name] = diffobjs.Unique(out[name])
 	}
 	return out, nil
 }

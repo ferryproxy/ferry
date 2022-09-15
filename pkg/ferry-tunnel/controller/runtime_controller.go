@@ -28,6 +28,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/ferryproxy/ferry/pkg/consts"
 	"github.com/ferryproxy/ferry/pkg/utils/trybuffer"
 	"github.com/go-logr/logr"
 	"k8s.io/client-go/kubernetes"
@@ -38,7 +39,6 @@ type RuntimeController struct {
 	chains        []json.RawMessage
 	try           *trybuffer.TryBuffer
 	mut           sync.Mutex
-	conf          string
 	namespace     string
 	labelSelector string
 	logger        logr.Logger
@@ -46,7 +46,6 @@ type RuntimeController struct {
 }
 
 type RuntimeControllerConfig struct {
-	Conf          string
 	Namespace     string
 	LabelSelector string
 	Logger        logr.Logger
@@ -55,7 +54,6 @@ type RuntimeControllerConfig struct {
 
 func NewRuntimeController(conf *RuntimeControllerConfig) *RuntimeController {
 	return &RuntimeController{
-		conf:          conf.Conf,
 		namespace:     conf.Namespace,
 		labelSelector: conf.LabelSelector,
 		logger:        conf.Logger,
@@ -64,9 +62,9 @@ func NewRuntimeController(conf *RuntimeControllerConfig) *RuntimeController {
 }
 
 func (r *RuntimeController) Run(ctx context.Context) error {
-	_, err := os.Stat(r.conf)
+	_, err := os.Stat(consts.TunnelRulesConfigPath)
 	if err != nil {
-		err = atomicWrite(r.conf, []byte(`{}`), 0644)
+		err = atomicWrite(consts.TunnelRulesConfigPath, []byte(`{}`), 0644)
 		if err != nil {
 			r.logger.Error(err, "failed to write config file")
 			return err
@@ -109,11 +107,11 @@ func (r *RuntimeController) watch(ctx context.Context) {
 			Logger:        r.logger.WithName("config-watch"),
 			Namespace:     r.namespace,
 			LabelSelector: r.labelSelector,
-			ReloadFunc: func(d []json.RawMessage) {
+			ReloadFunc: func(chains []json.RawMessage) {
 				backoff = time.Second
 				r.mut.Lock()
 				defer r.mut.Unlock()
-				r.chains = d
+				r.chains = chains
 				r.try.Try()
 			},
 		})
@@ -130,7 +128,7 @@ func (r *RuntimeController) watch(ctx context.Context) {
 }
 
 func (r *RuntimeController) runtime(ctx context.Context) error {
-	cmd := exec.CommandContext(ctx, "ferry-tunnel", "-c", r.conf)
+	cmd := exec.CommandContext(ctx, "ferry-tunnel", "-c", consts.TunnelRulesConfigPath)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin
@@ -144,17 +142,17 @@ func (r *RuntimeController) reload() error {
 	r.mut.Lock()
 	defer r.mut.Unlock()
 
-	tunnelConfig, err := json.MarshalIndent(struct {
+	tunnelConfig, err := json.Marshal(struct {
 		Chains []json.RawMessage `json:"chains"`
 	}{
 		Chains: r.chains,
-	}, "", "  ")
+	})
 	if err != nil {
 		return fmt.Errorf("failed to marshal tunnel config: %w", err)
 	}
 	r.logger.V(1).Info("Reload", "config", r)
 
-	err = atomicWrite(r.conf, tunnelConfig, 0644)
+	err = atomicWrite(consts.TunnelRulesConfigPath, tunnelConfig, 0644)
 	if err != nil {
 		return fmt.Errorf("failed to write tunnel config: %w", err)
 	}

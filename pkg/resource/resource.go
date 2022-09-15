@@ -24,23 +24,30 @@ import (
 	"github.com/ferryproxy/api/apis/traffic/v1alpha2"
 	versioned "github.com/ferryproxy/client-go/generated/clientset/versioned"
 	"github.com/ferryproxy/ferry/pkg/consts"
+	"github.com/ferryproxy/ferry/pkg/utils/encoding"
 	"github.com/ferryproxy/ferry/pkg/utils/objref"
 	"github.com/go-logr/logr"
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
 )
 
 type Resourcer interface {
 	objref.KMetadata
+	Original() objref.KMetadata
 	Apply(ctx context.Context, clientset kubernetes.Interface) (err error)
 	Delete(ctx context.Context, clientset kubernetes.Interface) (err error)
 }
 
 type RoutePolicy struct {
 	*v1alpha2.RoutePolicy
+}
+
+func (r RoutePolicy) Original() objref.KMetadata {
+	return r.RoutePolicy
 }
 
 func (r RoutePolicy) Apply(ctx context.Context, clientset versioned.Interface) (err error) {
@@ -95,6 +102,10 @@ type Route struct {
 	*v1alpha2.Route
 }
 
+func (r Route) Original() objref.KMetadata {
+	return r.Route
+}
+
 func (r Route) Apply(ctx context.Context, clientset versioned.Interface) (err error) {
 	logger := logr.FromContextOrDiscard(ctx)
 	ori, err := clientset.
@@ -145,6 +156,10 @@ func (r Route) Delete(ctx context.Context, clientset versioned.Interface) (err e
 
 type Service struct {
 	*corev1.Service
+}
+
+func (s Service) Original() objref.KMetadata {
+	return s.Service
 }
 
 func (s Service) Apply(ctx context.Context, clientset kubernetes.Interface) (err error) {
@@ -209,6 +224,10 @@ type Endpoints struct {
 	*corev1.Endpoints
 }
 
+func (s Endpoints) Original() objref.KMetadata {
+	return s.Endpoints
+}
+
 func (s Endpoints) Apply(ctx context.Context, clientset kubernetes.Interface) (err error) {
 	logger := logr.FromContextOrDiscard(ctx)
 	ori, err := clientset.
@@ -268,6 +287,10 @@ type ConfigMap struct {
 	*corev1.ConfigMap
 }
 
+func (s ConfigMap) Original() objref.KMetadata {
+	return s.ConfigMap
+}
+
 func (s ConfigMap) Apply(ctx context.Context, clientset kubernetes.Interface) (err error) {
 	logger := logr.FromContextOrDiscard(ctx)
 
@@ -290,10 +313,6 @@ func (s ConfigMap) Apply(ctx context.Context, clientset kubernetes.Interface) (e
 			return fmt.Errorf("create ConfigMap %s: %w", objref.KObj(s), err)
 		}
 	} else {
-		if ori.Labels[consts.LabelGeneratedKey] == "" {
-			return fmt.Errorf("configmap %s is not managed by ferry", objref.KObj(s))
-		}
-
 		if reflect.DeepEqual(ori.Data, s.Data) {
 			return nil
 		}
@@ -346,4 +365,17 @@ func copyLabel(old, new map[string]string) {
 			}
 		}
 	}
+}
+
+func MarshalYAML(resources ...Resourcer) ([]byte, error) {
+	objs := make([]runtime.Object, 0, len(resources))
+	for _, resource := range resources {
+		obj, ok := resource.Original().(runtime.Object)
+		if !ok {
+			return nil, fmt.Errorf("failed convert to runtime.Object")
+		}
+		objs = append(objs, obj)
+	}
+
+	return encoding.MarshalYAML(objs...)
 }

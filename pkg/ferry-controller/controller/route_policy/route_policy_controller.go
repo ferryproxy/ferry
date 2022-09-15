@@ -18,6 +18,9 @@ package route_policy
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"sort"
@@ -27,7 +30,7 @@ import (
 	versioned "github.com/ferryproxy/client-go/generated/clientset/versioned"
 	externalversions "github.com/ferryproxy/client-go/generated/informers/externalversions"
 	"github.com/ferryproxy/ferry/pkg/consts"
-	"github.com/ferryproxy/ferry/pkg/ferry-controller/router/resource"
+	"github.com/ferryproxy/ferry/pkg/resource"
 	"github.com/ferryproxy/ferry/pkg/utils/diffobjs"
 	"github.com/ferryproxy/ferry/pkg/utils/maps"
 	"github.com/ferryproxy/ferry/pkg/utils/objref"
@@ -35,6 +38,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/types"
 	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 )
@@ -147,10 +151,16 @@ func (c *RoutePolicyController) updateStatus(name string, phase string, routeCou
 	fp.Status.Phase = phase
 	fp.Status.RouteCount = routeCount
 
-	_, err := c.clientset.
+	data, err := json.Marshal(map[string]interface{}{
+		"status": fp.Status,
+	})
+	if err != nil {
+		return err
+	}
+	_, err = c.clientset.
 		TrafficV1alpha2().
-		RoutePolicies(c.namespace).
-		UpdateStatus(c.ctx, fp, metav1.UpdateOptions{})
+		RoutePolicies(fp.Namespace).
+		Patch(c.ctx, fp.Name, types.MergePatchType, data, metav1.PatchOptions{}, "status")
 	return err
 }
 
@@ -336,9 +346,12 @@ func policiesToRoutes(clusterCache ClusterCache, policies []*v1alpha2.RoutePolic
 
 					policy := match.Policy
 
+					suffix := hash(fmt.Sprintf("%s|%s|%s|%s|%s|%s",
+						exportHubName, exportNamespace, exportName,
+						importHubName, importNamespace, importName))
 					out = append(out, &v1alpha2.Route{
 						ObjectMeta: metav1.ObjectMeta{
-							Name:      fmt.Sprintf("%s-%s-%s-%s-%s-%s-%s", policy.Name, exportHubName, exportNamespace, exportName, importHubName, importNamespace, importName),
+							Name:      fmt.Sprintf("%s-%s", policy.Name, suffix),
 							Namespace: policy.Namespace,
 							Labels:    maps.Merge(policy.Labels, labelsForRoute),
 							OwnerReferences: []metav1.OwnerReference{
@@ -417,4 +430,9 @@ type groupRoutePolicy struct {
 
 var labelsForRoute = map[string]string{
 	consts.LabelGeneratedKey: consts.LabelGeneratedValue,
+}
+
+func hash(s string) string {
+	d := sha256.Sum256([]byte(s))
+	return hex.EncodeToString(d[:6])
 }

@@ -161,7 +161,7 @@ func (c *Kubectl) GetSecretIdentity(ctx context.Context) (string, error) {
 }
 
 func (c *Kubectl) GetSecretAuthorized(ctx context.Context) (string, error) {
-	out, err := commandRun(ctx, "kubectl", "--kubeconfig="+vars.KubeconfigPath, "get", "secret", "-n", consts.FerryTunnelNamespace, consts.FerryTunnelName, "-o", "jsonpath={$.data.authorized}")
+	out, err := commandRun(ctx, "kubectl", "--kubeconfig="+vars.KubeconfigPath, "get", "secret", "-n", consts.FerryTunnelNamespace, consts.FerryTunnelName, "-o", "jsonpath={$.data.authorized_keys}")
 	if err != nil {
 		return "", err
 	}
@@ -274,14 +274,13 @@ func (c *Kubectl) GetTunnelAddress(ctx context.Context) (string, error) {
 }
 
 func (c *Kubectl) GetUnusedPort(ctx context.Context) (string, error) {
-	used := map[string]struct{}{}
-	data, err := commandRun(ctx, "kubectl", "--kubeconfig="+vars.KubeconfigPath, "get", "-n", "ferry-tunnel-system", "cm", "-l", "tunnel.ferryproxy.io/service=enabled", "-o", "jsonpath={$.items[*].data.ports}")
+	data, err := commandRun(ctx, "kubectl", "--kubeconfig="+vars.KubeconfigPath, "get", "-n", "ferry-tunnel-system", "cm", "-l", "tunnel.ferryproxy.io/config=service", "-o", "jsonpath={$.items[*].data.ports}")
 	if err != nil {
 		return "", err
 	}
 
+	used := map[int64]struct{}{}
 	reader := json.NewDecoder(bytes.NewBuffer(data))
-
 	for {
 		m := []services.MappingPort{}
 		err = reader.Decode(&m)
@@ -292,15 +291,14 @@ func (c *Kubectl) GetUnusedPort(ctx context.Context) (string, error) {
 			return "", err
 		}
 		for _, port := range m {
-			used[strconv.Itoa(int(port.TargetPort))] = struct{}{}
+			used[int64(port.TargetPort)] = struct{}{}
 		}
 	}
 
-	var port int64 = 20000
+	var port int64 = 10000
 	for ; ; port++ {
-		p := strconv.FormatInt(port, 10)
-		if _, ok := used[p]; !ok {
-			return p, nil
+		if _, ok := used[port]; !ok {
+			return strconv.FormatInt(port, 10), nil
 		}
 	}
 }

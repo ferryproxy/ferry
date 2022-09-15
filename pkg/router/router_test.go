@@ -23,8 +23,9 @@ import (
 
 	"github.com/ferryproxy/api/apis/traffic/v1alpha2"
 	"github.com/ferryproxy/ferry/pkg/consts"
-	"github.com/ferryproxy/ferry/pkg/ferry-controller/router/resource"
+	"github.com/ferryproxy/ferry/pkg/resource"
 	"github.com/google/go-cmp/cmp"
+	"github.com/wzshiming/sshproxy/permissions"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -122,28 +123,39 @@ func TestRouter(t *testing.T) {
 			},
 
 			want: map[string][]resource.Resourcer{
-				"import": {
+				"export": {
 					resource.ConfigMap{
 						ConfigMap: &corev1.ConfigMap{
 							ObjectMeta: metav1.ObjectMeta{
-								Name:      "import-test-svc1-80-export-test-svc1-10001-tunnel",
+								Name:      "import-authorized",
 								Namespace: "ferry-tunnel-system",
 								Labels: map[string]string{
-									"tunnel.ferryproxy.io/rules": "enabled",
+									"tunnel.ferryproxy.io/config": "authorized",
 								},
 							},
 							Data: map[string]string{
-								consts.TunnelRulesKey: toJson(
-									[]Chain{
-										{
-											Bind: []string{
-												"0.0.0.0:10001",
-											},
-											Proxy: []string{
-												"svc1.test.svc:80",
-												"ssh://10.0.0.1:8080?identity_data=export-identity",
-												"socks5://reception2",
-												"socks5://reception1",
+								"authorized_keys": "import-authorized import@ferryproxy.io",
+								"user":            "import",
+							},
+						},
+					},
+					resource.ConfigMap{
+						ConfigMap: &corev1.ConfigMap{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:      "svc1-allows-80-10001",
+								Namespace: "ferry-tunnel-system",
+								Labels: map[string]string{
+									"tunnel.ferryproxy.io/config": "allows",
+								},
+							},
+							Data: map[string]string{
+								consts.TunnelRulesAllowKey: toJson(
+									map[string]AllowList{
+										"import": {
+											DirectTcpip: permissions.Permission{
+												Allows: []string{
+													"svc1.test.svc:80",
+												},
 											},
 										},
 									},
@@ -151,13 +163,15 @@ func TestRouter(t *testing.T) {
 							},
 						},
 					},
+				},
+				"import": {
 					resource.ConfigMap{
 						ConfigMap: &corev1.ConfigMap{
 							ObjectMeta: metav1.ObjectMeta{
-								Name:      "import-test-svc1-export-test-svc1-service",
+								Name:      "svc1-service",
 								Namespace: "ferry-tunnel-system",
 								Labels: map[string]string{
-									"tunnel.ferryproxy.io/service": "enabled",
+									"tunnel.ferryproxy.io/config": "service",
 								},
 							},
 							Data: map[string]string{
@@ -167,6 +181,34 @@ func TestRouter(t *testing.T) {
 								"import_service_name":      "svc1",
 								"import_service_namespace": "test",
 								"ports":                    `[{"name":"http","protocol":"TCP","port":80,"targetPort":10001}]`,
+							},
+						},
+					},
+					resource.ConfigMap{
+						ConfigMap: &corev1.ConfigMap{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:      "svc1-tunnel-80-10001",
+								Namespace: "ferry-tunnel-system",
+								Labels: map[string]string{
+									"tunnel.ferryproxy.io/config": "rules",
+								},
+							},
+							Data: map[string]string{
+								consts.TunnelRulesKey: toJson(
+									[]Chain{
+										{
+											Bind: []string{
+												":10001",
+											},
+											Proxy: []string{
+												"svc1.test.svc:80",
+												"ssh://import@10.0.0.1:8080?identity_file=/var/ferry/ssh/identity&target_hub=export",
+												"socks5://reception2",
+												"socks5://reception1",
+											},
+										},
+									},
+								),
 							},
 						},
 					},
@@ -263,10 +305,49 @@ func TestRouter(t *testing.T) {
 					resource.ConfigMap{
 						ConfigMap: &corev1.ConfigMap{
 							ObjectMeta: metav1.ObjectMeta{
-								Name:      "import-test-svc1-export-test-svc1-service",
+								Name:      "export-authorized",
 								Namespace: "ferry-tunnel-system",
 								Labels: map[string]string{
-									"tunnel.ferryproxy.io/service": "enabled",
+									"tunnel.ferryproxy.io/config": "authorized",
+								},
+							},
+							Data: map[string]string{
+								"authorized_keys": "export-authorized export@ferryproxy.io",
+								"user":            "export",
+							},
+						},
+					},
+					resource.ConfigMap{
+						ConfigMap: &corev1.ConfigMap{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:      "svc1-allows-80-10001",
+								Namespace: "ferry-tunnel-system",
+								Labels: map[string]string{
+									"tunnel.ferryproxy.io/config": "allows",
+								},
+							},
+							Data: map[string]string{
+								consts.TunnelRulesAllowKey: toJson(
+									map[string]AllowList{
+										"export": {
+											TcpipForward: permissions.Permission{
+												Allows: []string{
+													":10001",
+												},
+											},
+										},
+									},
+								),
+							},
+						},
+					},
+					resource.ConfigMap{
+						ConfigMap: &corev1.ConfigMap{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:      "svc1-service",
+								Namespace: "ferry-tunnel-system",
+								Labels: map[string]string{
+									"tunnel.ferryproxy.io/config": "service",
 								},
 							},
 							Data: map[string]string{
@@ -284,10 +365,10 @@ func TestRouter(t *testing.T) {
 					resource.ConfigMap{
 						ConfigMap: &corev1.ConfigMap{
 							ObjectMeta: metav1.ObjectMeta{
-								Name:      "import-test-svc1-80-export-test-svc1-10001-tunnel",
+								Name:      "svc1-tunnel-80-10001",
 								Namespace: "ferry-tunnel-system",
 								Labels: map[string]string{
-									"tunnel.ferryproxy.io/rules": "enabled",
+									"tunnel.ferryproxy.io/config": "rules",
 								},
 							},
 							Data: map[string]string{
@@ -295,8 +376,8 @@ func TestRouter(t *testing.T) {
 									[]Chain{
 										{
 											Bind: []string{
-												"0.0.0.0:10001",
-												"ssh://10.0.0.2:8080?identity_data=import-identity",
+												":10001",
+												"ssh://export@10.0.0.2:8080?identity_file=/var/ferry/ssh/identity&target_hub=import",
 												"socks5://reception2",
 												"socks5://reception1",
 											},
@@ -405,10 +486,10 @@ func TestRouter(t *testing.T) {
 					resource.ConfigMap{
 						ConfigMap: &corev1.ConfigMap{
 							ObjectMeta: metav1.ObjectMeta{
-								Name:      "import-test-svc1-80-export-test-svc1-10001-tunnel",
+								Name:      "svc1-tunnel-80-10001",
 								Namespace: "ferry-tunnel-system",
 								Labels: map[string]string{
-									"tunnel.ferryproxy.io/rules": "enabled",
+									"tunnel.ferryproxy.io/config": "rules",
 								},
 							},
 							Data: map[string]string{
@@ -416,8 +497,8 @@ func TestRouter(t *testing.T) {
 									[]Chain{
 										{
 											Bind: []string{
-												"unix:///dev/shm/import-test-svc1-80-export-test-svc1-10001-tunnel.socks",
-												"ssh://10.0.0.3:8080?identity_data=proxy-identity",
+												"unix:///dev/shm/svc1-tunnel-80-10001.socks",
+												"ssh://export@10.0.0.3:8080?identity_file=/var/ferry/ssh/identity&target_hub=proxy",
 											},
 											Proxy: []string{
 												"svc1.test.svc:80",
@@ -433,36 +514,10 @@ func TestRouter(t *testing.T) {
 					resource.ConfigMap{
 						ConfigMap: &corev1.ConfigMap{
 							ObjectMeta: metav1.ObjectMeta{
-								Name:      "import-test-svc1-80-export-test-svc1-10001-tunnel",
+								Name:      "svc1-service",
 								Namespace: "ferry-tunnel-system",
 								Labels: map[string]string{
-									"tunnel.ferryproxy.io/rules": "enabled",
-								},
-							},
-							Data: map[string]string{
-								consts.TunnelRulesKey: toJson(
-									[]Chain{
-										{
-											Bind: []string{
-												"0.0.0.0:10001",
-											},
-											Proxy: []string{
-												"unix:///dev/shm/import-test-svc1-80-export-test-svc1-10001-tunnel.socks",
-												"ssh://10.0.0.3:8080?identity_data=proxy-identity",
-											},
-										},
-									},
-								),
-							},
-						},
-					},
-					resource.ConfigMap{
-						ConfigMap: &corev1.ConfigMap{
-							ObjectMeta: metav1.ObjectMeta{
-								Name:      "import-test-svc1-export-test-svc1-service",
-								Namespace: "ferry-tunnel-system",
-								Labels: map[string]string{
-									"tunnel.ferryproxy.io/service": "enabled",
+									"tunnel.ferryproxy.io/config": "service",
 								},
 							},
 							Data: map[string]string{
@@ -472,6 +527,95 @@ func TestRouter(t *testing.T) {
 								"import_service_name":      "svc1",
 								"import_service_namespace": "test",
 								"ports":                    `[{"name":"http","protocol":"TCP","port":80,"targetPort":10001}]`,
+							},
+						},
+					},
+					resource.ConfigMap{
+						ConfigMap: &corev1.ConfigMap{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:      "svc1-tunnel-80-10001",
+								Namespace: "ferry-tunnel-system",
+								Labels: map[string]string{
+									"tunnel.ferryproxy.io/config": "rules",
+								},
+							},
+							Data: map[string]string{
+								consts.TunnelRulesKey: toJson(
+									[]Chain{
+										{
+											Bind: []string{
+												":10001",
+											},
+											Proxy: []string{
+												"unix:///dev/shm/svc1-tunnel-80-10001.socks",
+												"ssh://import@10.0.0.3:8080?identity_file=/var/ferry/ssh/identity&target_hub=proxy",
+											},
+										},
+									},
+								),
+							},
+						},
+					},
+				},
+				"proxy": {
+					resource.ConfigMap{
+						ConfigMap: &corev1.ConfigMap{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:      "export-authorized",
+								Namespace: "ferry-tunnel-system",
+								Labels: map[string]string{
+									"tunnel.ferryproxy.io/config": "authorized",
+								},
+							},
+							Data: map[string]string{
+								"authorized_keys": "export-authorized export@ferryproxy.io",
+								"user":            "export",
+							},
+						},
+					},
+					resource.ConfigMap{
+						ConfigMap: &corev1.ConfigMap{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:      "import-authorized",
+								Namespace: "ferry-tunnel-system",
+								Labels: map[string]string{
+									"tunnel.ferryproxy.io/config": "authorized",
+								},
+							},
+							Data: map[string]string{
+								"authorized_keys": "import-authorized import@ferryproxy.io",
+								"user":            "import",
+							},
+						},
+					},
+					resource.ConfigMap{
+						ConfigMap: &corev1.ConfigMap{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:      "svc1-allows-80-10001",
+								Namespace: "ferry-tunnel-system",
+								Labels: map[string]string{
+									"tunnel.ferryproxy.io/config": "allows",
+								},
+							},
+							Data: map[string]string{
+								consts.TunnelRulesAllowKey: toJson(
+									map[string]AllowList{
+										"export": {
+											StreamlocalForward: permissions.Permission{
+												Allows: []string{
+													"/dev/shm/svc1-tunnel-80-10001.socks",
+												},
+											},
+										},
+										"import": {
+											DirectStreamlocal: permissions.Permission{
+												Allows: []string{
+													"/dev/shm/svc1-tunnel-80-10001.socks",
+												},
+											},
+										},
+									},
+								),
 							},
 						},
 					},
@@ -494,8 +638,8 @@ func TestRouter(t *testing.T) {
 	}
 }
 
-func toJson(c []Chain) string {
-	data, _ := json.MarshalIndent(c, "", "  ")
+func toJson(c interface{}) string {
+	data, _ := json.Marshal(c)
 	return string(data)
 }
 
@@ -531,14 +675,10 @@ func (f *fakeRouter) BuildResource() (out map[string][]resource.Resourcer, err e
 	}
 
 	router := NewRouter(RouterConfig{
-		Namespace:     consts.FerryTunnelNamespace,
 		Labels:        map[string]string{},
 		ExportHubName: exportHubName,
 		ImportHubName: importHubName,
-		GetIdentity:   fakeCache.GetIdentity,
-		ListServices:  fakeCache.ListServices,
-		GetHubGateway: fakeCache.GetHubGateway,
-		GetPortPeer:   fakeCache.GetPortPeer,
+		ClusterCache:  fakeCache,
 	})
 
 	router.SetRoutes(f.Routes)
@@ -575,8 +715,8 @@ func (f *fakeClusterCache) GetHubGateway(hubName string, forHub string) v1alpha2
 	return v1alpha2.HubSpecGateway{}
 }
 
-func (f fakeClusterCache) GetIdentity(name string) string {
-	return fmt.Sprintf("%s-%s", name, "identity")
+func (f fakeClusterCache) GetAuthorized(name string) string {
+	return fmt.Sprintf("%s-%s", name, "authorized")
 }
 
 func (f *fakeClusterCache) GetPortPeer(importHubName string, cluster, namespace, name string, port int32) int32 {

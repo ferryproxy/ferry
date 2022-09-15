@@ -39,9 +39,20 @@ const (
 	LabelMCSMarkHubKey   = "mcs.traffic.ferryproxy.io/service"
 	LabelMCSMarkHubValue = "enabled"
 
-	TunnelRulesKey                = "tunnel"
-	TunnelRulesConfigMapsKey      = "tunnel.ferryproxy.io/rules"
-	TunnelRulesConfigMapsValue    = "enabled"
-	TunnelDiscoverConfigMapsKey   = "tunnel.ferryproxy.io/service"
-	TunnelDiscoverConfigMapsValue = "enabled"
+	TunnelRulesKey      = "tunnel"
+	TunnelRulesAllowKey = "allows"
+	TunnelUserKey       = "user"
+
+	TunnelConfigKey             = "tunnel.ferryproxy.io/config"
+	TunnelConfigRulesValue      = "rules"
+	TunnelConfigDiscoverValue   = "service"
+	TunnelConfigAuthorizedValue = "authorized"
+	TunnelConfigAllowValue      = "allows"
+
+	TunnelRulesConfigPath   = "/var/ferry/bridge.conf"
+	TunnelSshDir            = "/var/ferry/ssh/"
+	TunnelSshHomeDir        = "/var/ferry/home/"
+	TunnelPermissionsName   = "permissions.json"
+	TunnelAuthorizedKeyName = "authorized_keys"
+	TunnelIdentityKeyName   = "identity"
 )

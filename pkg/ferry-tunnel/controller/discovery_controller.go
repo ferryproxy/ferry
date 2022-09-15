@@ -22,7 +22,7 @@ import (
 	"time"
 
 	"github.com/ferryproxy/ferry/pkg/consts"
-	"github.com/ferryproxy/ferry/pkg/ferry-controller/router/resource"
+	"github.com/ferryproxy/ferry/pkg/resource"
 	"github.com/ferryproxy/ferry/pkg/services"
 	"github.com/ferryproxy/ferry/pkg/utils/diffobjs"
 	"github.com/ferryproxy/ferry/pkg/utils/objref"
@@ -70,7 +70,7 @@ func (s *DiscoveryController) Run(ctx context.Context) error {
 		s.mut.Lock()
 		defer s.mut.Unlock()
 		s.sync()
-	}, time.Second/2)
+	}, time.Second/10)
 	informer := informers.NewSharedInformerFactoryWithOptions(s.clientset, 0,
 		informers.WithNamespace(s.namespace),
 		informers.WithTweakListOptions(func(options *metav1.ListOptions) {
@@ -138,7 +138,7 @@ func (s *DiscoveryController) Add(cm *corev1.ConfigMap) {
 		return
 	}
 
-	s.add(data.ExportHubName+data.ExportServiceNamespace+data.ExportServiceName, data.ImportServiceNamespace, data.ImportServiceName, data.Ports)
+	s.add(cm.Name, data.ImportServiceNamespace, data.ImportServiceName, data.Ports)
 	s.try.Try()
 }
 
@@ -148,7 +148,7 @@ func (s *DiscoveryController) Del(cm *corev1.ConfigMap) {
 		s.logger.Error(err, "ServiceFrom")
 		return
 	}
-	s.delete(data.ExportHubName+data.ExportServiceNamespace+data.ExportServiceName, data.ImportServiceNamespace, data.ImportServiceName)
+	s.delete(cm.Name, data.ImportServiceNamespace, data.ImportServiceName)
 	s.try.Try()
 }
 

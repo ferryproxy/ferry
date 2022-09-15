@@ -18,6 +18,7 @@ package route
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"strings"
@@ -31,6 +32,7 @@ import (
 	"github.com/ferryproxy/ferry/pkg/utils/objref"
 	"github.com/go-logr/logr"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 )
@@ -128,10 +130,17 @@ func (c *RouteController) updateStatus(name string, phase string, way []string) 
 		way = nil
 	}
 	fp.Status.Way = strings.Join(way, ",")
-	_, err := c.clientset.
+
+	data, err := json.Marshal(map[string]interface{}{
+		"status": fp.Status,
+	})
+	if err != nil {
+		return err
+	}
+	_, err = c.clientset.
 		TrafficV1alpha2().
 		Routes(fp.Namespace).
-		UpdateStatus(c.ctx, fp, metav1.UpdateOptions{})
+		Patch(c.ctx, fp.Name, types.MergePatchType, data, metav1.PatchOptions{}, "status")
 	return err
 }
 

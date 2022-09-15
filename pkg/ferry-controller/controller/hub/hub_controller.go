@@ -19,7 +19,7 @@ package hub
 import (
 	"bytes"
 	"context"
-	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"sync"
@@ -35,6 +35,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apiextensions "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	restclient "k8s.io/client-go/rest"
@@ -63,7 +64,7 @@ type HubController struct {
 	cacheServiceExport map[string]*clusterServiceExportCache
 	cacheServiceImport map[string]*clusterServiceImportCache
 	cacheTunnelPorts   map[string]*tunnelPorts
-	cacheIdentity      map[string]string
+	cacheAuthorized    map[string]string
 	cacheKubeconfig    map[string][]byte
 	syncFunc           func()
 	namespace          string
@@ -81,7 +82,7 @@ func NewHubController(conf HubControllerConfig) *HubController {
 		cacheServiceExport: map[string]*clusterServiceExportCache{},
 		cacheServiceImport: map[string]*clusterServiceImportCache{},
 		cacheTunnelPorts:   map[string]*tunnelPorts{},
-		cacheIdentity:      map[string]string{},
+		cacheAuthorized:    map[string]string{},
 		cacheKubeconfig:    map[string][]byte{},
 	}
 }
@@ -130,10 +131,16 @@ func (c *HubController) updateStatus(name string, phase string) error {
 	ci.Status.LastSynchronizationTimestamp = metav1.Now()
 	ci.Status.Phase = phase
 
-	_, err := c.clientset.
+	data, err := json.Marshal(map[string]interface{}{
+		"status": ci.Status,
+	})
+	if err != nil {
+		return err
+	}
+	_, err = c.clientset.
 		TrafficV1alpha2().
-		Hubs(c.namespace).
-		UpdateStatus(c.ctx, ci, metav1.UpdateOptions{})
+		Hubs(ci.Namespace).
+		Patch(c.ctx, ci.Name, types.MergePatchType, data, metav1.PatchOptions{}, "status")
 	return err
 }
 
@@ -153,20 +160,20 @@ func (c *HubController) ListServices(name string) []*corev1.Service {
 	return cache.List()
 }
 
-func (c *HubController) GetIdentity(name string) string {
+func (c *HubController) GetAuthorized(name string) string {
 	c.mut.Lock()
 	defer c.mut.Unlock()
-	ident := c.cacheIdentity[name]
+	ident := c.cacheAuthorized[name]
 	if ident != "" {
 		return ident
 	}
 
-	err := c.updateIdentity(name)
+	err := c.updateAuthorized(name)
 	if err != nil {
-		c.logger.Error(err, "failed to update identity key")
+		c.logger.Error(err, "failed to update authorized key")
 		return ""
 	}
-	return c.cacheIdentity[name]
+	return c.cacheAuthorized[name]
 }
 
 func (c *HubController) RegistryServiceCallback(exportHubName, importHubName string, cb func()) {
@@ -259,9 +266,9 @@ func (c *HubController) onAdd(obj interface{}) {
 		c.logger.Error(err, "failed start cluster service cache")
 	}
 
-	err = c.updateIdentity(f.Name)
+	err = c.updateAuthorized(f.Name)
 	if err != nil {
-		c.logger.Error(err, "UpdateIdentityKey",
+		c.logger.Error(err, "updateAuthorized",
 			"hub", objref.KObj(f),
 		)
 	}
@@ -280,7 +287,7 @@ func IsEnabledMCS(f *v1alpha2.Hub) bool {
 	return f != nil && f.Labels != nil && f.Labels[consts.LabelMCSMarkHubKey] == consts.LabelMCSMarkHubValue
 }
 
-func (c *HubController) updateIdentity(name string) error {
+func (c *HubController) updateAuthorized(name string) error {
 	secret, err := c.cacheClientset[name].
 		CoreV1().
 		Secrets(consts.FerryTunnelNamespace).
@@ -291,11 +298,11 @@ func (c *HubController) updateIdentity(name string) error {
 	if secret.Data == nil {
 		return fmt.Errorf("hub %q secret %s.%s is empty", name, consts.FerryTunnelName, consts.FerryTunnelNamespace)
 	}
-	identity := secret.Data["identity"]
-	if len(identity) == 0 {
-		return fmt.Errorf("hub %q not found identity key", name)
+	authorized := secret.Data["authorized_keys"]
+	if len(authorized) == 0 {
+		return fmt.Errorf("hub %q not found authorized_keys key", name)
 	}
-	c.cacheIdentity[name] = base64.URLEncoding.EncodeToString(identity)
+	c.cacheAuthorized[name] = string(authorized)
 	return nil
 }
 
@@ -329,9 +336,9 @@ func (c *HubController) onUpdate(oldObj, newObj interface{}) {
 	c.mut.Lock()
 	defer c.mut.Unlock()
 
-	err := c.updateIdentity(f.Name)
+	err := c.updateAuthorized(f.Name)
 	if err != nil {
-		c.logger.Error(err, "UpdateIdentityKey",
+		c.logger.Error(err, "updateAuthorized",
 			"hub", objref.KObj(f),
 		)
 	}
@@ -562,7 +569,7 @@ func (c *HubController) onDelete(obj interface{}) {
 		c.cacheService[f.Name].Close()
 	}
 	delete(c.cacheService, f.Name)
-	delete(c.cacheIdentity, f.Name)
+	delete(c.cacheAuthorized, f.Name)
 	c.disableMCS(f)
 
 	c.syncFunc()

@@ -46,8 +46,8 @@ KUBECONFIG="${KUBECONFIG_DIR}/cluster-0.yaml"
 echo "KUBECONFIG=${KUBECONFIG}"
 FERRY_PEER_KUBECONFIG="${KUBECONFIG_DIR}/cluster-1.yaml"
 echo "FERRY_PEER_KUBECONFIG=${FERRY_PEER_KUBECONFIG}"
-echo ferryctl local manual export --reachable=true "--tunnel-address=${HOST_IP}:31000" --export-host-port=web-0.test.svc:80 --import-service-name=web-0-80
-ferryctl local manual export --reachable=true "--tunnel-address=${HOST_IP}:31000" --export-host-port=web-0.test.svc:80 --import-service-name=web-0-80
+echo ferryctl local manual export --reachable=true "--tunnel-address=${HOST_IP}:31000" --export-service=web-0.test --port=80 --import-service=web-0-80.ferry-tunnel-system
+ferryctl local manual export --reachable=true "--tunnel-address=${HOST_IP}:31000" --export-service=web-0.test --port=80 --import-service=web-0-80.ferry-tunnel-system
 echo "::endgroup::"
 
 echo "::group::Cluster cluster-1 export web-1 80"
@@ -55,8 +55,8 @@ KUBECONFIG="${KUBECONFIG_DIR}/cluster-1.yaml"
 echo "KUBECONFIG=${KUBECONFIG}"
 FERRY_PEER_KUBECONFIG="${KUBECONFIG_DIR}/cluster-0.yaml"
 echo "FERRY_PEER_KUBECONFIG=${FERRY_PEER_KUBECONFIG}"
-echo ferryctl local manual export --reachable=false "--peer-tunnel-address=${HOST_IP}:31000" --export-host-port=web-1.test.svc:80 --import-service-name=web-1-80
-ferryctl local manual export --reachable=false "--peer-tunnel-address=${HOST_IP}:31000" --export-host-port=web-1.test.svc:80 --import-service-name=web-1-80
+echo ferryctl local manual export --reachable=false "--peer-tunnel-address=${HOST_IP}:31000" --export-service=web-1.test.svc --port=80 --import-service=web-1-80.ferry-tunnel-system
+ferryctl local manual export --reachable=false "--peer-tunnel-address=${HOST_IP}:31000" --export-service=web-1.test.svc --port=80 --import-service=web-1-80.ferry-tunnel-system
 echo "::endgroup::"
 
 echo "::group::Cluster cluster-0 import web-1 8080"
@@ -64,8 +64,8 @@ KUBECONFIG="${KUBECONFIG_DIR}/cluster-0.yaml"
 echo "KUBECONFIG=${KUBECONFIG}"
 FERRY_PEER_KUBECONFIG="${KUBECONFIG_DIR}/cluster-1.yaml"
 echo "FERRY_PEER_KUBECONFIG=${FERRY_PEER_KUBECONFIG}"
-echo ferryctl local manual import --reachable=true "--tunnel-address=${HOST_IP}:31000" --export-host-port=web-1.test.svc:8080 --import-service-name=web-1-8080
-ferryctl local manual import --reachable=true "--tunnel-address=${HOST_IP}:31000" --export-host-port=web-1.test.svc:8080 --import-service-name=web-1-8080
+echo ferryctl local manual import --reachable=true "--tunnel-address=${HOST_IP}:31000" --export-service=web-1.test.svc --port=8080 --import-service=web-1-8080.ferry-tunnel-system
+ferryctl local manual import --reachable=true "--tunnel-address=${HOST_IP}:31000" --export-service=web-1.test.svc --port=8080 --import-service=web-1-8080.ferry-tunnel-system
 echo "::endgroup::"
 
 echo "::group::Cluster cluster-1 import web-0 8080"
@@ -73,6 +73,6 @@ KUBECONFIG="${KUBECONFIG_DIR}/cluster-1.yaml"
 echo "KUBECONFIG=${KUBECONFIG}"
 FERRY_PEER_KUBECONFIG="${KUBECONFIG_DIR}/cluster-0.yaml"
 echo "FERRY_PEER_KUBECONFIG=${FERRY_PEER_KUBECONFIG}"
-echo ferryctl local manual import --reachable=false "--peer-tunnel-address=${HOST_IP}:31000" --export-host-port=web-0.test.svc:8080 --import-service-name=web-0-8080
-ferryctl local manual import --reachable=false "--peer-tunnel-address=${HOST_IP}:31000" --export-host-port=web-0.test.svc:8080 --import-service-name=web-0-8080
+echo ferryctl local manual import --reachable=false "--peer-tunnel-address=${HOST_IP}:31000" --export-service=web-0.test.svc --port=8080 --import-service=web-0-8080.ferry-tunnel-system
+ferryctl local manual import --reachable=false "--peer-tunnel-address=${HOST_IP}:31000" --export-service=web-0.test.svc --port=8080 --import-service=web-0-8080.ferry-tunnel-system
 echo "::endgroup::"
