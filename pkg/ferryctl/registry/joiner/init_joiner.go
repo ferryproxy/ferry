@@ -14,20 +14,23 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package data_plane
+package joiner
 
 import (
-	"context"
+	_ "embed"
 
-	"github.com/ferryproxy/ferry/pkg/ferryctl/kubectl"
+	"github.com/ferryproxy/ferry/pkg/ferryctl/utils"
 )
 
-func GetKubeconfig(ctx context.Context, apiserverAddress string) ([]byte, error) {
-	kctl := kubectl.NewKubectl()
-
-	kubeconfig, err := kctl.GetKubeconfig(ctx, apiserverAddress)
-	if err != nil {
-		return nil, err
-	}
-	return []byte(kubeconfig), nil
+type BuildInitJoinerConfig struct {
+	HubName string
+	Image   string
+	BaseURL string
 }
+
+func BuildInitJoiner(conf BuildInitJoinerConfig) (string, error) {
+	return utils.RenderString(joinerYaml, conf), nil
+}
+
+//go:embed init_joiner.yaml
+var joinerYaml string

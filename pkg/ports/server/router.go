@@ -14,20 +14,18 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package data_plane
+package server
 
 import (
-	"context"
+	"net/http"
 
-	"github.com/ferryproxy/ferry/pkg/ferryctl/kubectl"
+	"github.com/go-logr/logr"
 )
 
-func GetKubeconfig(ctx context.Context, apiserverAddress string) ([]byte, error) {
-	kctl := kubectl.NewKubectl()
-
-	kubeconfig, err := kctl.GetKubeconfig(ctx, apiserverAddress)
-	if err != nil {
-		return nil, err
+func Serve(mux *http.ServeMux, logger logr.Logger) error {
+	c := &Controller{
+		logger: logger,
 	}
-	return []byte(kubeconfig), nil
+	mux.Handle("/ports/unused", c)
+	return nil
 }

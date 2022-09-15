@@ -19,6 +19,7 @@ package data_plane
 import (
 	"fmt"
 
+	"github.com/ferryproxy/ferry/pkg/ferryctl/cmd/ferryctl/data_plane/auto"
 	initcmd "github.com/ferryproxy/ferry/pkg/ferryctl/cmd/ferryctl/data_plane/init"
 	"github.com/ferryproxy/ferry/pkg/ferryctl/cmd/ferryctl/data_plane/join"
 	"github.com/ferryproxy/ferry/pkg/ferryctl/log"
@@ -41,6 +42,7 @@ func NewCommand(logger log.Logger) *cobra.Command {
 	cmd.AddCommand(
 		initcmd.NewCommand(logger),
 		join.NewCommand(logger),
+		auto.NewCommand(logger),
 	)
 	return cmd
 }

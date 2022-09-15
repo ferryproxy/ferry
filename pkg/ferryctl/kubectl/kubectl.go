@@ -34,7 +34,6 @@ import (
 
 	"github.com/ferryproxy/ferry/pkg/consts"
 	"github.com/ferryproxy/ferry/pkg/ferryctl/vars"
-	"github.com/ferryproxy/ferry/pkg/services"
 	corev1 "k8s.io/api/core/v1"
 	apimachineryversion "k8s.io/apimachinery/pkg/version"
 	"sigs.k8s.io/yaml"
@@ -44,18 +43,25 @@ import (
 
 type Kubectl struct {
 	BinPath    string
-	KubeConfig string
+	Kubeconfig string
 }
 
-func NewKubectl() *Kubectl {
+func NewKubectlInCluster() *Kubectl {
 	return &Kubectl{
 		BinPath: "kubectl",
 	}
 }
 
+func NewKubectl() *Kubectl {
+	return &Kubectl{
+		BinPath:    "kubectl",
+		Kubeconfig: vars.KubeconfigPath,
+	}
+}
+
 func (c *Kubectl) ApplyWithReader(ctx context.Context, r io.Reader) error {
 	tmp := bytes.NewBuffer(nil)
-	cmd := exec.CommandContext(ctx, "kubectl", "--kubeconfig="+vars.KubeconfigPath, "apply", "-f", "-")
+	cmd := exec.CommandContext(ctx, "kubectl", "--kubeconfig="+c.Kubeconfig, "apply", "-f", "-")
 	cmd.Stdin = io.TeeReader(r, tmp)
 	cmd.Stdout = os.Stderr
 	cmd.Stderr = os.Stderr
@@ -74,7 +80,7 @@ type Version struct {
 }
 
 func (c *Kubectl) getVersion(ctx context.Context) (*Version, error) {
-	out, err := commandRun(ctx, "kubectl", "--kubeconfig="+vars.KubeconfigPath, "version", "-o", "json")
+	out, err := commandRun(ctx, "kubectl", "--kubeconfig="+c.Kubeconfig, "version", "-o", "json")
 	if err != nil {
 		return nil, err
 	}
@@ -86,7 +92,7 @@ func (c *Kubectl) getVersion(ctx context.Context) (*Version, error) {
 	return version, nil
 }
 
-func (c *Kubectl) getToken(ctx context.Context) (string, error) {
+func (c *Kubectl) GetToken(ctx context.Context) (string, error) {
 	v, err := c.getVersion(ctx)
 	if err != nil {
 		return "", err
@@ -101,7 +107,7 @@ func (c *Kubectl) getToken(ctx context.Context) (string, error) {
 }
 
 func (c *Kubectl) getTokenFor124AndAfter(ctx context.Context) (string, error) {
-	out, err := commandRun(ctx, "kubectl", "--kubeconfig="+vars.KubeconfigPath, "create", "token", "-n", consts.FerryTunnelNamespace, "ferry-control")
+	out, err := commandRun(ctx, "kubectl", "--kubeconfig="+c.Kubeconfig, "create", "token", "-n", consts.FerryTunnelNamespace, "ferry-control")
 	if err != nil {
 		return "", err
 	}
@@ -109,7 +115,7 @@ func (c *Kubectl) getTokenFor124AndAfter(ctx context.Context) (string, error) {
 }
 
 func (c *Kubectl) getSecretName(ctx context.Context) (string, error) {
-	out, err := commandRun(ctx, "kubectl", "--kubeconfig="+vars.KubeconfigPath, "get", "sa", "-n", consts.FerryTunnelNamespace, "ferry-control", "-o", "jsonpath={$.secrets[0].name}")
+	out, err := commandRun(ctx, "kubectl", "--kubeconfig="+c.Kubeconfig, "get", "sa", "-n", consts.FerryTunnelNamespace, "ferry-control", "-o", "jsonpath={$.secrets[0].name}")
 	if err != nil {
 		return "", err
 	}
@@ -129,7 +135,7 @@ func (c *Kubectl) getTokenForBefore124(ctx context.Context) (string, error) {
 			return "", err
 		}
 	}
-	out, err := commandRun(ctx, "kubectl", "--kubeconfig="+vars.KubeconfigPath, "get", "secret", "-n", consts.FerryTunnelNamespace, secretName, "-o", "jsonpath={$.data.token}")
+	out, err := commandRun(ctx, "kubectl", "--kubeconfig="+c.Kubeconfig, "get", "secret", "-n", consts.FerryTunnelNamespace, secretName, "-o", "jsonpath={$.data.token}")
 	if err != nil {
 		return "", err
 	}
@@ -141,7 +147,7 @@ func (c *Kubectl) getTokenForBefore124(ctx context.Context) (string, error) {
 }
 
 func (c *Kubectl) GetKubeconfig(ctx context.Context, address string) (string, error) {
-	token, err := c.getToken(ctx)
+	token, err := c.GetToken(ctx)
 	if err != nil {
 		return "", err
 	}
@@ -153,7 +159,7 @@ func (c *Kubectl) GetKubeconfig(ctx context.Context, address string) (string, er
 }
 
 func (c *Kubectl) GetSecretIdentity(ctx context.Context) (string, error) {
-	out, err := commandRun(ctx, "kubectl", "--kubeconfig="+vars.KubeconfigPath, "get", "secret", "-n", consts.FerryTunnelNamespace, consts.FerryTunnelName, "-o", "jsonpath={$.data.identity}")
+	out, err := commandRun(ctx, "kubectl", "--kubeconfig="+c.Kubeconfig, "get", "secret", "-n", consts.FerryTunnelNamespace, consts.FerryTunnelName, "-o", "jsonpath={$.data.identity}")
 	if err != nil {
 		return "", err
 	}
@@ -161,7 +167,7 @@ func (c *Kubectl) GetSecretIdentity(ctx context.Context) (string, error) {
 }
 
 func (c *Kubectl) GetSecretAuthorized(ctx context.Context) (string, error) {
-	out, err := commandRun(ctx, "kubectl", "--kubeconfig="+vars.KubeconfigPath, "get", "secret", "-n", consts.FerryTunnelNamespace, consts.FerryTunnelName, "-o", "jsonpath={$.data.authorized_keys}")
+	out, err := commandRun(ctx, "kubectl", "--kubeconfig="+c.Kubeconfig, "get", "secret", "-n", consts.FerryTunnelNamespace, consts.FerryTunnelName, "-o", "jsonpath={$.data.authorized_keys}")
 	if err != nil {
 		return "", err
 	}
@@ -177,9 +183,9 @@ func (c *Kubectl) GetApiserverAddress(ctx context.Context) (string, error) {
 		} `yaml:"clusters"`
 	}{}
 
-	out, err := commandRun(ctx, "kubectl", "--kubeconfig="+vars.KubeconfigPath, "get", "cm", "-n", "kube-public", "cluster-info", "-o", "jsonpath={$.data.kubeconfig}")
+	out, err := commandRun(ctx, "kubectl", "--kubeconfig="+c.Kubeconfig, "get", "cm", "-n", "kube-public", "cluster-info", "-o", "jsonpath={$.data.kubeconfig}")
 	if err != nil {
-		data, err := os.ReadFile(vars.KubeconfigPath)
+		data, err := os.ReadFile(c.Kubeconfig)
 		if err != nil {
 			return "", err
 		}
@@ -212,7 +218,7 @@ func (c *Kubectl) GetApiserverAddress(ctx context.Context) (string, error) {
 func (c *Kubectl) GetTunnelAddress(ctx context.Context) (string, error) {
 	take := corev1.Service{}
 
-	out, err := commandRun(ctx, "kubectl", "--kubeconfig="+vars.KubeconfigPath, "get", "svc", "-n", consts.FerryTunnelNamespace, "gateway-ferry-tunnel", "-o", "yaml")
+	out, err := commandRun(ctx, "kubectl", "--kubeconfig="+c.Kubeconfig, "get", "svc", "-n", consts.FerryTunnelNamespace, "gateway-ferry-tunnel", "-o", "yaml")
 	if err != nil {
 		return "", err
 	}
@@ -228,7 +234,7 @@ func (c *Kubectl) GetTunnelAddress(ctx context.Context) (string, error) {
 		for len(take.Status.LoadBalancer.Ingress) == 0 {
 			log.Printf("svc %s.%s ingress is empty, waiting to be created", "gateway-ferry-tunnel", consts.FerryTunnelNamespace)
 			time.Sleep(1 * time.Second)
-			out, err = commandRun(ctx, "kubectl", "--kubeconfig="+vars.KubeconfigPath, "get", "svc", "-n", consts.FerryTunnelNamespace, "gateway-ferry-tunnel", "-o", "yaml")
+			out, err = commandRun(ctx, "kubectl", "--kubeconfig="+c.Kubeconfig, "get", "svc", "-n", consts.FerryTunnelNamespace, "gateway-ferry-tunnel", "-o", "yaml")
 			if err != nil {
 				return "", err
 			}
@@ -274,33 +280,15 @@ func (c *Kubectl) GetTunnelAddress(ctx context.Context) (string, error) {
 }
 
 func (c *Kubectl) GetUnusedPort(ctx context.Context) (string, error) {
-	data, err := commandRun(ctx, "kubectl", "--kubeconfig="+vars.KubeconfigPath, "get", "-n", "ferry-tunnel-system", "cm", "-l", "tunnel.ferryproxy.io/config=service", "-o", "jsonpath={$.items[*].data.ports}")
+	_, err := commandRun(ctx, "kubectl", "--kubeconfig="+c.Kubeconfig, "wait", "-n", "ferry-tunnel-system", "deploy/ferry-tunnel", "--for=condition=Available")
 	if err != nil {
 		return "", err
 	}
-
-	used := map[int64]struct{}{}
-	reader := json.NewDecoder(bytes.NewBuffer(data))
-	for {
-		m := []services.MappingPort{}
-		err = reader.Decode(&m)
-		if err != nil {
-			if err == io.EOF {
-				break
-			}
-			return "", err
-		}
-		for _, port := range m {
-			used[int64(port.TargetPort)] = struct{}{}
-		}
+	data, err := commandRun(ctx, "kubectl", "--kubeconfig="+c.Kubeconfig, "exec", "-n", "ferry-tunnel-system", "deploy/ferry-tunnel", "--", "wget", "-O-", "http://127.0.0.1:8080/ports/unused")
+	if err != nil {
+		return "", err
 	}
-
-	var port int64 = 10000
-	for ; ; port++ {
-		if _, ok := used[port]; !ok {
-			return strconv.FormatInt(port, 10), nil
-		}
-	}
+	return string(data), nil
 }
 
 func (c *Kubectl) Wrap(ctx context.Context, args ...string) error {
@@ -322,4 +310,16 @@ func commandRun(ctx context.Context, name string, args ...string) ([]byte, error
 		return nil, fmt.Errorf("%s %s :%w", name, strings.Join(args, " "), err)
 	}
 	return bytes.TrimSpace(out.Bytes()), nil
+}
+
+func (c *Kubectl) LogsJoiner(ctx context.Context) (string, error) {
+	_, err := commandRun(ctx, "kubectl", "--kubeconfig="+c.Kubeconfig, "wait", "-n", consts.FerryTunnelNamespace, "job/ferry-joiner", "--for=condition=Complete")
+	if err != nil {
+		return "", err
+	}
+	out, err := commandRun(ctx, "kubectl", "--kubeconfig="+c.Kubeconfig, "logs", "-n", consts.FerryTunnelNamespace, "job/ferry-joiner")
+	if err != nil {
+		return "", err
+	}
+	return string(out), nil
 }

@@ -14,20 +14,10 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package data_plane
+package models
 
-import (
-	"context"
-
-	"github.com/ferryproxy/ferry/pkg/ferryctl/kubectl"
-)
-
-func GetKubeconfig(ctx context.Context, apiserverAddress string) ([]byte, error) {
-	kctl := kubectl.NewKubectl()
-
-	kubeconfig, err := kctl.GetKubeconfig(ctx, apiserverAddress)
-	if err != nil {
-		return nil, err
-	}
-	return []byte(kubeconfig), nil
+type JoinHub struct {
+	HubName       string `json:"hub_name,omitempty"`
+	AuthorizedKey string `json:"authorized_key,omitempty"`
+	Token         string `json:"token,omitempty"`
 }

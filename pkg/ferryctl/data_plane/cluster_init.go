@@ -70,5 +70,10 @@ func ClusterInit(ctx context.Context, conf ClusterInitConfig) error {
 	if err != nil {
 		return err
 	}
+
+	err = kctl.ApplyWithReader(ctx, strings.NewReader(joinRBACYaml))
+	if err != nil {
+		return err
+	}
 	return nil
 }

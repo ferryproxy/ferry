@@ -42,6 +42,62 @@ type Resourcer interface {
 	Delete(ctx context.Context, clientset kubernetes.Interface) (err error)
 }
 
+type Hub struct {
+	*v1alpha2.Hub
+}
+
+func (r Hub) Original() objref.KMetadata {
+	return r.Hub
+}
+
+func (r Hub) Apply(ctx context.Context, clientset versioned.Interface) (err error) {
+	logger := logr.FromContextOrDiscard(ctx)
+	ori, err := clientset.
+		TrafficV1alpha2().
+		Hubs(r.Namespace).
+		Get(ctx, r.Name, metav1.GetOptions{})
+	if err != nil {
+		if !errors.IsNotFound(err) {
+			return fmt.Errorf("get Hub %s: %w", objref.KObj(r), err)
+		}
+		logger.Info("Creating Hub", "Hub", objref.KObj(r))
+		_, err = clientset.
+			TrafficV1alpha2().
+			Hubs(r.Namespace).
+			Create(ctx, r.Hub, metav1.CreateOptions{
+				FieldManager: consts.LabelFerryManagedByValue,
+			})
+		if err != nil {
+			return fmt.Errorf("create Hub %s: %w", objref.KObj(r), err)
+		}
+	} else {
+		_, err = clientset.
+			TrafficV1alpha2().
+			Hubs(r.Namespace).
+			Update(ctx, ori, metav1.UpdateOptions{
+				FieldManager: consts.LabelFerryManagedByValue,
+			})
+		if err != nil {
+			return fmt.Errorf("update Hub %s: %w", objref.KObj(r), err)
+		}
+	}
+	return nil
+}
+
+func (r Hub) Delete(ctx context.Context, clientset versioned.Interface) (err error) {
+	logger := logr.FromContextOrDiscard(ctx)
+	logger.Info("Deleting Hub", "Hub", objref.KObj(r))
+
+	err = clientset.
+		TrafficV1alpha2().
+		Hubs(r.Namespace).
+		Delete(ctx, r.Name, metav1.DeleteOptions{})
+	if err != nil && !errors.IsNotFound(err) {
+		return fmt.Errorf("delete Hub %s: %w", objref.KObj(r), err)
+	}
+	return nil
+}
+
 type RoutePolicy struct {
 	*v1alpha2.RoutePolicy
 }
@@ -351,6 +407,74 @@ func (s ConfigMap) Delete(ctx context.Context, clientset kubernetes.Interface) (
 	return nil
 }
 
+type Secret struct {
+	*corev1.Secret
+}
+
+func (s Secret) Original() objref.KMetadata {
+	return s.Secret
+}
+
+func (s Secret) Apply(ctx context.Context, clientset kubernetes.Interface) (err error) {
+	logger := logr.FromContextOrDiscard(ctx)
+
+	ori, err := clientset.
+		CoreV1().
+		Secrets(s.Namespace).
+		Get(ctx, s.Name, metav1.GetOptions{})
+	if err != nil {
+		if !errors.IsNotFound(err) {
+			return fmt.Errorf("get Secret %s: %w", objref.KObj(s), err)
+		}
+		logger.Info("Creating Secret", "Secret", objref.KObj(s))
+		_, err = clientset.
+			CoreV1().
+			Secrets(s.Namespace).
+			Create(ctx, s.Secret, metav1.CreateOptions{
+				FieldManager: consts.LabelFerryManagedByValue,
+			})
+		if err != nil {
+			return fmt.Errorf("create Secret %s: %w", objref.KObj(s), err)
+		}
+	} else {
+		if reflect.DeepEqual(ori.Data, s.Data) {
+			return nil
+		}
+
+		copyLabel(ori.Labels, s.Labels)
+
+		logger.Info("Update Secret", "Secret", objref.KObj(s))
+		logger.Info(cmp.Diff(ori.Data, s.Data), "Secret", objref.KObj(s))
+
+		ori.Data = s.Data
+		_, err = clientset.
+			CoreV1().
+			Secrets(s.Namespace).
+			Update(ctx, ori, metav1.UpdateOptions{
+				FieldManager: consts.LabelFerryManagedByValue,
+			})
+		if err != nil {
+			return fmt.Errorf("update Secret %s: %w", objref.KObj(s), err)
+		}
+	}
+	return nil
+}
+
+func (s Secret) Delete(ctx context.Context, clientset kubernetes.Interface) (err error) {
+	logger := logr.FromContextOrDiscard(ctx)
+	logger.Info("Deleting Secret", "Secret", objref.KObj(s))
+
+	err = clientset.
+		CoreV1().
+		Secrets(s.Namespace).
+		Delete(ctx, s.Name, metav1.DeleteOptions{})
+	if err != nil && !errors.IsNotFound(err) {
+		return fmt.Errorf("delete Secret %s: %w", objref.KObj(s), err)
+	}
+
+	return nil
+}
+
 func copyLabel(old, new map[string]string) {
 	keys := []string{
 		consts.LabelFerryExportedFromKey,
@@ -378,4 +502,17 @@ func MarshalYAML(resources ...Resourcer) ([]byte, error) {
 	}
 
 	return encoding.MarshalYAML(objs...)
+}
+
+func MarshalJSON(resources ...Resourcer) ([]byte, error) {
+	objs := make([]runtime.Object, 0, len(resources))
+	for _, resource := range resources {
+		obj, ok := resource.Original().(runtime.Object)
+		if !ok {
+			return nil, fmt.Errorf("failed convert to runtime.Object")
+		}
+		objs = append(objs, obj)
+	}
+
+	return encoding.MarshalJSON(objs...)
 }

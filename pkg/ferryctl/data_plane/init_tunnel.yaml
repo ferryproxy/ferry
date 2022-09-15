@@ -131,6 +131,8 @@ spec:
       - env:
         - name: SERVICE_NAME
           value: ferry-tunnel
+        - name: SERVICE_ADDRESS
+          value: ":8080"
         - name: NAMESPACE
           valueFrom:
             fieldRef:
@@ -141,6 +143,9 @@ spec:
         ports:
         - containerPort: 31087
           name: tunnel
+          protocol: TCP
+        - containerPort: 8080
+          name: http
           protocol: TCP
         volumeMounts:
         - name: hostkey

@@ -14,20 +14,23 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package data_plane
+package register
 
 import (
-	"context"
+	_ "embed"
 
-	"github.com/ferryproxy/ferry/pkg/ferryctl/kubectl"
+	"github.com/ferryproxy/ferry/pkg/ferryctl/utils"
 )
 
-func GetKubeconfig(ctx context.Context, apiserverAddress string) ([]byte, error) {
-	kctl := kubectl.NewKubectl()
-
-	kubeconfig, err := kctl.GetKubeconfig(ctx, apiserverAddress)
-	if err != nil {
-		return nil, err
-	}
-	return []byte(kubeconfig), nil
+type BuildInitRegisterConfig struct {
+	Image         string
+	TunnelAddress string
+	ServiceType   string // LoadBalancer or NodePort
 }
+
+func BuildInitRegister(conf BuildInitRegisterConfig) (string, error) {
+	return utils.RenderString(registerYaml, conf), nil
+}
+
+//go:embed init_register.yaml
+var registerYaml string
