@@ -31,6 +31,7 @@ import (
 	"github.com/ferryproxy/ferry/pkg/ferry-controller/controller/mapping"
 	"github.com/ferryproxy/ferry/pkg/utils/objref"
 	"github.com/go-logr/logr"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	restclient "k8s.io/client-go/rest"
@@ -158,10 +159,56 @@ func (c *RouteController) onAdd(obj interface{}) {
 
 	c.syncFunc()
 
-	err := c.updateStatus(f.Name, "Pending", nil)
+	err := c.updatePort(f)
+	if err != nil {
+		err := c.updateStatus(f.Name, "Failed", nil)
+		if err != nil {
+			c.logger.Error(err, "failed to update status")
+		}
+		return
+	}
+
+	err = c.updateStatus(f.Name, "Pending", nil)
 	if err != nil {
 		c.logger.Error(err, "failed to update status")
 	}
+}
+
+func (c *RouteController) updatePort(f *v1alpha2.Route) error {
+	svc, ok := c.clusterCache.GetService(f.Spec.Export.HubName, f.Spec.Export.Service.Namespace, f.Spec.Export.Service.Name)
+	if !ok {
+		return fmt.Errorf("not found export service")
+	}
+
+	for _, port := range svc.Spec.Ports {
+		if port.Protocol != corev1.ProtocolTCP {
+			continue
+		}
+		_, err := c.clusterCache.GetPortPeer(f.Spec.Import.HubName,
+			f.Spec.Export.HubName, f.Spec.Export.Service.Namespace, f.Spec.Export.Service.Name, port.Port)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (c *RouteController) deletePort(f *v1alpha2.Route) error {
+	svc, ok := c.clusterCache.GetService(f.Spec.Export.HubName, f.Spec.Export.Service.Namespace, f.Spec.Export.Service.Name)
+	if !ok {
+		return fmt.Errorf("not found export service")
+	}
+	for _, port := range svc.Spec.Ports {
+		if port.Protocol != corev1.ProtocolTCP {
+			continue
+		}
+		_, err := c.clusterCache.DeletePortPeer(f.Spec.Import.HubName,
+			f.Spec.Export.HubName, f.Spec.Export.Service.Namespace, f.Spec.Export.Service.Name, port.Port)
+		if err == nil {
+			continue
+		}
+	}
+	return nil
 }
 
 func (c *RouteController) onUpdate(oldObj, newObj interface{}) {
@@ -197,6 +244,8 @@ func (c *RouteController) onDelete(obj interface{}) {
 
 	c.mut.Lock()
 	defer c.mut.Unlock()
+
+	c.updatePort(f)
 
 	delete(c.cache, f.Name)
 

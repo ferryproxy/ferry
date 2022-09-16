@@ -109,7 +109,7 @@ func (c *Controller) Create(rw http.ResponseWriter, r *http.Request) {
 	c.mut.Lock()
 	defer c.mut.Unlock()
 
-	importHubName := "control-plane"
+	importHubName := consts.ControlPlaneName
 	exportHubName := joinHub.HubName
 
 	bindPort, err := c.GetBindPort(r.Context())

@@ -79,8 +79,8 @@ type dateSource struct {
 	bindPort         int32
 }
 
-func (f *dateSource) GetPortPeer(importHubName string, cluster, namespace, name string, port int32) int32 {
-	return f.bindPort
+func (f *dateSource) GetPortPeer(importHubName string, cluster, namespace, name string, port int32) (int32, error) {
+	return f.bindPort, nil
 }
 
 func (f *dateSource) ListServices(name string) []*corev1.Service {

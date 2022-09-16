@@ -36,13 +36,15 @@ import (
 )
 
 type ClusterCache interface {
+	GetService(hubName string, namespace, name string) (*corev1.Service, bool)
 	ListServices(name string) []*corev1.Service
 	GetHub(name string) *v1alpha2.Hub
 	GetHubGateway(hubName string, forHub string) v1alpha2.HubSpecGateway
 	GetAuthorized(name string) string
 	Clientset(name string) kubernetes.Interface
-	LoadPortPeer(importHubName string, cluster, namespace, name string, ports []services.MappingPort)
-	GetPortPeer(importHubName string, cluster, namespace, name string, port int32) int32
+	LoadPortPeer(importHubName string, cluster, namespace, name string, port, bindPort int32) error
+	GetPortPeer(importHubName string, cluster, namespace, name string, port int32) (int32, error)
+	DeletePortPeer(importHubName string, cluster, namespace, name string, port int32) (int32, error)
 	RegistryServiceCallback(exportHubName, importHubName string, cb func())
 	UnregistryServiceCallback(exportHubName, importHubName string)
 }
@@ -176,7 +178,12 @@ func (d *MappingController) loadPorts(importHubName string, cm *corev1.ConfigMap
 		d.logger.Error(err, "ServiceFrom")
 		return
 	}
-	d.clusterCache.LoadPortPeer(importHubName, data.ExportHubName, data.ExportServiceNamespace, data.ExportServiceName, data.Ports)
+	for _, port := range data.Ports {
+		err = d.clusterCache.LoadPortPeer(importHubName, data.ExportHubName, data.ExportServiceNamespace, data.ExportServiceName, port.Port, port.TargetPort)
+		if err != nil {
+			d.logger.Error(err, "LoadPortPeer")
+		}
+	}
 }
 
 func (d *MappingController) getLabel() map[string]string {

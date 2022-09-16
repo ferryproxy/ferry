@@ -44,7 +44,8 @@ import (
 )
 
 type ClusterCache interface {
-	ListServices(name string) []*corev1.Service
+	ListHubs() []*v1alpha2.Hub
+	ListServices(hubName string) []*corev1.Service
 }
 
 type RoutePolicyControllerConfig struct {
@@ -230,6 +231,11 @@ func (c *RoutePolicyController) Sync(ctx context.Context) {
 	ferryPolicies := c.list()
 
 	updated := policiesToRoutes(c.clusterCache, ferryPolicies)
+
+	hubs := c.clusterCache.ListHubs()
+
+	routes := BuildMirrorTunnelRoutes(hubs, consts.ControlPlaneName)
+	updated = append(updated, routes...)
 
 	// If the mapping rules are the same, no need to update
 	if reflect.DeepEqual(c.cacheRoutePolicyRoutes, updated) {

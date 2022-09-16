@@ -719,13 +719,13 @@ func (f fakeClusterCache) GetAuthorized(name string) string {
 	return fmt.Sprintf("%s-%s", name, "authorized")
 }
 
-func (f *fakeClusterCache) GetPortPeer(importHubName string, cluster, namespace, name string, port int32) int32 {
+func (f *fakeClusterCache) GetPortPeer(importHubName string, cluster, namespace, name string, port int32) (int32, error) {
 	key := fmt.Sprintf("%s-%s-%s-%s-%d", importHubName, cluster, namespace, name, port)
 	v, ok := f.portCache[key]
 	if ok {
-		return int32(v)
+		return int32(v), nil
 	}
 	f.port++
 	f.portCache[key] = f.port
-	return int32(f.port)
+	return int32(f.port), nil
 }

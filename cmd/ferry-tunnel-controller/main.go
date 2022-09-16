@@ -24,6 +24,7 @@ import (
 
 	"github.com/ferryproxy/ferry/pkg/consts"
 	"github.com/ferryproxy/ferry/pkg/ferry-tunnel/controller"
+	healthserver "github.com/ferryproxy/ferry/pkg/health/server"
 	portsserver "github.com/ferryproxy/ferry/pkg/ports/server"
 	"github.com/ferryproxy/ferry/pkg/utils/env"
 	"github.com/ferryproxy/ferry/pkg/utils/signals"
@@ -134,7 +135,13 @@ func main() {
 
 			err = portsserver.Serve(mux, log)
 			if err != nil {
-				log.Error(err, "failed to create service router")
+				log.Error(err, "failed to create ports serve")
+				os.Exit(1)
+			}
+
+			err = healthserver.Serve(mux, log)
+			if err != nil {
+				log.Error(err, "failed to create health serve")
 				os.Exit(1)
 			}
 			server := http.Server{

@@ -88,6 +88,11 @@ metadata:
   namespace: ferry-tunnel-system
 spec:
   clusterIP: None
+  ports:
+  - name: http
+    port: 8080
+    protocol: TCP
+    targetPort: 8080
   selector:
     app: ferry-tunnel
   sessionAffinity: None

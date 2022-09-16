@@ -17,7 +17,9 @@ limitations under the License.
 package hub
 
 import (
-	"github.com/ferryproxy/ferry/pkg/services"
+	"fmt"
+	"sync"
+
 	"github.com/go-logr/logr"
 )
 
@@ -29,79 +31,90 @@ type portPeer struct {
 }
 
 type tunnelPorts struct {
-	logger     logr.Logger
-	portToPeer map[int32]portPeer
-	peerToPort map[portPeer]int32
-	portOffset int32
+	logger        logr.Logger
+	portToPeer    map[int32]portPeer
+	peerToPort    map[portPeer]int32
+	mut           sync.Mutex
+	getUnusedPort func() (int32, error)
 }
 
 type tunnelPortsConfig struct {
-	Logger logr.Logger
+	Logger        logr.Logger
+	GetUnusedPort func() (int32, error)
 }
 
 func newTunnelPorts(conf tunnelPortsConfig) *tunnelPorts {
 	return &tunnelPorts{
-		logger:     conf.Logger,
-		portOffset: 40000,
-		portToPeer: map[int32]portPeer{},
-		peerToPort: map[portPeer]int32{},
+		logger:        conf.Logger,
+		portToPeer:    map[int32]portPeer{},
+		peerToPort:    map[portPeer]int32{},
+		getUnusedPort: conf.GetUnusedPort,
 	}
 }
 
-func (d *tunnelPorts) GetPort(cluster, namespace, name string, port int32) int32 {
-	pp := portPeer{
+func (d *tunnelPorts) GetPortBind(cluster, namespace, name string, port int32) (int32, error) {
+	d.mut.Lock()
+	defer d.mut.Unlock()
+	peer := portPeer{
 		Cluster:   cluster,
 		Namespace: namespace,
 		Name:      name,
 		Port:      port,
 	}
 
-	p := d.peerToPort[pp]
+	p := d.peerToPort[peer]
 	if p != 0 {
-		return p
+		return p, nil
 	}
 
-	for {
-		_, ok := d.portToPeer[d.portOffset]
-		if !ok {
-			break
-		}
-		d.portOffset++
+	p, err := d.getUnusedPort()
+	if err != nil {
+		return 0, err
 	}
 
-	p = d.portOffset
-	d.portOffset++
-
-	d.portToPeer[p] = pp
-	d.peerToPort[pp] = p
-	return p
+	d.portToPeer[p] = peer
+	d.peerToPort[peer] = p
+	return p, nil
 }
 
-func (d *tunnelPorts) LoadPortPeer(cluster, namespace, name string, ports []services.MappingPort) {
-	for _, port := range ports {
-		peer := portPeer{
-			Cluster:   cluster,
-			Namespace: namespace,
-			Name:      name,
-			Port:      port.TargetPort,
-		}
-
-		if v, ok := d.portToPeer[port.Port]; ok {
-			if v != peer {
-				d.logger.Info("duplicate port", "port", port.Port, "peer", peer, "duplicate", v)
-				continue
-			}
-		} else {
-			d.portToPeer[port.Port] = peer
-		}
-
-		if v, ok := d.peerToPort[peer]; ok {
-			if v != port.Port {
-				d.logger.Info("duplicate peer", "port", port.Port, "peer", peer, "duplicate", v)
-				continue
-			}
-		} else {
-			d.peerToPort[peer] = port.Port
-		}
+func (d *tunnelPorts) DeletePortBind(cluster, namespace, name string, port int32) (int32, error) {
+	d.mut.Lock()
+	defer d.mut.Unlock()
+	peer := portPeer{
+		Cluster:   cluster,
+		Namespace: namespace,
+		Name:      name,
+		Port:      port,
 	}
+
+	p := d.peerToPort[peer]
+	if p == 0 {
+		return 0, fmt.Errorf("not found bind port for %s.%s:%d on %s", namespace, name, port, cluster)
+	}
+	delete(d.peerToPort, peer)
+	delete(d.portToPeer, p)
+
+	return p, nil
+}
+
+func (d *tunnelPorts) LoadPortBind(cluster, namespace, name string, port, bindPort int32) error {
+	d.mut.Lock()
+	defer d.mut.Unlock()
+	peer := portPeer{
+		Cluster:   cluster,
+		Namespace: namespace,
+		Name:      name,
+		Port:      port,
+	}
+
+	if oldPeer, ok := d.portToPeer[bindPort]; ok && oldPeer != peer {
+		return fmt.Errorf("duplicate peer, load peers %v and %v both trying to use the %d port", peer, oldPeer, bindPort)
+	}
+	if oldPort, ok := d.peerToPort[peer]; ok && oldPort != bindPort {
+		return fmt.Errorf("duplicate peer port, load peer %v to use %d port, but it already uses %d port", peer, bindPort, oldPort)
+	}
+
+	d.portToPeer[bindPort] = peer
+	d.peerToPort[peer] = bindPort
+	return nil
 }

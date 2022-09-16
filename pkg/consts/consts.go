@@ -22,6 +22,8 @@ var (
 )
 
 const (
+	ControlPlaneName = "control-plane"
+
 	FerryName            = "ferry"
 	FerryNamespace       = FerryName + "-system"
 	FerryTunnelName      = FerryName + "-tunnel"

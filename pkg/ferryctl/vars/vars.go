@@ -26,7 +26,7 @@ import (
 )
 
 var (
-	ControlPlaneName   = "control-plane"
+	ControlPlaneName   = consts.ControlPlaneName
 	home, _            = os.UserHomeDir()
 	KubeconfigPath     = env.GetEnv("KUBECONFIG", filepath.Join(home, ".kube/config"))
 	PeerKubeconfigPath = env.GetEnv("FERRY_PEER_KUBECONFIG", "")

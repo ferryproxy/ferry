@@ -21,6 +21,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ferryproxy/ferry/pkg/ferry-controller/controller/health"
 	"github.com/ferryproxy/ferry/pkg/ferry-controller/controller/hub"
 	"github.com/ferryproxy/ferry/pkg/ferry-controller/controller/mcs"
 	"github.com/ferryproxy/ferry/pkg/ferry-controller/controller/route"
@@ -40,6 +41,7 @@ type Controller struct {
 	routeController       *route.RouteController
 	routePolicyController *route_policy.RoutePolicyController
 	mcsController         *mcs.MCSController
+	healthController      *health.HealthController
 	try                   *trybuffer.TryBuffer
 }
 
@@ -108,6 +110,17 @@ func (c *Controller) Run(ctx context.Context) error {
 		c.logger.Error(err, "Start MCSController")
 	}
 
+	healthController := health.NewHealthController(&health.HealthControllerConfig{
+		Config:       c.config,
+		ClusterCache: hubController,
+		Logger:       c.logger.WithName("health"),
+	})
+	c.healthController = healthController
+	err = healthController.Start(ctx)
+	if err != nil {
+		c.logger.Error(err, "Start MCSController")
+	}
+
 	go func() {
 		err := routeController.Run(c.ctx)
 		if err != nil {
@@ -154,4 +167,6 @@ func (c *Controller) sync() {
 	c.routePolicyController.Sync(ctx)
 
 	c.routeController.Sync(ctx)
+
+	c.healthController.Sync(ctx)
 }

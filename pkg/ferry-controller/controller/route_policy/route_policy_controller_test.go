@@ -794,3 +794,7 @@ type fakeDataSource struct {
 func (f *fakeDataSource) ListServices(name string) []*corev1.Service {
 	return f.svcs[name]
 }
+
+func (f *fakeDataSource) ListHubs() []*v1alpha2.Hub {
+	return nil
+}

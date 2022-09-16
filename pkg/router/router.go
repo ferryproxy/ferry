@@ -34,7 +34,7 @@ type ClusterCache interface {
 	ListServices(name string) []*corev1.Service
 	GetHubGateway(hubName string, forHub string) v1alpha2.HubSpecGateway
 	GetAuthorized(name string) string
-	GetPortPeer(importHubName string, cluster, namespace, name string, port int32) int32
+	GetPortPeer(importHubName string, cluster, namespace, name string, port int32) (int32, error)
 }
 
 type RouterConfig struct {
@@ -106,7 +106,10 @@ func (d *Router) BuildResource(ways []string) (out map[string][]resource.Resourc
 
 			for _, port := range svc.Spec.Ports {
 
-				peerPort := d.clusterCache.GetPortPeer(d.importHubName, d.exportHubName, origin.Namespace, origin.Name, port.Port)
+				peerPort, err := d.clusterCache.GetPortPeer(d.importHubName, d.exportHubName, origin.Namespace, origin.Name, port.Port)
+				if err != nil {
+					return nil, err
+				}
 				peerPortMapping[port.Port] = peerPort
 
 				tunnelName := fmt.Sprintf("%s-tunnel-%d-%d", rule.Name, port.Port, peerPort)

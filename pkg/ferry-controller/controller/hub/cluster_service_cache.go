@@ -111,6 +111,11 @@ func (c *clusterServiceCache) ForEach(fun func(svc *corev1.Service)) {
 	}
 }
 
+func (c *clusterServiceCache) Get(namespace, name string) (*corev1.Service, bool) {
+	svc, ok := c.cache[objref.KRef(namespace, name)]
+	return svc, ok
+}
+
 func (c *clusterServiceCache) List() []*corev1.Service {
 	svcs := make([]*corev1.Service, 0, len(c.cache))
 	c.ForEach(func(svc *corev1.Service) {
