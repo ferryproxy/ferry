@@ -43,7 +43,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
-type ClusterCache interface {
+type HubInterface interface {
 	ListHubs() []*v1alpha2.Hub
 	ListServices(hubName string) []*corev1.Service
 }
@@ -51,7 +51,7 @@ type ClusterCache interface {
 type RoutePolicyControllerConfig struct {
 	Logger       logr.Logger
 	Config       *restclient.Config
-	ClusterCache ClusterCache
+	HubInterface HubInterface
 	Namespace    string
 	SyncFunc     func()
 }
@@ -61,7 +61,7 @@ type RoutePolicyController struct {
 	mut                    sync.RWMutex
 	config                 *restclient.Config
 	clientset              versioned.Interface
-	clusterCache           ClusterCache
+	hubInterface           HubInterface
 	cache                  map[string]*v1alpha2.RoutePolicy
 	namespace              string
 	logger                 logr.Logger
@@ -74,7 +74,7 @@ func NewRoutePolicyController(conf RoutePolicyControllerConfig) *RoutePolicyCont
 		config:       conf.Config,
 		namespace:    conf.Namespace,
 		logger:       conf.Logger,
-		clusterCache: conf.ClusterCache,
+		hubInterface: conf.HubInterface,
 		syncFunc:     conf.SyncFunc,
 		cache:        map[string]*v1alpha2.RoutePolicy{},
 	}
@@ -230,9 +230,9 @@ func (c *RoutePolicyController) Sync(ctx context.Context) {
 
 	ferryPolicies := c.list()
 
-	updated := policiesToRoutes(c.clusterCache, ferryPolicies)
+	updated := policiesToRoutes(c.hubInterface, ferryPolicies)
 
-	hubs := c.clusterCache.ListHubs()
+	hubs := c.hubInterface.ListHubs()
 
 	routes := BuildMirrorTunnelRoutes(hubs, consts.ControlPlaneName)
 	updated = append(updated, routes...)
@@ -272,12 +272,12 @@ func (c *RoutePolicyController) Sync(ctx context.Context) {
 	}
 }
 
-func policiesToRoutes(clusterCache ClusterCache, policies []*v1alpha2.RoutePolicy) []*v1alpha2.Route {
+func policiesToRoutes(hubInterface HubInterface, policies []*v1alpha2.RoutePolicy) []*v1alpha2.Route {
 	out := []*v1alpha2.Route{}
 	rules := groupFerryPolicies(policies)
 	controller := true
 	for exportHubName, rule := range rules {
-		svcs := clusterCache.ListServices(exportHubName)
+		svcs := hubInterface.ListServices(exportHubName)
 		if len(svcs) == 0 {
 			continue
 		}

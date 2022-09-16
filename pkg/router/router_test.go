@@ -655,7 +655,7 @@ func (f *fakeRouter) BuildResource() (out map[string][]resource.Resourcer, err e
 		hubs[hub.Name] = hub
 	}
 
-	fakeCache := &fakeClusterCache{
+	fake := &fakeHubInterface{
 		services:  f.Services,
 		hubs:      hubs,
 		port:      10000,
@@ -666,7 +666,7 @@ func (f *fakeRouter) BuildResource() (out map[string][]resource.Resourcer, err e
 	importHubName := "import"
 
 	solution := Solution{
-		getHubGateway: fakeCache.GetHubGateway,
+		getHubGateway: fake.GetHubGateway,
 	}
 
 	ways, err := solution.CalculateWays(exportHubName, importHubName)
@@ -678,7 +678,7 @@ func (f *fakeRouter) BuildResource() (out map[string][]resource.Resourcer, err e
 		Labels:        map[string]string{},
 		ExportHubName: exportHubName,
 		ImportHubName: importHubName,
-		ClusterCache:  fakeCache,
+		HubInterface:  fake,
 	})
 
 	router.SetRoutes(f.Routes)
@@ -686,22 +686,22 @@ func (f *fakeRouter) BuildResource() (out map[string][]resource.Resourcer, err e
 	return router.BuildResource(ways)
 }
 
-type fakeClusterCache struct {
+type fakeHubInterface struct {
 	services  []*corev1.Service
 	hubs      map[string]*v1alpha2.Hub
 	portCache map[string]int
 	port      int
 }
 
-func (f *fakeClusterCache) ListServices(name string) []*corev1.Service {
+func (f *fakeHubInterface) ListServices(name string) []*corev1.Service {
 	return f.services
 }
 
-func (f *fakeClusterCache) GetHub(name string) *v1alpha2.Hub {
+func (f *fakeHubInterface) GetHub(name string) *v1alpha2.Hub {
 	return f.hubs[name]
 }
 
-func (f *fakeClusterCache) GetHubGateway(hubName string, forHub string) v1alpha2.HubSpecGateway {
+func (f *fakeHubInterface) GetHubGateway(hubName string, forHub string) v1alpha2.HubSpecGateway {
 	hub := f.hubs[hubName]
 	if hub != nil {
 		if hub.Spec.Override != nil {
@@ -715,11 +715,11 @@ func (f *fakeClusterCache) GetHubGateway(hubName string, forHub string) v1alpha2
 	return v1alpha2.HubSpecGateway{}
 }
 
-func (f fakeClusterCache) GetAuthorized(name string) string {
+func (f fakeHubInterface) GetAuthorized(name string) string {
 	return fmt.Sprintf("%s-%s", name, "authorized")
 }
 
-func (f *fakeClusterCache) GetPortPeer(importHubName string, cluster, namespace, name string, port int32) (int32, error) {
+func (f *fakeHubInterface) GetPortPeer(importHubName string, cluster, namespace, name string, port int32) (int32, error) {
 	key := fmt.Sprintf("%s-%s-%s-%s-%d", importHubName, cluster, namespace, name, port)
 	v, ok := f.portCache[key]
 	if ok {

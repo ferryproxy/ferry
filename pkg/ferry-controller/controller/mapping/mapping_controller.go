@@ -35,7 +35,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
-type ClusterCache interface {
+type HubInterface interface {
 	GetService(hubName string, namespace, name string) (*corev1.Service, bool)
 	ListServices(name string) []*corev1.Service
 	GetHub(name string) *v1alpha2.Hub
@@ -53,7 +53,7 @@ type MappingControllerConfig struct {
 	Namespace     string
 	ExportHubName string
 	ImportHubName string
-	ClusterCache  ClusterCache
+	HubInterface  HubInterface
 	Logger        logr.Logger
 }
 
@@ -63,7 +63,7 @@ func NewMappingController(conf MappingControllerConfig) *MappingController {
 		importHubName:  conf.ImportHubName,
 		exportHubName:  conf.ExportHubName,
 		logger:         conf.Logger,
-		clusterCache:   conf.ClusterCache,
+		hubInterface:   conf.HubInterface,
 		cacheResources: map[string][]resource.Resourcer{},
 	}
 }
@@ -80,7 +80,7 @@ type MappingController struct {
 
 	router       *router.Router
 	solution     *router.Solution
-	clusterCache ClusterCache
+	hubInterface HubInterface
 
 	cacheResources map[string][]resource.Resourcer
 	logger         logr.Logger
@@ -102,7 +102,7 @@ func (d *MappingController) Start(ctx context.Context) error {
 	d.ctx = ctx
 
 	d.solution = router.NewSolution(router.SolutionConfig{
-		GetHubGateway: d.clusterCache.GetHubGateway,
+		GetHubGateway: d.hubInterface.GetHubGateway,
 	})
 
 	// Mark managed by ferry
@@ -127,12 +127,12 @@ func (d *MappingController) Start(ctx context.Context) error {
 		Labels:        d.getLabel(),
 		ExportHubName: d.exportHubName,
 		ImportHubName: d.importHubName,
-		ClusterCache:  d.clusterCache,
+		HubInterface:  d.hubInterface,
 	})
 
 	d.try = trybuffer.NewTryBuffer(d.sync, time.Second/10)
 
-	d.clusterCache.RegistryServiceCallback(d.exportHubName, d.importHubName, d.Sync)
+	d.hubInterface.RegistryServiceCallback(d.exportHubName, d.importHubName, d.Sync)
 
 	return nil
 }
@@ -154,7 +154,7 @@ func (d *MappingController) SetRoutes(rules []*v1alpha2.Route) {
 }
 
 func (d *MappingController) loadLastConfigMap(ctx context.Context, name string, opt metav1.ListOptions) error {
-	cmList, err := d.clusterCache.Clientset(name).
+	cmList, err := d.hubInterface.Clientset(name).
 		CoreV1().
 		ConfigMaps(d.namespace).
 		List(ctx, opt)
@@ -179,7 +179,7 @@ func (d *MappingController) loadPorts(importHubName string, cm *corev1.ConfigMap
 		return
 	}
 	for _, port := range data.Ports {
-		err = d.clusterCache.LoadPortPeer(importHubName, data.ExportHubName, data.ExportServiceNamespace, data.ExportServiceName, port.Port, port.TargetPort)
+		err = d.hubInterface.LoadPortPeer(importHubName, data.ExportHubName, data.ExportServiceNamespace, data.ExportServiceName, port.Port, port.TargetPort)
 		if err != nil {
 			d.logger.Error(err, "LoadPortPeer")
 		}
@@ -226,7 +226,7 @@ func (d *MappingController) sync() {
 	for hubName, updated := range resources {
 		cacheResource := d.cacheResources[hubName]
 		deleled := diffobjs.ShouldDeleted(cacheResource, updated)
-		cli := d.clusterCache.Clientset(hubName)
+		cli := d.hubInterface.Clientset(hubName)
 		for _, r := range updated {
 			err := r.Apply(ctx, cli)
 			if err != nil {
@@ -247,7 +247,7 @@ func (d *MappingController) sync() {
 		if ok && len(v) != 0 {
 			continue
 		}
-		cli := d.clusterCache.Clientset(hubName)
+		cli := d.hubInterface.Clientset(hubName)
 		for _, r := range caches {
 			err := r.Delete(ctx, cli)
 			if err != nil {
@@ -267,13 +267,13 @@ func (d *MappingController) Close() {
 		return
 	}
 	d.isClose = true
-	d.clusterCache.UnregistryServiceCallback(d.exportHubName, d.importHubName)
+	d.hubInterface.UnregistryServiceCallback(d.exportHubName, d.importHubName)
 	d.try.Close()
 
 	ctx := context.Background()
 
 	for hubName, caches := range d.cacheResources {
-		cli := d.clusterCache.Clientset(hubName)
+		cli := d.hubInterface.Clientset(hubName)
 		for _, r := range caches {
 			err := r.Delete(ctx, cli)
 			if err != nil {

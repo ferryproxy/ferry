@@ -29,7 +29,7 @@ import (
 	restclient "k8s.io/client-go/rest"
 )
 
-type ClusterCache interface {
+type HubInterface interface {
 	ListHubs() []*v1alpha2.Hub
 	GetTunnelAddressInControlPlane(hubName string) string
 	UpdateHubConditions(name string, conditions []metav1.Condition) error
@@ -38,7 +38,7 @@ type ClusterCache interface {
 type HealthControllerConfig struct {
 	Logger       logr.Logger
 	Config       *restclient.Config
-	ClusterCache ClusterCache
+	HubInterface HubInterface
 }
 
 type HealthController struct {
@@ -47,7 +47,7 @@ type HealthController struct {
 	config         *restclient.Config
 	logger         logr.Logger
 	mut            sync.RWMutex
-	clusterCache   ClusterCache
+	hubInterface   HubInterface
 	cacheRoutes    []*v1alpha2.Route
 	latestUpdate   time.Time
 }
@@ -55,7 +55,7 @@ type HealthController struct {
 func NewHealthController(conf *HealthControllerConfig) *HealthController {
 	return &HealthController{
 		config:       conf.Config,
-		clusterCache: conf.ClusterCache,
+		hubInterface: conf.HubInterface,
 		logger:       conf.Logger,
 	}
 }
@@ -75,7 +75,7 @@ func (m *HealthController) Sync(ctx context.Context) {
 	if time.Since(m.latestUpdate) <= 1*time.Second {
 		return
 	}
-	hubs := m.clusterCache.ListHubs()
+	hubs := m.hubInterface.ListHubs()
 
 	m.check(ctx, hubs)
 
@@ -84,12 +84,12 @@ func (m *HealthController) Sync(ctx context.Context) {
 
 func (m *HealthController) check(ctx context.Context, hubs []*v1alpha2.Hub) {
 	for _, hub := range hubs {
-		host := m.clusterCache.GetTunnelAddressInControlPlane(hub.Name)
+		host := m.hubInterface.GetTunnelAddressInControlPlane(hub.Name)
 		route := healthclient.NewClient("http://" + host)
 		err := route.Get(ctx)
 		if err != nil {
 			m.logger.Error(err, "health", "hub", hub.Name)
-			err = m.clusterCache.UpdateHubConditions(hub.Name, []metav1.Condition{
+			err = m.hubInterface.UpdateHubConditions(hub.Name, []metav1.Condition{
 				{
 					Type:    v1alpha2.TunnelHealthCondition,
 					Status:  metav1.ConditionTrue,
@@ -98,7 +98,7 @@ func (m *HealthController) check(ctx context.Context, hubs []*v1alpha2.Hub) {
 				},
 			})
 		} else {
-			err = m.clusterCache.UpdateHubConditions(hub.Name, []metav1.Condition{
+			err = m.hubInterface.UpdateHubConditions(hub.Name, []metav1.Condition{
 				{
 					Type:   v1alpha2.TunnelHealthCondition,
 					Status: metav1.ConditionTrue,

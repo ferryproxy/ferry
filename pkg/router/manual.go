@@ -138,7 +138,7 @@ func (f *Manual) BuildResource() (out map[string][]resource.Resourcer, err error
 		Labels:        map[string]string{},
 		ExportHubName: f.dateSource.exportHubName,
 		ImportHubName: f.dateSource.importHubName,
-		ClusterCache:  &f.dateSource,
+		HubInterface:  &f.dateSource,
 	})
 
 	router.SetRoutes([]*v1alpha2.Route{

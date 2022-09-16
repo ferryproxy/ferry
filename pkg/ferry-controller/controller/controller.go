@@ -75,7 +75,7 @@ func (c *Controller) Run(ctx context.Context) error {
 	routeController := route.NewRouteController(&route.RouteControllerConfig{
 		Config:       c.config,
 		Namespace:    c.namespace,
-		ClusterCache: hubController,
+		HubInterface: hubController,
 		Logger:       c.logger.WithName("route"),
 		SyncFunc:     c.try.Try,
 	})
@@ -84,7 +84,7 @@ func (c *Controller) Run(ctx context.Context) error {
 	routePolicyController := route_policy.NewRoutePolicyController(route_policy.RoutePolicyControllerConfig{
 		Config:       c.config,
 		Namespace:    c.namespace,
-		ClusterCache: hubController,
+		HubInterface: hubController,
 		Logger:       c.logger.WithName("route-policy"),
 		SyncFunc:     c.try.Try,
 	})
@@ -101,7 +101,7 @@ func (c *Controller) Run(ctx context.Context) error {
 	mcsController := mcs.NewMCSController(&mcs.MCSControllerConfig{
 		Config:       c.config,
 		Namespace:    c.namespace,
-		ClusterCache: hubController,
+		HubInterface: hubController,
 		Logger:       c.logger.WithName("mcs"),
 	})
 	c.mcsController = mcsController
@@ -112,7 +112,7 @@ func (c *Controller) Run(ctx context.Context) error {
 
 	healthController := health.NewHealthController(&health.HealthControllerConfig{
 		Config:       c.config,
-		ClusterCache: hubController,
+		HubInterface: hubController,
 		Logger:       c.logger.WithName("health"),
 	})
 	c.healthController = healthController
