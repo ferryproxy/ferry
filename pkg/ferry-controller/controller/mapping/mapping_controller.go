@@ -155,7 +155,6 @@ func (d *MappingController) SetRoutes(rules []*v1alpha2.Route) {
 	d.mut.Lock()
 	defer d.mut.Unlock()
 	d.routes = rules
-	d.router.SetRoutes(rules)
 }
 
 func (d *MappingController) loadLastConfigMap(ctx context.Context, name string, opt metav1.ListOptions) error {
@@ -260,7 +259,7 @@ func (d *MappingController) sync() {
 		return
 	}
 
-	resources, err := d.router.BuildResource(way)
+	resources, err := d.router.BuildResource(d.routes, way)
 	if err != nil {
 		conds = append(conds,
 			metav1.Condition{

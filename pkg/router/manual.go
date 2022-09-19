@@ -141,7 +141,7 @@ func (f *Manual) BuildResource() (out map[string][]resource.Resourcer, err error
 		HubInterface:  &f.dateSource,
 	})
 
-	router.SetRoutes([]*v1alpha2.Route{
+	routes := []*v1alpha2.Route{
 		{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: f.dateSource.routeName,
@@ -163,7 +163,7 @@ func (f *Manual) BuildResource() (out map[string][]resource.Resourcer, err error
 				},
 			},
 		},
-	})
+	}
 
-	return router.BuildResource(ways)
+	return router.BuildResource(routes, ways)
 }
