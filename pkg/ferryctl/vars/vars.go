@@ -26,7 +26,7 @@ import (
 )
 
 var (
-	ControlPlaneName   = "control-plane"
+	ControlPlaneName   = consts.ControlPlaneName
 	home, _            = os.UserHomeDir()
 	KubeconfigPath     = env.GetEnv("KUBECONFIG", filepath.Join(home, ".kube/config"))
 	PeerKubeconfigPath = env.GetEnv("FERRY_PEER_KUBECONFIG", "")
@@ -38,6 +38,10 @@ var (
 	FerryControllerImage = env.GetEnv("FERRY_CONTROLLER_IMAGE", FerryImagePrefix+"/ferry-controller:"+FerryVersion)
 
 	FerryTunnelImage = env.GetEnv("FERRY_TUNNEL_IMAGE", FerryImagePrefix+"/ferry-tunnel:"+FerryVersion)
+
+	FerryRegisterImage = env.GetEnv("FERRY_REGISTER_IMAGE", FerryImagePrefix+"/ferry-register:"+FerryVersion)
+
+	FerryJoinerImage = env.GetEnv("FERRY_JOINER_IMAGE", FerryImagePrefix+"/ferry-joiner:"+FerryVersion)
 
 	AutoPlaceholders = "AUTO"
 )

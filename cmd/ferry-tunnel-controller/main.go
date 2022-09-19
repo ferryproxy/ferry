@@ -18,24 +18,29 @@ package main
 
 import (
 	"context"
+	"net"
+	"net/http"
 	"os"
-
-	"github.com/go-logr/zapr"
-	"go.uber.org/zap"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/clientcmd"
 
 	"github.com/ferryproxy/ferry/pkg/consts"
 	"github.com/ferryproxy/ferry/pkg/ferry-tunnel/controller"
+	healthserver "github.com/ferryproxy/ferry/pkg/health/server"
+	portsserver "github.com/ferryproxy/ferry/pkg/ports/server"
 	"github.com/ferryproxy/ferry/pkg/utils/env"
 	"github.com/ferryproxy/ferry/pkg/utils/signals"
+	"github.com/go-logr/zapr"
+	"github.com/gorilla/handlers"
+	"go.uber.org/zap"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/clientcmd"
 )
 
 var (
-	serviceName = env.GetEnv("SERVICE_NAME", consts.FerryTunnelName)
-	namespace   = env.GetEnv("NAMESPACE", consts.FerryTunnelNamespace)
-	master      = env.GetEnv("MASTER", "")
-	kubeconfig  = env.GetEnv("KUBECONFIG", "")
+	serviceName    = env.GetEnv("SERVICE_NAME", consts.FerryTunnelName)
+	serviceAddress = env.GetEnv("SERVICE_ADDRESS", "")
+	namespace      = env.GetEnv("NAMESPACE", consts.FerryTunnelNamespace)
+	master         = env.GetEnv("MASTER", "")
+	kubeconfig     = env.GetEnv("KUBECONFIG", "")
 )
 
 func main() {
@@ -120,6 +125,36 @@ func main() {
 			err := allowController.Run(ctx)
 			if err != nil {
 				log.Error(err, "failed to run allow controller")
+			}
+		}()
+	}
+
+	if serviceAddress != "" {
+		go func() {
+			mux := http.NewServeMux()
+
+			err = portsserver.Serve(mux, log)
+			if err != nil {
+				log.Error(err, "failed to create ports serve")
+				os.Exit(1)
+			}
+
+			err = healthserver.Serve(mux, log)
+			if err != nil {
+				log.Error(err, "failed to create health serve")
+				os.Exit(1)
+			}
+			server := http.Server{
+				BaseContext: func(listener net.Listener) context.Context {
+					return ctx
+				},
+				Handler: handlers.LoggingHandler(os.Stderr, mux),
+				Addr:    serviceAddress,
+			}
+			err = server.ListenAndServe()
+			if err != nil {
+				log.Error(err, "failed to ListenAndServe")
+				os.Exit(1)
 			}
 		}()
 	}

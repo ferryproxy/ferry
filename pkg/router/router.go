@@ -30,18 +30,18 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-type ClusterCache interface {
+type HubInterface interface {
 	ListServices(name string) []*corev1.Service
 	GetHubGateway(hubName string, forHub string) v1alpha2.HubSpecGateway
 	GetAuthorized(name string) string
-	GetPortPeer(importHubName string, cluster, namespace, name string, port int32) int32
+	GetPortPeer(importHubName string, cluster, namespace, name string, port int32) (int32, error)
 }
 
 type RouterConfig struct {
 	Labels        map[string]string
 	ExportHubName string
 	ImportHubName string
-	ClusterCache  ClusterCache
+	HubInterface  HubInterface
 }
 
 func NewRouter(conf RouterConfig) *Router {
@@ -49,10 +49,10 @@ func NewRouter(conf RouterConfig) *Router {
 		labels:        conf.Labels,
 		importHubName: conf.ImportHubName,
 		exportHubName: conf.ExportHubName,
-		clusterCache:  conf.ClusterCache,
+		hubInterface:  conf.HubInterface,
 		mappings:      map[objref.ObjectRef][]*v1alpha2.Route{},
 		hubsChain: NewHubsChain(HubsChainConfig{
-			GetHubGateway: conf.ClusterCache.GetHubGateway,
+			GetHubGateway: conf.HubInterface.GetHubGateway,
 		}),
 	}
 }
@@ -65,7 +65,7 @@ type Router struct {
 
 	mappings map[objref.ObjectRef][]*v1alpha2.Route
 
-	clusterCache ClusterCache
+	hubInterface HubInterface
 
 	hubsChain *HubsChain
 }
@@ -82,7 +82,7 @@ func (d *Router) SetRoutes(rules []*v1alpha2.Route) {
 
 func (d *Router) BuildResource(ways []string) (out map[string][]resource.Resourcer, err error) {
 	out = map[string][]resource.Resourcer{}
-	svcs := d.clusterCache.ListServices(d.exportHubName)
+	svcs := d.hubInterface.ListServices(d.exportHubName)
 
 	labelsForRules := maps.Merge(d.labels, map[string]string{
 		consts.TunnelConfigKey: consts.TunnelConfigRulesValue,
@@ -106,7 +106,10 @@ func (d *Router) BuildResource(ways []string) (out map[string][]resource.Resourc
 
 			for _, port := range svc.Spec.Ports {
 
-				peerPort := d.clusterCache.GetPortPeer(d.importHubName, d.exportHubName, origin.Namespace, origin.Name, port.Port)
+				peerPort, err := d.hubInterface.GetPortPeer(d.importHubName, d.exportHubName, origin.Namespace, origin.Name, port.Port)
+				if err != nil {
+					return nil, err
+				}
 				peerPortMapping[port.Port] = peerPort
 
 				tunnelName := fmt.Sprintf("%s-tunnel-%d-%d", rule.Name, port.Port, peerPort)
@@ -132,7 +135,7 @@ func (d *Router) BuildResource(ways []string) (out map[string][]resource.Resourc
 				}
 
 				authNameSuffix := "authorized"
-				resources, err = ConvertInboundAuthorizedToResourcers(authNameSuffix, consts.FerryTunnelNamespace, labelsForAuth, hubsBound, d.clusterCache.GetAuthorized)
+				resources, err = ConvertInboundAuthorizedToResourcers(authNameSuffix, consts.FerryTunnelNamespace, labelsForAuth, hubsBound, d.hubInterface.GetAuthorized)
 				if err != nil {
 					return nil, err
 				}

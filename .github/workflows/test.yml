@@ -110,6 +110,7 @@ jobs:
           - default
           - control-plane-unreachable
           - data-plane-unreachable
+          - quick-join
     runs-on: ubuntu-latest
     needs:
       - build
@@ -149,6 +150,7 @@ jobs:
           - default-3-clusters
           - control-plane-unreachable-3-clusters
           - data-plane-unreachable-3-clusters
+          - quick-join-3-clusters
     runs-on: ubuntu-latest
     needs:
       - build

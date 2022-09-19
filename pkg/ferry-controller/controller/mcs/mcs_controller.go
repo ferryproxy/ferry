@@ -37,14 +37,14 @@ import (
 	"sigs.k8s.io/mcs-api/pkg/client/clientset/versioned"
 )
 
-type ClusterCache interface {
+type HubInterface interface {
 	ListMCS(namespace string) (map[string][]*v1alpha1.ServiceImport, map[string][]*v1alpha1.ServiceExport)
 }
 
 type MCSControllerConfig struct {
 	Logger       logr.Logger
 	Config       *restclient.Config
-	ClusterCache ClusterCache
+	HubInterface HubInterface
 	Namespace    string
 }
 
@@ -56,7 +56,7 @@ type MCSController struct {
 	logger             logr.Logger
 	namespace          string
 	mut                sync.RWMutex
-	clusterCache       ClusterCache
+	hubInterface       HubInterface
 	cacheRoutePolicies []*v1alpha2.RoutePolicy
 }
 
@@ -64,7 +64,7 @@ func NewMCSController(conf *MCSControllerConfig) *MCSController {
 	return &MCSController{
 		config:       conf.Config,
 		namespace:    conf.Namespace,
-		clusterCache: conf.ClusterCache,
+		hubInterface: conf.HubInterface,
 		logger:       conf.Logger,
 	}
 }
@@ -96,7 +96,7 @@ func (m *MCSController) Sync(ctx context.Context) {
 	m.mut.Lock()
 	defer m.mut.Unlock()
 
-	importMap, exportMap := m.clusterCache.ListMCS("")
+	importMap, exportMap := m.hubInterface.ListMCS("")
 
 	updated := mcsToRoutePolicies(importMap, exportMap)
 

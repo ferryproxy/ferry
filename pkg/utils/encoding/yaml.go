@@ -19,20 +19,10 @@ package encoding
 import (
 	"bytes"
 
-	"github.com/ferryproxy/api/apis/traffic/v1alpha2"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"sigs.k8s.io/yaml"
 )
-
-var scheme = runtime.NewScheme()
-
-func init() {
-	utilruntime.Must(corev1.AddToScheme(scheme))
-	utilruntime.Must(v1alpha2.AddToScheme(scheme))
-}
 
 func MarshalYAML(objs ...runtime.Object) ([]byte, error) {
 	buf := bytes.NewBuffer(nil)

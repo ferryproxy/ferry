@@ -18,11 +18,13 @@ package init
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/ferryproxy/ferry/pkg/ferryctl/control_plane"
 	"github.com/ferryproxy/ferry/pkg/ferryctl/data_plane"
 	"github.com/ferryproxy/ferry/pkg/ferryctl/kubectl"
 	"github.com/ferryproxy/ferry/pkg/ferryctl/log"
+	"github.com/ferryproxy/ferry/pkg/ferryctl/registry/register"
 	"github.com/ferryproxy/ferry/pkg/ferryctl/vars"
 	"github.com/spf13/cobra"
 )
@@ -32,6 +34,7 @@ func NewCommand(logger log.Logger) *cobra.Command {
 		controlPlaneTunnelAddress = vars.AutoPlaceholders
 		controlPlaneReachable     = true
 		tunnelServiceType         = "NodePort"
+		enableRegister            = false
 	)
 
 	cmd := &cobra.Command{
@@ -73,6 +76,19 @@ func NewCommand(logger log.Logger) *cobra.Command {
 				return err
 			}
 
+			if enableRegister {
+				kctl := kubectl.NewKubectl()
+				data, err := register.BuildInitRegister(register.BuildInitRegisterConfig{
+					Image:         vars.FerryRegisterImage,
+					ServiceType:   tunnelServiceType,
+					TunnelAddress: controlPlaneTunnelAddress,
+				})
+
+				err = kctl.ApplyWithReader(cmd.Context(), strings.NewReader(data))
+				if err != nil {
+					return err
+				}
+			}
 			return nil
 		},
 	}
@@ -80,5 +96,6 @@ func NewCommand(logger log.Logger) *cobra.Command {
 	flags.StringVar(&controlPlaneTunnelAddress, "control-plane-tunnel-address", controlPlaneTunnelAddress, "Tunnel address of the control plane connected to another cluster")
 	flags.BoolVar(&controlPlaneReachable, "control-plane-reachable", controlPlaneReachable, "Whether the control plane is reachable")
 	flags.StringVar(&tunnelServiceType, "tunnel-service-type", tunnelServiceType, "Tunnel service type (LoadBalancer or NodePort)")
+	flags.BoolVar(&enableRegister, "enable-register", enableRegister, "Enable register")
 	return cmd
 }

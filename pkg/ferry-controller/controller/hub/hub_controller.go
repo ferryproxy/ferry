@@ -21,7 +21,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"reflect"
+	"sort"
 	"sync"
 
 	"github.com/ferryproxy/api/apis/traffic/v1alpha2"
@@ -29,11 +29,12 @@ import (
 	externalversions "github.com/ferryproxy/client-go/generated/informers/externalversions"
 	"github.com/ferryproxy/ferry/pkg/client"
 	"github.com/ferryproxy/ferry/pkg/consts"
-	"github.com/ferryproxy/ferry/pkg/services"
+	portsclient "github.com/ferryproxy/ferry/pkg/ports/client"
 	"github.com/ferryproxy/ferry/pkg/utils/objref"
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	apiextensions "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
@@ -121,18 +122,50 @@ func (c *HubController) Run(ctx context.Context) error {
 	return nil
 }
 
-func (c *HubController) updateStatus(name string, phase string) error {
+func (c *HubController) GetTunnelAddressInControlPlane(hubName string) string {
+	host := "ferry-tunnel.ferry-tunnel-system:8080"
+	if hubName != consts.ControlPlaneName {
+		host = hubName + "-" + host
+	}
+	return host
+}
+
+func (c *HubController) UpdateHubConditions(name string, conditions []metav1.Condition) error {
 	ci := c.cacheHub[name]
 	if ci == nil {
 		return fmt.Errorf("not found Hub %s", name)
 	}
 
-	ci = ci.DeepCopy()
-	ci.Status.LastSynchronizationTimestamp = metav1.Now()
-	ci.Status.Phase = phase
+	status := ci.Status.DeepCopy()
+	status.LastSynchronizationTimestamp = metav1.Now()
+
+	if status.Conditions == nil {
+		status.Conditions = []metav1.Condition{}
+	}
+
+	for _, condition := range conditions {
+		meta.SetStatusCondition(&status.Conditions, condition)
+	}
+
+	if meta.IsStatusConditionTrue(status.Conditions, v1alpha2.ConnectedCondition) &&
+		meta.IsStatusConditionTrue(status.Conditions, v1alpha2.TunnelHealthCondition) {
+		meta.SetStatusCondition(&status.Conditions, metav1.Condition{
+			Type:   v1alpha2.HubReady,
+			Status: metav1.ConditionTrue,
+			Reason: v1alpha2.HubReady,
+		})
+		status.Phase = v1alpha2.HubReady
+	} else {
+		meta.SetStatusCondition(&status.Conditions, metav1.Condition{
+			Type:   v1alpha2.HubReady,
+			Status: metav1.ConditionFalse,
+			Reason: "NotReady",
+		})
+		status.Phase = "NotReady"
+	}
 
 	data, err := json.Marshal(map[string]interface{}{
-		"status": ci.Status,
+		"status": status,
 	})
 	if err != nil {
 		return err
@@ -150,10 +183,20 @@ func (c *HubController) Clientset(name string) kubernetes.Interface {
 	return c.cacheClientset[name]
 }
 
-func (c *HubController) ListServices(name string) []*corev1.Service {
+func (c *HubController) GetService(hubName string, namespace, name string) (*corev1.Service, bool) {
 	c.mut.RLock()
 	defer c.mut.RUnlock()
-	cache := c.cacheService[name]
+	cache := c.cacheService[hubName]
+	if cache == nil {
+		return nil, false
+	}
+	return cache.Get(namespace, name)
+}
+
+func (c *HubController) ListServices(hubName string) []*corev1.Service {
+	c.mut.RLock()
+	defer c.mut.RUnlock()
+	cache := c.cacheService[hubName]
 	if cache == nil {
 		return nil
 	}
@@ -188,16 +231,22 @@ func (c *HubController) UnregistryServiceCallback(exportHubName, importHubName s
 	c.cacheService[exportHubName].UnregistryCallback(importHubName)
 }
 
-func (c *HubController) LoadPortPeer(importHubName string, cluster, namespace, name string, ports []services.MappingPort) {
+func (c *HubController) LoadPortPeer(importHubName string, cluster, namespace, name string, port, bindPort int32) error {
 	c.mut.RLock()
 	defer c.mut.RUnlock()
-	c.cacheTunnelPorts[importHubName].LoadPortPeer(cluster, namespace, name, ports)
+	return c.cacheTunnelPorts[importHubName].LoadPortBind(cluster, namespace, name, port, bindPort)
 }
 
-func (c *HubController) GetPortPeer(importHubName string, cluster, namespace, name string, port int32) int32 {
+func (c *HubController) GetPortPeer(importHubName string, cluster, namespace, name string, port int32) (int32, error) {
 	c.mut.RLock()
 	defer c.mut.RUnlock()
-	return c.cacheTunnelPorts[importHubName].GetPort(cluster, namespace, name, port)
+	return c.cacheTunnelPorts[importHubName].GetPortBind(cluster, namespace, name, port)
+}
+
+func (c *HubController) DeletePortPeer(importHubName string, cluster, namespace, name string, port int32) (int32, error) {
+	c.mut.RLock()
+	defer c.mut.RUnlock()
+	return c.cacheTunnelPorts[importHubName].DeletePortBind(cluster, namespace, name, port)
 }
 
 func (c *HubController) onAdd(obj interface{}) {
@@ -235,7 +284,14 @@ func (c *HubController) onAdd(obj interface{}) {
 	clientset, err := kubernetes.NewForConfig(restConfig)
 	if err != nil {
 		c.logger.Error(err, "kubernetes.NewForConfig")
-		err = c.updateStatus(f.Name, "Disconnected")
+		err = c.UpdateHubConditions(f.Name, []metav1.Condition{
+			{
+				Type:    v1alpha2.ConnectedCondition,
+				Status:  metav1.ConditionFalse,
+				Reason:  "Disconnected",
+				Message: err.Error(),
+			},
+		})
 		if err != nil {
 			c.logger.Error(err, "UpdateStatus",
 				"hub", objref.KObj(f),
@@ -243,7 +299,13 @@ func (c *HubController) onAdd(obj interface{}) {
 		}
 	} else {
 		c.cacheClientset[f.Name] = clientset
-		err = c.updateStatus(f.Name, "Connected")
+		err = c.UpdateHubConditions(f.Name, []metav1.Condition{
+			{
+				Type:   v1alpha2.ConnectedCondition,
+				Status: metav1.ConditionTrue,
+				Reason: "Connected",
+			},
+		})
 		if err != nil {
 			c.logger.Error(err, "UpdateStatus",
 				"hub", objref.KObj(f),
@@ -251,8 +313,14 @@ func (c *HubController) onAdd(obj interface{}) {
 		}
 	}
 
+	host := c.GetTunnelAddressInControlPlane(f.Name)
+	cli := portsclient.NewClient("http://" + host + "/ports")
+
 	c.cacheTunnelPorts[f.Name] = newTunnelPorts(tunnelPortsConfig{
 		Logger: c.logger.WithName(f.Name).WithName("tunnel-port"),
+		GetUnusedPort: func() (int32, error) {
+			return cli.Get(c.ctx)
+		},
 	})
 
 	clusterService := newClusterServiceCache(clusterServiceCacheConfig{
@@ -352,11 +420,6 @@ func (c *HubController) onUpdate(oldObj, newObj interface{}) {
 	}
 	kubeconfig := c.cacheKubeconfig[f.Name]
 
-	if reflect.DeepEqual(c.cacheHub[f.Name].Spec, f.Spec) && reflect.DeepEqual(oldKubeconfig, kubeconfig) {
-		c.cacheHub[f.Name] = f
-		return
-	}
-
 	if !bytes.Equal(oldKubeconfig, kubeconfig) {
 		restConfig, err := client.NewRestConfigFromKubeconfig(kubeconfig)
 		if err != nil {
@@ -367,7 +430,14 @@ func (c *HubController) onUpdate(oldObj, newObj interface{}) {
 		clientset, err := kubernetes.NewForConfig(restConfig)
 		if err != nil {
 			c.logger.Error(err, "NewClientsetFromKubeconfig")
-			err = c.updateStatus(f.Name, "Disconnected")
+			err = c.UpdateHubConditions(f.Name, []metav1.Condition{
+				{
+					Type:    v1alpha2.ConnectedCondition,
+					Status:  metav1.ConditionFalse,
+					Reason:  "Disconnected",
+					Message: err.Error(),
+				},
+			})
 			if err != nil {
 				c.logger.Error(err, "UpdateStatus",
 					"hub", objref.KObj(f),
@@ -378,14 +448,27 @@ func (c *HubController) onUpdate(oldObj, newObj interface{}) {
 			err := c.cacheService[f.Name].ResetClientset(clientset)
 			if err != nil {
 				c.logger.Error(err, "Reset clientset")
-				err = c.updateStatus(f.Name, "Disconnected")
+				err = c.UpdateHubConditions(f.Name, []metav1.Condition{
+					{
+						Type:    v1alpha2.ConnectedCondition,
+						Status:  metav1.ConditionFalse,
+						Reason:  "Disconnected",
+						Message: err.Error(),
+					},
+				})
 				if err != nil {
 					c.logger.Error(err, "UpdateStatus",
 						"hub", objref.KObj(f),
 					)
 				}
 			} else {
-				err = c.updateStatus(f.Name, "Connected")
+				err = c.UpdateHubConditions(f.Name, []metav1.Condition{
+					{
+						Type:   v1alpha2.ConnectedCondition,
+						Status: metav1.ConditionTrue,
+						Reason: "Connected",
+					},
+				})
 				if err != nil {
 					c.logger.Error(err, "UpdateStatus",
 						"hub", objref.KObj(f),
@@ -579,6 +662,19 @@ func (c *HubController) GetHub(name string) *v1alpha2.Hub {
 	c.mut.RLock()
 	defer c.mut.RUnlock()
 	return c.cacheHub[name]
+}
+
+func (c *HubController) ListHubs() []*v1alpha2.Hub {
+	c.mut.RLock()
+	defer c.mut.RUnlock()
+	out := make([]*v1alpha2.Hub, 0, len(c.cacheHub))
+	for _, hub := range c.cacheHub {
+		out = append(out, hub.DeepCopy())
+	}
+	sort.Slice(out, func(i, j int) bool {
+		return out[i].Name < out[j].Name
+	})
+	return out
 }
 
 func (c *HubController) GetHubGateway(hubName string, forHub string) v1alpha2.HubSpecGateway {

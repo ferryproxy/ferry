@@ -31,6 +31,7 @@ import (
 	"github.com/ferryproxy/ferry/pkg/ferry-controller/controller/mapping"
 	"github.com/ferryproxy/ferry/pkg/utils/objref"
 	"github.com/go-logr/logr"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	restclient "k8s.io/client-go/rest"
@@ -40,7 +41,7 @@ import (
 type RouteControllerConfig struct {
 	Logger       logr.Logger
 	Config       *restclient.Config
-	ClusterCache mapping.ClusterCache
+	HubInterface mapping.HubInterface
 	Namespace    string
 	SyncFunc     func()
 }
@@ -50,7 +51,7 @@ type RouteController struct {
 	mut                    sync.RWMutex
 	config                 *restclient.Config
 	clientset              versioned.Interface
-	clusterCache           mapping.ClusterCache
+	hubInterface           mapping.HubInterface
 	cache                  map[string]*v1alpha2.Route
 	cacheMappingController map[clusterPair]*mapping.MappingController
 	cacheRoutes            map[clusterPair][]*v1alpha2.Route
@@ -63,7 +64,7 @@ func NewRouteController(conf *RouteControllerConfig) *RouteController {
 	return &RouteController{
 		config:                 conf.Config,
 		namespace:              conf.Namespace,
-		clusterCache:           conf.ClusterCache,
+		hubInterface:           conf.HubInterface,
 		logger:                 conf.Logger,
 		syncFunc:               conf.SyncFunc,
 		cache:                  map[string]*v1alpha2.Route{},
@@ -158,10 +159,56 @@ func (c *RouteController) onAdd(obj interface{}) {
 
 	c.syncFunc()
 
-	err := c.updateStatus(f.Name, "Pending", nil)
+	err := c.updatePort(f)
+	if err != nil {
+		err := c.updateStatus(f.Name, "Failed", nil)
+		if err != nil {
+			c.logger.Error(err, "failed to update status")
+		}
+		return
+	}
+
+	err = c.updateStatus(f.Name, "Pending", nil)
 	if err != nil {
 		c.logger.Error(err, "failed to update status")
 	}
+}
+
+func (c *RouteController) updatePort(f *v1alpha2.Route) error {
+	svc, ok := c.hubInterface.GetService(f.Spec.Export.HubName, f.Spec.Export.Service.Namespace, f.Spec.Export.Service.Name)
+	if !ok {
+		return fmt.Errorf("not found export service")
+	}
+
+	for _, port := range svc.Spec.Ports {
+		if port.Protocol != corev1.ProtocolTCP {
+			continue
+		}
+		_, err := c.hubInterface.GetPortPeer(f.Spec.Import.HubName,
+			f.Spec.Export.HubName, f.Spec.Export.Service.Namespace, f.Spec.Export.Service.Name, port.Port)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (c *RouteController) deletePort(f *v1alpha2.Route) error {
+	svc, ok := c.hubInterface.GetService(f.Spec.Export.HubName, f.Spec.Export.Service.Namespace, f.Spec.Export.Service.Name)
+	if !ok {
+		return fmt.Errorf("not found export service")
+	}
+	for _, port := range svc.Spec.Ports {
+		if port.Protocol != corev1.ProtocolTCP {
+			continue
+		}
+		_, err := c.hubInterface.DeletePortPeer(f.Spec.Import.HubName,
+			f.Spec.Export.HubName, f.Spec.Export.Service.Namespace, f.Spec.Export.Service.Name, port.Port)
+		if err == nil {
+			continue
+		}
+	}
+	return nil
 }
 
 func (c *RouteController) onUpdate(oldObj, newObj interface{}) {
@@ -197,6 +244,8 @@ func (c *RouteController) onDelete(obj interface{}) {
 
 	c.mut.Lock()
 	defer c.mut.Unlock()
+
+	c.updatePort(f)
 
 	delete(c.cache, f.Name)
 
@@ -270,28 +319,28 @@ func (c *RouteController) startMappingController(ctx context.Context, key cluste
 		return mc, nil
 	}
 
-	exportClientset := c.clusterCache.Clientset(key.Export)
+	exportClientset := c.hubInterface.Clientset(key.Export)
 	if exportClientset == nil {
 		return nil, fmt.Errorf("not found clientset %q", key.Export)
 	}
-	importClientset := c.clusterCache.Clientset(key.Import)
+	importClientset := c.hubInterface.Clientset(key.Import)
 	if importClientset == nil {
 		return nil, fmt.Errorf("not found clientset %q", key.Import)
 	}
 
-	exportCluster := c.clusterCache.GetHub(key.Export)
+	exportCluster := c.hubInterface.GetHub(key.Export)
 	if exportCluster == nil {
 		return nil, fmt.Errorf("not found cluster information %q", key.Export)
 	}
 
-	importCluster := c.clusterCache.GetHub(key.Import)
+	importCluster := c.hubInterface.GetHub(key.Import)
 	if importCluster == nil {
 		return nil, fmt.Errorf("not found cluster information %q", key.Import)
 	}
 
 	mc = mapping.NewMappingController(mapping.MappingControllerConfig{
 		Namespace:     consts.FerryTunnelNamespace,
-		ClusterCache:  c.clusterCache,
+		HubInterface:  c.hubInterface,
 		ImportHubName: key.Import,
 		ExportHubName: key.Export,
 		Logger: c.logger.WithName("data-plane").
