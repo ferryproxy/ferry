@@ -28,13 +28,13 @@ import (
 	versioned "github.com/ferryproxy/client-go/generated/clientset/versioned"
 	externalversions "github.com/ferryproxy/client-go/generated/informers/externalversions"
 	"github.com/ferryproxy/ferry/pkg/client"
+	"github.com/ferryproxy/ferry/pkg/conditions"
 	"github.com/ferryproxy/ferry/pkg/consts"
 	portsclient "github.com/ferryproxy/ferry/pkg/ports/client"
 	"github.com/ferryproxy/ferry/pkg/utils/objref"
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	apiextensions "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
@@ -54,6 +54,7 @@ type HubControllerConfig struct {
 
 type HubController struct {
 	mut                sync.RWMutex
+	mutStatus          sync.Mutex
 	ctx                context.Context
 	logger             logr.Logger
 	config             *restclient.Config
@@ -69,6 +70,7 @@ type HubController struct {
 	cacheKubeconfig    map[string][]byte
 	syncFunc           func()
 	namespace          string
+	conditionsManager  *conditions.ConditionsManager
 }
 
 func NewHubController(conf HubControllerConfig) *HubController {
@@ -85,6 +87,7 @@ func NewHubController(conf HubControllerConfig) *HubController {
 		cacheTunnelPorts:   map[string]*tunnelPorts{},
 		cacheAuthorized:    map[string]string{},
 		cacheKubeconfig:    map[string][]byte{},
+		conditionsManager:  conditions.NewConditionsManager(),
 	}
 }
 
@@ -131,6 +134,9 @@ func (c *HubController) GetTunnelAddressInControlPlane(hubName string) string {
 }
 
 func (c *HubController) UpdateHubConditions(name string, conditions []metav1.Condition) error {
+	c.mutStatus.Lock()
+	defer c.mutStatus.Unlock()
+
 	ci := c.cacheHub[name]
 	if ci == nil {
 		return fmt.Errorf("not found Hub %s", name)
@@ -139,31 +145,27 @@ func (c *HubController) UpdateHubConditions(name string, conditions []metav1.Con
 	status := ci.Status.DeepCopy()
 	status.LastSynchronizationTimestamp = metav1.Now()
 
-	if status.Conditions == nil {
-		status.Conditions = []metav1.Condition{}
-	}
-
 	for _, condition := range conditions {
-		meta.SetStatusCondition(&status.Conditions, condition)
+		c.conditionsManager.Set(name, condition)
 	}
 
-	if meta.IsStatusConditionTrue(status.Conditions, v1alpha2.ConnectedCondition) &&
-		meta.IsStatusConditionTrue(status.Conditions, v1alpha2.TunnelHealthCondition) {
-		meta.SetStatusCondition(&status.Conditions, metav1.Condition{
+	if c.conditionsManager.IsTrue(name, v1alpha2.ConnectedCondition) &&
+		c.conditionsManager.IsTrue(name, v1alpha2.TunnelHealthCondition) {
+		c.conditionsManager.Set(name, metav1.Condition{
 			Type:   v1alpha2.HubReady,
 			Status: metav1.ConditionTrue,
 			Reason: v1alpha2.HubReady,
 		})
 		status.Phase = v1alpha2.HubReady
 	} else {
-		meta.SetStatusCondition(&status.Conditions, metav1.Condition{
+		c.conditionsManager.Set(name, metav1.Condition{
 			Type:   v1alpha2.HubReady,
 			Status: metav1.ConditionFalse,
 			Reason: "NotReady",
 		})
 		status.Phase = "NotReady"
 	}
-
+	status.Conditions = c.conditionsManager.Get(name)
 	data, err := json.Marshal(map[string]interface{}{
 		"status": status,
 	})
@@ -249,6 +251,10 @@ func (c *HubController) DeletePortPeer(importHubName string, cluster, namespace,
 	return c.cacheTunnelPorts[importHubName].DeletePortBind(cluster, namespace, name, port)
 }
 
+func (c *HubController) HubReady(hubName string) bool {
+	return c.conditionsManager.IsTrue(hubName, v1alpha2.HubReady)
+}
+
 func (c *HubController) onAdd(obj interface{}) {
 	f := obj.(*v1alpha2.Hub)
 	f = f.DeepCopy()
@@ -283,7 +289,7 @@ func (c *HubController) onAdd(obj interface{}) {
 
 	clientset, err := kubernetes.NewForConfig(restConfig)
 	if err != nil {
-		c.logger.Error(err, "kubernetes.NewForConfig")
+		c.logger.Error(err, "NewForConfig")
 		err = c.UpdateHubConditions(f.Name, []metav1.Condition{
 			{
 				Type:    v1alpha2.ConnectedCondition,
@@ -293,7 +299,7 @@ func (c *HubController) onAdd(obj interface{}) {
 			},
 		})
 		if err != nil {
-			c.logger.Error(err, "UpdateStatus",
+			c.logger.Error(err, "failed to update status",
 				"hub", objref.KObj(f),
 			)
 		}
@@ -307,7 +313,7 @@ func (c *HubController) onAdd(obj interface{}) {
 			},
 		})
 		if err != nil {
-			c.logger.Error(err, "UpdateStatus",
+			c.logger.Error(err, "failed to update status",
 				"hub", objref.KObj(f),
 			)
 		}
@@ -429,7 +435,7 @@ func (c *HubController) onUpdate(oldObj, newObj interface{}) {
 
 		clientset, err := kubernetes.NewForConfig(restConfig)
 		if err != nil {
-			c.logger.Error(err, "NewClientsetFromKubeconfig")
+			c.logger.Error(err, "NewForConfig")
 			err = c.UpdateHubConditions(f.Name, []metav1.Condition{
 				{
 					Type:    v1alpha2.ConnectedCondition,
@@ -439,7 +445,7 @@ func (c *HubController) onUpdate(oldObj, newObj interface{}) {
 				},
 			})
 			if err != nil {
-				c.logger.Error(err, "UpdateStatus",
+				c.logger.Error(err, "failed to update status",
 					"hub", objref.KObj(f),
 				)
 			}
@@ -457,7 +463,7 @@ func (c *HubController) onUpdate(oldObj, newObj interface{}) {
 					},
 				})
 				if err != nil {
-					c.logger.Error(err, "UpdateStatus",
+					c.logger.Error(err, "failed to update status",
 						"hub", objref.KObj(f),
 					)
 				}
@@ -470,7 +476,7 @@ func (c *HubController) onUpdate(oldObj, newObj interface{}) {
 					},
 				})
 				if err != nil {
-					c.logger.Error(err, "UpdateStatus",
+					c.logger.Error(err, "failed to update status",
 						"hub", objref.KObj(f),
 					)
 				}

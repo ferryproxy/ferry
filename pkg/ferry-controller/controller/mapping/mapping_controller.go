@@ -18,6 +18,7 @@ package mapping
 
 import (
 	"context"
+	"strings"
 	"sync"
 	"time"
 
@@ -47,14 +48,20 @@ type HubInterface interface {
 	DeletePortPeer(importHubName string, cluster, namespace, name string, port int32) (int32, error)
 	RegistryServiceCallback(exportHubName, importHubName string, cb func())
 	UnregistryServiceCallback(exportHubName, importHubName string)
+	HubReady(hubName string) bool
+}
+
+type RouteInterface interface {
+	UpdateRouteCondition(name string, conditions []metav1.Condition) error
 }
 
 type MappingControllerConfig struct {
-	Namespace     string
-	ExportHubName string
-	ImportHubName string
-	HubInterface  HubInterface
-	Logger        logr.Logger
+	Namespace      string
+	ExportHubName  string
+	ImportHubName  string
+	HubInterface   HubInterface
+	RouteInterface RouteInterface
+	Logger         logr.Logger
 }
 
 func NewMappingController(conf MappingControllerConfig) *MappingController {
@@ -64,6 +71,7 @@ func NewMappingController(conf MappingControllerConfig) *MappingController {
 		exportHubName:  conf.ExportHubName,
 		logger:         conf.Logger,
 		hubInterface:   conf.HubInterface,
+		routeInterface: conf.RouteInterface,
 		cacheResources: map[string][]resource.Resourcer{},
 	}
 }
@@ -78,10 +86,12 @@ type MappingController struct {
 	exportHubName string
 	importHubName string
 
-	router       *router.Router
-	solution     *router.Solution
-	hubInterface HubInterface
+	router         *router.Router
+	solution       *router.Solution
+	hubInterface   HubInterface
+	routeInterface RouteInterface
 
+	routes         []*v1alpha2.Route
 	cacheResources map[string][]resource.Resourcer
 	logger         logr.Logger
 	way            []string
@@ -137,12 +147,6 @@ func (d *MappingController) Start(ctx context.Context) error {
 	return nil
 }
 
-func (d *MappingController) Way() []string {
-	d.mut.Lock()
-	defer d.mut.Unlock()
-	return d.way
-}
-
 func (d *MappingController) Sync() {
 	d.try.Try()
 }
@@ -150,6 +154,7 @@ func (d *MappingController) Sync() {
 func (d *MappingController) SetRoutes(rules []*v1alpha2.Route) {
 	d.mut.Lock()
 	defer d.mut.Unlock()
+	d.routes = rules
 	d.router.SetRoutes(rules)
 }
 
@@ -207,18 +212,85 @@ func (d *MappingController) sync() {
 	}
 	ctx := d.ctx
 
+	// TODO: check for failures sync
+	conds := []metav1.Condition{}
+
+	importHubReady := d.hubInterface.HubReady(d.importHubName)
+	if importHubReady {
+		conds = append(conds, metav1.Condition{
+			Type:   v1alpha2.ImportHubReadyCondition,
+			Status: metav1.ConditionTrue,
+			Reason: v1alpha2.ImportHubReadyCondition,
+		})
+	} else {
+		conds = append(conds, metav1.Condition{
+			Type:   v1alpha2.ImportHubReadyCondition,
+			Status: metav1.ConditionFalse,
+			Reason: "NotReady",
+		})
+	}
+
+	exportHubReady := d.hubInterface.HubReady(d.exportHubName)
+	if exportHubReady {
+		conds = append(conds, metav1.Condition{
+			Type:   v1alpha2.ExportHubReadyCondition,
+			Status: metav1.ConditionTrue,
+			Reason: v1alpha2.ExportHubReadyCondition,
+		})
+	} else {
+		conds = append(conds, metav1.Condition{
+			Type:   v1alpha2.ExportHubReadyCondition,
+			Status: metav1.ConditionFalse,
+			Reason: "NotReady",
+		})
+	}
+
+	defer func() {
+		for _, route := range d.routes {
+			err := d.routeInterface.UpdateRouteCondition(route.Name, conds)
+			if err != nil {
+				d.logger.Error(err, "failed to update status")
+			}
+		}
+	}()
+
 	way, err := d.solution.CalculateWays(d.exportHubName, d.importHubName)
 	if err != nil {
 		d.logger.Error(err, "calculate ways")
 		return
 	}
-	d.way = way
 
 	resources, err := d.router.BuildResource(way)
 	if err != nil {
+		conds = append(conds,
+			metav1.Condition{
+				Type:    v1alpha2.PathReachableCondition,
+				Status:  metav1.ConditionFalse,
+				Reason:  "Unreachable",
+				Message: err.Error(),
+			},
+		)
 		d.logger.Error(err, "build resource")
 		return
 	}
+	msg := ""
+	if len(way) == 2 {
+		msg = "<Direct>"
+	} else {
+		msg = strings.Join(way[1:len(way)-1], ",")
+	}
+
+	conds = append(conds,
+		metav1.Condition{
+			Type:    v1alpha2.PathReachableCondition,
+			Status:  metav1.ConditionTrue,
+			Reason:  v1alpha2.PathReachableCondition,
+			Message: msg,
+		},
+	)
+
+	d.way = way
+
 	defer func() {
 		d.cacheResources = resources
 	}()
@@ -255,6 +327,14 @@ func (d *MappingController) sync() {
 			}
 		}
 	}
+
+	conds = append(conds,
+		metav1.Condition{
+			Type:   v1alpha2.RouteSyncedCondition,
+			Status: metav1.ConditionTrue,
+			Reason: v1alpha2.RouteSyncedCondition,
+		},
+	)
 
 	return
 }
