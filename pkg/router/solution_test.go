@@ -17,6 +17,7 @@ limitations under the License.
 package router
 
 import (
+	"reflect"
 	"testing"
 
 	"github.com/ferryproxy/api/apis/traffic/v1alpha2"
@@ -607,6 +608,88 @@ func TestSolution_Solution(t *testing.T) {
 
 			if diff := cmp.Diff(got, tt.want); diff != "" {
 				t.Errorf("CalculateWays(): got want + \n%s", diff)
+			}
+		})
+	}
+}
+
+func Test_removeInvalidWays(t *testing.T) {
+	type args struct {
+		ways []string
+	}
+	tests := []struct {
+		name string
+		args args
+		want []string
+	}{
+		{
+			name: "0 ways",
+			args: args{
+				ways: []string{},
+			},
+			want: []string{},
+		},
+		{
+			name: "1 ways",
+			args: args{
+				ways: []string{"a"},
+			},
+			want: []string{"a"},
+		},
+		{
+			name: "2 ways",
+			args: args{
+				ways: []string{"a", "b"},
+			},
+			want: []string{"a", "b"},
+		},
+		{
+			name: "3 ways",
+			args: args{
+				ways: []string{"a", "b", "c"},
+			},
+			want: []string{"a", "b", "c"},
+		},
+		{
+			name: "4 ways, 1 hit in middle",
+			args: args{
+				ways: []string{"a", "b", "b", "c"},
+			},
+			want: []string{"a", "b", "c"},
+		},
+		{
+			name: "4 ways, 1 hit in end",
+			args: args{
+				ways: []string{"a", "b", "c", "c"},
+			},
+			want: []string{"a", "b", "c"},
+		},
+		{
+			name: "4 ways, 1 hit in begin",
+			args: args{
+				ways: []string{"a", "a", "b", "c"},
+			},
+			want: []string{"a", "b", "c"},
+		},
+		{
+			name: "5 ways, 2 hit in middle",
+			args: args{
+				ways: []string{"a", "b", "b", "b", "c"},
+			},
+			want: []string{"a", "b", "c"},
+		},
+		{
+			name: "6 ways, 2 hit in middle",
+			args: args{
+				ways: []string{"a", "b", "c", "c", "b", "d"},
+			},
+			want: []string{"a", "b", "d"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := removeInvalidWays(tt.args.ways); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("removeInvalidWays() = %v, want %v", got, tt.want)
 			}
 		})
 	}

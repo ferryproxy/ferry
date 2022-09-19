@@ -90,7 +90,23 @@ func (s *Solution) CalculateWays(exportHub, importHub string) ([]string, error) 
 		}
 	}
 
+	ways = removeInvalidWays(ways)
 	return ways, nil
+}
+
+func removeInvalidWays(ways []string) []string {
+	hit := map[string]int{}
+	for i := 0; i < len(ways); i++ {
+		way := ways[i]
+		if prevIndex, ok := hit[way]; ok {
+			copy(ways[prevIndex:], ways[i:])
+			ways = ways[:len(ways)-(i-prevIndex)]
+			i = prevIndex
+		} else {
+			hit[way] = i
+		}
+	}
+	return ways
 }
 
 func reverse[T any](a []T) []T {
