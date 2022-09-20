@@ -681,9 +681,7 @@ func (f *fakeRouter) BuildResource() (out map[string][]resource.Resourcer, err e
 		HubInterface:  fake,
 	})
 
-	router.SetRoutes(f.Routes)
-
-	return router.BuildResource(ways)
+	return router.BuildResource(f.Routes, ways)
 }
 
 type fakeHubInterface struct {

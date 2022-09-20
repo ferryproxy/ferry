@@ -71,6 +71,10 @@ func (r Hub) Apply(ctx context.Context, clientset versioned.Interface) (err erro
 			return fmt.Errorf("create Hub %s: %w", objref.KObj(r), err)
 		}
 	} else {
+		if reflect.DeepEqual(ori.Spec, r.Spec) {
+			return nil
+		}
+
 		_, err = clientset.
 			TrafficV1alpha2().
 			Hubs(r.Namespace).
@@ -127,6 +131,10 @@ func (r RoutePolicy) Apply(ctx context.Context, clientset versioned.Interface) (
 			return fmt.Errorf("create RoutePolicies %s: %w", objref.KObj(r), err)
 		}
 	} else {
+		if reflect.DeepEqual(ori.Spec, r.Spec) {
+			return nil
+		}
+
 		_, err = clientset.
 			TrafficV1alpha2().
 			RoutePolicies(r.Namespace).
@@ -183,6 +191,10 @@ func (r Route) Apply(ctx context.Context, clientset versioned.Interface) (err er
 			return fmt.Errorf("create route %s: %w", objref.KObj(r), err)
 		}
 	} else {
+		if reflect.DeepEqual(ori.Spec, r.Spec) {
+			return nil
+		}
+
 		_, err = clientset.
 			TrafficV1alpha2().
 			Routes(r.Namespace).

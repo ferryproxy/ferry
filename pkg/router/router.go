@@ -50,7 +50,6 @@ func NewRouter(conf RouterConfig) *Router {
 		importHubName: conf.ImportHubName,
 		exportHubName: conf.ExportHubName,
 		hubInterface:  conf.HubInterface,
-		mappings:      map[objref.ObjectRef][]*v1alpha2.Route{},
 		hubsChain: NewHubsChain(HubsChainConfig{
 			GetHubGateway: conf.HubInterface.GetHubGateway,
 		}),
@@ -63,24 +62,19 @@ type Router struct {
 	exportHubName string
 	importHubName string
 
-	mappings map[objref.ObjectRef][]*v1alpha2.Route
-
 	hubInterface HubInterface
 
 	hubsChain *HubsChain
 }
 
-func (d *Router) SetRoutes(rules []*v1alpha2.Route) {
+func (d *Router) BuildResource(rules []*v1alpha2.Route, ways []string) (out map[string][]resource.Resourcer, err error) {
 	mappings := map[objref.ObjectRef][]*v1alpha2.Route{}
 
 	for _, rule := range rules {
 		exportRef := objref.ObjectRef{Name: rule.Spec.Export.Service.Name, Namespace: rule.Spec.Export.Service.Namespace}
 		mappings[exportRef] = append(mappings[exportRef], rule)
 	}
-	d.mappings = mappings
-}
 
-func (d *Router) BuildResource(ways []string) (out map[string][]resource.Resourcer, err error) {
 	out = map[string][]resource.Resourcer{}
 	svcs := d.hubInterface.ListServices(d.exportHubName)
 
@@ -99,7 +93,7 @@ func (d *Router) BuildResource(ways []string) (out map[string][]resource.Resourc
 
 	for _, svc := range svcs {
 		origin := objref.KObj(svc)
-		for _, rule := range d.mappings[origin] {
+		for _, rule := range mappings[origin] {
 			destination := objref.ObjectRef{Name: rule.Spec.Import.Service.Name, Namespace: rule.Spec.Import.Service.Namespace}
 
 			peerPortMapping := map[int32]int32{}

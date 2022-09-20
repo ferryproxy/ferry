@@ -26,6 +26,7 @@ import (
 	"github.com/ferryproxy/ferry/pkg/utils/trybuffer"
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
@@ -42,6 +43,8 @@ type clusterServiceCache struct {
 
 	logger logr.Logger
 	try    *trybuffer.TryBuffer
+
+	informer cache.SharedIndexInformer
 
 	mut sync.RWMutex
 }
@@ -82,9 +85,22 @@ func (c *clusterServiceCache) ResetClientset(clientset kubernetes.Interface) err
 		UpdateFunc: c.onUpdate,
 		DeleteFunc: c.onDelete,
 	})
+	c.informer = informer
 
 	go informer.Run(c.ctx.Done())
 	return nil
+}
+
+func (c *clusterServiceCache) waitForCacheSync() bool {
+	err := wait.PollImmediateUntil(1*time.Second,
+		func() (bool, error) {
+			return c.informer.HasSynced(), nil
+		},
+		c.ctx.Done())
+	if err != nil {
+		return false
+	}
+	return true
 }
 
 func (c *clusterServiceCache) Start(ctx context.Context) error {
@@ -103,6 +119,8 @@ func (c *clusterServiceCache) Close() {
 }
 
 func (c *clusterServiceCache) ForEach(fun func(svc *corev1.Service)) {
+	c.waitForCacheSync()
+
 	c.mut.RLock()
 	defer c.mut.RUnlock()
 
@@ -112,6 +130,10 @@ func (c *clusterServiceCache) ForEach(fun func(svc *corev1.Service)) {
 }
 
 func (c *clusterServiceCache) Get(namespace, name string) (*corev1.Service, bool) {
+	c.waitForCacheSync()
+
+	c.mut.RLock()
+	defer c.mut.RUnlock()
 	svc, ok := c.cache[objref.KRef(namespace, name)]
 	return svc, ok
 }

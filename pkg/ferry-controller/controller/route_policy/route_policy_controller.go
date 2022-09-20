@@ -29,6 +29,7 @@ import (
 	"github.com/ferryproxy/api/apis/traffic/v1alpha2"
 	versioned "github.com/ferryproxy/client-go/generated/clientset/versioned"
 	externalversions "github.com/ferryproxy/client-go/generated/informers/externalversions"
+	"github.com/ferryproxy/ferry/pkg/conditions"
 	"github.com/ferryproxy/ferry/pkg/consts"
 	"github.com/ferryproxy/ferry/pkg/resource"
 	"github.com/ferryproxy/ferry/pkg/utils/diffobjs"
@@ -59,6 +60,7 @@ type RoutePolicyControllerConfig struct {
 type RoutePolicyController struct {
 	ctx                    context.Context
 	mut                    sync.RWMutex
+	mutStatus              sync.Mutex
 	config                 *restclient.Config
 	clientset              versioned.Interface
 	hubInterface           HubInterface
@@ -67,16 +69,18 @@ type RoutePolicyController struct {
 	logger                 logr.Logger
 	cacheRoutePolicyRoutes []*v1alpha2.Route
 	syncFunc               func()
+	conditionsManager      *conditions.ConditionsManager
 }
 
 func NewRoutePolicyController(conf RoutePolicyControllerConfig) *RoutePolicyController {
 	return &RoutePolicyController{
-		config:       conf.Config,
-		namespace:    conf.Namespace,
-		logger:       conf.Logger,
-		hubInterface: conf.HubInterface,
-		syncFunc:     conf.SyncFunc,
-		cache:        map[string]*v1alpha2.RoutePolicy{},
+		config:            conf.Config,
+		namespace:         conf.Namespace,
+		logger:            conf.Logger,
+		hubInterface:      conf.HubInterface,
+		syncFunc:          conf.SyncFunc,
+		cache:             map[string]*v1alpha2.RoutePolicy{},
+		conditionsManager: conditions.NewConditionsManager(),
 	}
 }
 
@@ -140,20 +144,38 @@ func (c *RoutePolicyController) Run(ctx context.Context) error {
 	return nil
 }
 
-func (c *RoutePolicyController) updateStatus(name string, phase string, routeCount int) error {
+func (c *RoutePolicyController) UpdateRoutePolicyCondition(name string, routeCount int) error {
+	c.mutStatus.Lock()
+	defer c.mutStatus.Unlock()
 	fp := c.get(name)
 	if fp == nil {
 		return fmt.Errorf("not found RoutePolicy %s", name)
 	}
 
-	fp = fp.DeepCopy()
+	status := fp.Status.DeepCopy()
 
-	fp.Status.LastSynchronizationTimestamp = metav1.Now()
-	fp.Status.Phase = phase
-	fp.Status.RouteCount = routeCount
+	if routeCount > 0 {
+		c.conditionsManager.Set(name, metav1.Condition{
+			Type:   v1alpha2.RoutePolicyReady,
+			Status: metav1.ConditionTrue,
+			Reason: v1alpha2.RoutePolicyReady,
+		})
+		status.Phase = v1alpha2.RoutePolicyReady
+	} else {
+		c.conditionsManager.Set(name, metav1.Condition{
+			Type:   v1alpha2.RoutePolicyReady,
+			Status: metav1.ConditionTrue,
+			Reason: "NotReady",
+		})
+		status.Phase = "NotReady"
+	}
+
+	status.LastSynchronizationTimestamp = metav1.Now()
+	status.RouteCount = routeCount
+	status.Conditions = c.conditionsManager.Get(name)
 
 	data, err := json.Marshal(map[string]interface{}{
-		"status": fp.Status,
+		"status": status,
 	})
 	if err != nil {
 		return err
@@ -179,9 +201,9 @@ func (c *RoutePolicyController) onAdd(obj interface{}) {
 
 	c.syncFunc()
 
-	err := c.updateStatus(f.Name, "Pending", 0)
+	err := c.UpdateRoutePolicyCondition(f.Name, 0)
 	if err != nil {
-		c.logger.Error(err, "failed to update status")
+		c.logger.Error(err, "failed to update status", "routePolicy", f.Name)
 	}
 }
 
@@ -203,11 +225,6 @@ func (c *RoutePolicyController) onUpdate(oldObj, newObj interface{}) {
 	c.cache[f.Name] = f
 
 	c.syncFunc()
-
-	err := c.updateStatus(f.Name, "Pending", 0)
-	if err != nil {
-		c.logger.Error(err, "failed to update status")
-	}
 }
 
 func (c *RoutePolicyController) onDelete(obj interface{}) {
@@ -265,9 +282,16 @@ func (c *RoutePolicyController) Sync(ctx context.Context) {
 	}
 
 	for _, policy := range ferryPolicies {
-		err := c.updateStatus(policy.Name, "Worked", len(policy.Spec.Exports)*len(policy.Spec.Imports))
+		count := 0
+
+		for _, r := range updated {
+			if policy.UID == r.OwnerReferences[0].UID {
+				count++
+			}
+		}
+		err := c.UpdateRoutePolicyCondition(policy.Name, count)
 		if err != nil {
-			c.logger.Error(err, "failed to update status")
+			c.logger.Error(err, "failed to update status", "routePolicy", policy.Name)
 		}
 	}
 }

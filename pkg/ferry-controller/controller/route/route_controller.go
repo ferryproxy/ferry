@@ -21,12 +21,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
-	"strings"
 	"sync"
 
 	"github.com/ferryproxy/api/apis/traffic/v1alpha2"
 	versioned "github.com/ferryproxy/client-go/generated/clientset/versioned"
 	externalversions "github.com/ferryproxy/client-go/generated/informers/externalversions"
+	"github.com/ferryproxy/ferry/pkg/conditions"
 	"github.com/ferryproxy/ferry/pkg/consts"
 	"github.com/ferryproxy/ferry/pkg/ferry-controller/controller/mapping"
 	"github.com/ferryproxy/ferry/pkg/utils/objref"
@@ -49,6 +49,7 @@ type RouteControllerConfig struct {
 type RouteController struct {
 	ctx                    context.Context
 	mut                    sync.RWMutex
+	mutStatus              sync.Mutex
 	config                 *restclient.Config
 	clientset              versioned.Interface
 	hubInterface           mapping.HubInterface
@@ -58,6 +59,7 @@ type RouteController struct {
 	namespace              string
 	syncFunc               func()
 	logger                 logr.Logger
+	conditionsManager      *conditions.ConditionsManager
 }
 
 func NewRouteController(conf *RouteControllerConfig) *RouteController {
@@ -70,6 +72,7 @@ func NewRouteController(conf *RouteControllerConfig) *RouteController {
 		cache:                  map[string]*v1alpha2.Route{},
 		cacheMappingController: map[clusterPair]*mapping.MappingController{},
 		cacheRoutes:            map[clusterPair][]*v1alpha2.Route{},
+		conditionsManager:      conditions.NewConditionsManager(),
 	}
 }
 
@@ -112,28 +115,57 @@ func (c *RouteController) Run(ctx context.Context) error {
 	return nil
 }
 
-func (c *RouteController) updateStatus(name string, phase string, way []string) error {
+func (c *RouteController) UpdateRouteCondition(name string, conditions []metav1.Condition) error {
+	c.mutStatus.Lock()
+	defer c.mutStatus.Unlock()
 	fp := c.cache[name]
 	if fp == nil {
 		return fmt.Errorf("not found Route %s", name)
 	}
 
-	fp = fp.DeepCopy()
+	status := fp.Status.DeepCopy()
 
-	fp.Status.LastSynchronizationTimestamp = metav1.Now()
-	fp.Status.Import = fmt.Sprintf("%s.%s/%s", fp.Spec.Import.Service.Name, fp.Spec.Import.Service.Namespace, fp.Spec.Import.HubName)
-	fp.Status.Export = fmt.Sprintf("%s.%s/%s", fp.Spec.Export.Service.Name, fp.Spec.Export.Service.Namespace, fp.Spec.Export.HubName)
-	fp.Status.Phase = phase
-
-	if len(way) >= 2 {
-		way = way[1 : len(way)-1]
-	} else {
-		way = nil
+	for _, condition := range conditions {
+		c.conditionsManager.Set(name, condition)
 	}
-	fp.Status.Way = strings.Join(way, ",")
+
+	if c.conditionsManager.IsTrue(name, v1alpha2.PortsAllocatedCondition) &&
+		c.conditionsManager.IsTrue(name, v1alpha2.RouteSyncedCondition) &&
+		c.conditionsManager.IsTrue(name, v1alpha2.ExportHubReadyCondition) &&
+		c.conditionsManager.IsTrue(name, v1alpha2.ImportHubReadyCondition) &&
+		c.conditionsManager.IsTrue(name, v1alpha2.PathReachableCondition) {
+		c.conditionsManager.Set(name, metav1.Condition{
+			Type:   v1alpha2.RouteReady,
+			Status: metav1.ConditionTrue,
+			Reason: v1alpha2.RouteReady,
+		})
+		status.Phase = v1alpha2.RouteReady
+	} else {
+		c.conditionsManager.Set(name, metav1.Condition{
+			Type:   v1alpha2.RouteReady,
+			Status: metav1.ConditionFalse,
+			Reason: "NotReady",
+		})
+		status.Phase = "NotReady"
+	}
+
+	status.LastSynchronizationTimestamp = metav1.Now()
+	status.Import = fmt.Sprintf("%s.%s/%s", fp.Spec.Import.Service.Name, fp.Spec.Import.Service.Namespace, fp.Spec.Import.HubName)
+	status.Export = fmt.Sprintf("%s.%s/%s", fp.Spec.Export.Service.Name, fp.Spec.Export.Service.Namespace, fp.Spec.Export.HubName)
+	status.Conditions = c.conditionsManager.Get(name)
+
+	if cond := c.conditionsManager.Find(name, v1alpha2.PathReachableCondition); cond != nil {
+		if c.conditionsManager.IsTrue(name, v1alpha2.PathReachableCondition) {
+			status.Way = cond.Message
+		} else {
+			status.Way = "<Unreachable>"
+		}
+	} else {
+		status.Way = "<Unknown>"
+	}
 
 	data, err := json.Marshal(map[string]interface{}{
-		"status": fp.Status,
+		"status": status,
 	})
 	if err != nil {
 		return err
@@ -161,16 +193,29 @@ func (c *RouteController) onAdd(obj interface{}) {
 
 	err := c.updatePort(f)
 	if err != nil {
-		err := c.updateStatus(f.Name, "Failed", nil)
+		err := c.UpdateRouteCondition(f.Name, []metav1.Condition{
+			{
+				Type:    v1alpha2.PortsAllocatedCondition,
+				Status:  metav1.ConditionFalse,
+				Reason:  "FailedPortsAllocated",
+				Message: err.Error(),
+			},
+		})
 		if err != nil {
-			c.logger.Error(err, "failed to update status")
+			c.logger.Error(err, "failed to update status", "route", f.Name)
 		}
 		return
 	}
 
-	err = c.updateStatus(f.Name, "Pending", nil)
+	err = c.UpdateRouteCondition(f.Name, []metav1.Condition{
+		{
+			Type:   v1alpha2.PortsAllocatedCondition,
+			Status: metav1.ConditionTrue,
+			Reason: v1alpha2.PortsAllocatedCondition,
+		},
+	})
 	if err != nil {
-		c.logger.Error(err, "failed to update status")
+		c.logger.Error(err, "failed to update status", "route", f.Name)
 	}
 }
 
@@ -230,9 +275,31 @@ func (c *RouteController) onUpdate(oldObj, newObj interface{}) {
 
 	c.syncFunc()
 
-	err := c.updateStatus(f.Name, "Pending", nil)
+	err := c.updatePort(f)
 	if err != nil {
-		c.logger.Error(err, "failed to update status")
+		err := c.UpdateRouteCondition(f.Name, []metav1.Condition{
+			{
+				Type:    v1alpha2.PortsAllocatedCondition,
+				Status:  metav1.ConditionFalse,
+				Reason:  "FailedPortsAllocated",
+				Message: err.Error(),
+			},
+		})
+		if err != nil {
+			c.logger.Error(err, "failed to update status", "route", f.Name)
+		}
+		return
+	}
+
+	err = c.UpdateRouteCondition(f.Name, []metav1.Condition{
+		{
+			Type:   v1alpha2.PortsAllocatedCondition,
+			Status: metav1.ConditionTrue,
+			Reason: v1alpha2.PortsAllocatedCondition,
+		},
+	})
+	if err != nil {
+		c.logger.Error(err, "failed to update status", "route", f.Name)
 	}
 }
 
@@ -285,19 +352,6 @@ func (c *RouteController) Sync(ctx context.Context) {
 
 		mc.Sync()
 	}
-
-	for _, key := range updated {
-		mc := c.getMappingController(key)
-		if mc == nil {
-			continue
-		}
-		for _, rule := range newerRoutes[key] {
-			err := c.updateStatus(rule.Name, "Worked", mc.Way())
-			if err != nil {
-				c.logger.Error(err, "failed to update status")
-			}
-		}
-	}
 	return
 }
 
@@ -339,10 +393,11 @@ func (c *RouteController) startMappingController(ctx context.Context, key cluste
 	}
 
 	mc = mapping.NewMappingController(mapping.MappingControllerConfig{
-		Namespace:     consts.FerryTunnelNamespace,
-		HubInterface:  c.hubInterface,
-		ImportHubName: key.Import,
-		ExportHubName: key.Export,
+		Namespace:      consts.FerryTunnelNamespace,
+		HubInterface:   c.hubInterface,
+		RouteInterface: c,
+		ImportHubName:  key.Import,
+		ExportHubName:  key.Export,
 		Logger: c.logger.WithName("data-plane").
 			WithName(key.Import).
 			WithValues("export", key.Export, "import", key.Import),
