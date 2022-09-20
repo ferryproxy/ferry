@@ -19,29 +19,11 @@ package main
 import (
 	"context"
 	"os"
-	"sync"
 
-	_ "github.com/wzshiming/bridge/protocols/command"
-	_ "github.com/wzshiming/bridge/protocols/connect"
-	_ "github.com/wzshiming/bridge/protocols/netcat"
-	_ "github.com/wzshiming/bridge/protocols/socks4"
-	_ "github.com/wzshiming/bridge/protocols/socks5"
-	_ "github.com/wzshiming/bridge/protocols/ssh"
-	_ "github.com/wzshiming/bridge/protocols/tls"
-
-	_ "github.com/wzshiming/anyproxy/pprof"
-	_ "github.com/wzshiming/anyproxy/proxies/httpproxy"
-	_ "github.com/wzshiming/anyproxy/proxies/shadowsocks"
-	_ "github.com/wzshiming/anyproxy/proxies/socks4"
-	_ "github.com/wzshiming/anyproxy/proxies/socks5"
-	_ "github.com/wzshiming/anyproxy/proxies/sshproxy"
-
+	"github.com/ferryproxy/ferry/pkg/tunnel/worker"
 	"github.com/ferryproxy/ferry/pkg/utils/signals"
-	"github.com/go-logr/logr"
 	"github.com/go-logr/zapr"
 	flag "github.com/spf13/pflag"
-	"github.com/wzshiming/bridge/chain"
-	"github.com/wzshiming/bridge/config"
 	"github.com/wzshiming/bridge/logger"
 	"go.uber.org/zap"
 )
@@ -74,23 +56,6 @@ func main() {
 		cancel()
 	}()
 
-	runWithReload(ctx, logger.Std, configs)
+	worker.RunWithReload(ctx, logger.Std, configs, dump)
 	return
-}
-
-func run(ctx context.Context, log logr.Logger, tasks []config.Chain) {
-	var wg sync.WaitGroup
-	wg.Add(len(tasks))
-	for _, task := range tasks {
-		go func(task config.Chain) {
-			defer wg.Done()
-			log.Info(chain.ShowChainWithConfig(task))
-			b := chain.NewBridge(log, dump)
-			err := b.BridgeWithConfig(ctx, task)
-			if err != nil {
-				log.Error(err, "BridgeWithConfig")
-			}
-		}(task)
-	}
-	wg.Wait()
 }

@@ -17,7 +17,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package main
+package worker
 
 import (
 	"context"
@@ -26,6 +26,6 @@ import (
 	"github.com/wzshiming/bridge/config"
 )
 
-func runWithReload(ctx context.Context, log logr.Logger, tasks []config.Chain, configs []string) {
-	run(ctx, log, tasks)
+func RunWithReload(ctx context.Context, log logr.Logger, tasks []config.Chain, configs []string, dump bool) {
+	run(ctx, log, tasks, dump)
 }

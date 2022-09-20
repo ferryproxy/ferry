@@ -17,7 +17,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package main
+package worker
 
 import (
 	"context"
@@ -32,7 +32,7 @@ import (
 	"github.com/wzshiming/bridge/config"
 )
 
-func runWithReload(ctx context.Context, log logr.Logger, configs []string) {
+func RunWithReload(ctx context.Context, log logr.Logger, configs []string, dump bool) {
 	signalCh := make(chan os.Signal, 2)
 	signal.Notify(signalCh, syscall.SIGHUP)
 	reloadCn := make(chan struct{}, 1)
