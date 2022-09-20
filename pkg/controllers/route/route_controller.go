@@ -28,7 +28,6 @@ import (
 	externalversions "github.com/ferryproxy/client-go/generated/informers/externalversions"
 	"github.com/ferryproxy/ferry/pkg/conditions"
 	"github.com/ferryproxy/ferry/pkg/consts"
-	"github.com/ferryproxy/ferry/pkg/ferry-controller/controller/mapping"
 	"github.com/ferryproxy/ferry/pkg/utils/objref"
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
@@ -41,7 +40,7 @@ import (
 type RouteControllerConfig struct {
 	Logger       logr.Logger
 	Config       *restclient.Config
-	HubInterface mapping.HubInterface
+	HubInterface HubInterface
 	Namespace    string
 	SyncFunc     func()
 }
@@ -52,9 +51,9 @@ type RouteController struct {
 	mutStatus              sync.Mutex
 	config                 *restclient.Config
 	clientset              versioned.Interface
-	hubInterface           mapping.HubInterface
+	hubInterface           HubInterface
 	cache                  map[string]*v1alpha2.Route
-	cacheMappingController map[clusterPair]*mapping.MappingController
+	cacheMappingController map[clusterPair]*MappingController
 	cacheRoutes            map[clusterPair][]*v1alpha2.Route
 	namespace              string
 	syncFunc               func()
@@ -70,7 +69,7 @@ func NewRouteController(conf *RouteControllerConfig) *RouteController {
 		logger:                 conf.Logger,
 		syncFunc:               conf.SyncFunc,
 		cache:                  map[string]*v1alpha2.Route{},
-		cacheMappingController: map[clusterPair]*mapping.MappingController{},
+		cacheMappingController: map[clusterPair]*MappingController{},
 		cacheRoutes:            map[clusterPair][]*v1alpha2.Route{},
 		conditionsManager:      conditions.NewConditionsManager(),
 	}
@@ -363,11 +362,11 @@ func (c *RouteController) cleanupMappingController(key clusterPair) {
 	}
 }
 
-func (c *RouteController) getMappingController(key clusterPair) *mapping.MappingController {
+func (c *RouteController) getMappingController(key clusterPair) *MappingController {
 	return c.cacheMappingController[key]
 }
 
-func (c *RouteController) startMappingController(ctx context.Context, key clusterPair) (*mapping.MappingController, error) {
+func (c *RouteController) startMappingController(ctx context.Context, key clusterPair) (*MappingController, error) {
 	mc := c.cacheMappingController[key]
 	if mc != nil {
 		return mc, nil
@@ -392,7 +391,7 @@ func (c *RouteController) startMappingController(ctx context.Context, key cluste
 		return nil, fmt.Errorf("not found cluster information %q", key.Import)
 	}
 
-	mc = mapping.NewMappingController(mapping.MappingControllerConfig{
+	mc = NewMappingController(MappingControllerConfig{
 		Namespace:      consts.FerryTunnelNamespace,
 		HubInterface:   c.hubInterface,
 		RouteInterface: c,

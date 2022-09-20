@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package mapping
+package route
 
 import (
 	"context"
@@ -26,7 +26,7 @@ import (
 	"github.com/ferryproxy/ferry/pkg/consts"
 	"github.com/ferryproxy/ferry/pkg/resource"
 	"github.com/ferryproxy/ferry/pkg/router"
-	"github.com/ferryproxy/ferry/pkg/services"
+	"github.com/ferryproxy/ferry/pkg/router/discovery"
 	"github.com/ferryproxy/ferry/pkg/utils/diffobjs"
 	"github.com/ferryproxy/ferry/pkg/utils/trybuffer"
 	"github.com/go-logr/logr"
@@ -177,7 +177,7 @@ func (d *MappingController) loadLastConfigMap(ctx context.Context, name string, 
 }
 
 func (d *MappingController) loadPorts(importHubName string, cm *corev1.ConfigMap) {
-	data, err := services.ServiceFrom(cm.Data)
+	data, err := discovery.ServiceFrom(cm.Data)
 	if err != nil {
 		d.logger.Error(err, "ServiceFrom")
 		return

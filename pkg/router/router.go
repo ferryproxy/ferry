@@ -22,7 +22,7 @@ import (
 	"github.com/ferryproxy/api/apis/traffic/v1alpha2"
 	"github.com/ferryproxy/ferry/pkg/consts"
 	"github.com/ferryproxy/ferry/pkg/resource"
-	"github.com/ferryproxy/ferry/pkg/services"
+	"github.com/ferryproxy/ferry/pkg/router/discovery"
 	"github.com/ferryproxy/ferry/pkg/utils/diffobjs"
 	"github.com/ferryproxy/ferry/pkg/utils/maps"
 	"github.com/ferryproxy/ferry/pkg/utils/objref"
@@ -142,7 +142,7 @@ func (d *Router) BuildResource(rules []*v1alpha2.Route, ways []string) (out map[
 
 			ports := buildPorts(peerPortMapping, &svc.Spec)
 
-			svcConfig := services.Service{
+			svcConfig := discovery.Service{
 				ExportHubName:          d.exportHubName,
 				ExportServiceNamespace: origin.Namespace,
 				ExportServiceName:      origin.Name,
@@ -172,14 +172,14 @@ func (d *Router) BuildResource(rules []*v1alpha2.Route, ways []string) (out map[
 	return out, nil
 }
 
-func buildPorts(peerPortMapping map[int32]int32, spec *corev1.ServiceSpec) []services.MappingPort {
-	ports := []services.MappingPort{}
+func buildPorts(peerPortMapping map[int32]int32, spec *corev1.ServiceSpec) []discovery.MappingPort {
+	ports := []discovery.MappingPort{}
 	for _, port := range spec.Ports {
 		if port.Protocol != corev1.ProtocolTCP {
 			continue
 		}
 		svcPort := peerPortMapping[port.Port]
-		ports = append(ports, services.MappingPort{
+		ports = append(ports, discovery.MappingPort{
 			Name:       port.Name,
 			Port:       port.Port,
 			Protocol:   string(port.Protocol),

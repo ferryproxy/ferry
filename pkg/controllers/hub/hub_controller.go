@@ -30,7 +30,7 @@ import (
 	"github.com/ferryproxy/ferry/pkg/client"
 	"github.com/ferryproxy/ferry/pkg/conditions"
 	"github.com/ferryproxy/ferry/pkg/consts"
-	portsclient "github.com/ferryproxy/ferry/pkg/ports/client"
+	portsclient "github.com/ferryproxy/ferry/pkg/services/ports/client"
 	"github.com/ferryproxy/ferry/pkg/utils/objref"
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"

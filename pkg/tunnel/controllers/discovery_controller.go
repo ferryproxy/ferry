@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package controller
+package controllers
 
 import (
 	"context"
@@ -23,7 +23,7 @@ import (
 
 	"github.com/ferryproxy/ferry/pkg/consts"
 	"github.com/ferryproxy/ferry/pkg/resource"
-	"github.com/ferryproxy/ferry/pkg/services"
+	"github.com/ferryproxy/ferry/pkg/router/discovery"
 	"github.com/ferryproxy/ferry/pkg/utils/diffobjs"
 	"github.com/ferryproxy/ferry/pkg/utils/objref"
 	"github.com/ferryproxy/ferry/pkg/utils/trybuffer"
@@ -41,7 +41,7 @@ type DiscoveryController struct {
 	ips           []string
 	namespace     string
 	labelSelector string
-	cache         map[objref.ObjectRef]map[string][]services.MappingPort
+	cache         map[objref.ObjectRef]map[string][]discovery.MappingPort
 	cacheDiscover []resource.Resourcer
 	clientset     kubernetes.Interface
 	logger        logr.Logger
@@ -57,7 +57,7 @@ type DiscoveryControllerConfig struct {
 
 func NewDiscoveryController(conf *DiscoveryControllerConfig) *DiscoveryController {
 	return &DiscoveryController{
-		cache:         map[objref.ObjectRef]map[string][]services.MappingPort{},
+		cache:         map[objref.ObjectRef]map[string][]discovery.MappingPort{},
 		labelSelector: conf.LabelSelector,
 		namespace:     conf.Namespace,
 		clientset:     conf.Clientset,
@@ -132,7 +132,7 @@ func (s *DiscoveryController) UpdateIPs(ips []string) {
 }
 
 func (s *DiscoveryController) Add(cm *corev1.ConfigMap) {
-	data, err := services.ServiceFrom(cm.Data)
+	data, err := discovery.ServiceFrom(cm.Data)
 	if err != nil {
 		s.logger.Error(err, "ServiceFrom")
 		return
@@ -143,7 +143,7 @@ func (s *DiscoveryController) Add(cm *corev1.ConfigMap) {
 }
 
 func (s *DiscoveryController) Del(cm *corev1.ConfigMap) {
-	data, err := services.ServiceFrom(cm.Data)
+	data, err := discovery.ServiceFrom(cm.Data)
 	if err != nil {
 		s.logger.Error(err, "ServiceFrom")
 		return
@@ -152,14 +152,14 @@ func (s *DiscoveryController) Del(cm *corev1.ConfigMap) {
 	s.try.Try()
 }
 
-func (s *DiscoveryController) add(export string, namespace, name string, ports []services.MappingPort) {
+func (s *DiscoveryController) add(export string, namespace, name string, ports []discovery.MappingPort) {
 	svc := objref.ObjectRef{
 		Name:      name,
 		Namespace: namespace,
 	}
 
 	if s.cache[svc] == nil {
-		s.cache[svc] = map[string][]services.MappingPort{}
+		s.cache[svc] = map[string][]discovery.MappingPort{}
 	}
 
 	s.cache[svc][export] = ports
@@ -194,7 +194,7 @@ func (s *DiscoveryController) sync() {
 			Labels:    labelsConfigMap,
 		}
 		if len(item) > 0 {
-			resources = append(resources, services.BuildServiceDiscovery(meta, s.ips, item)...)
+			resources = append(resources, discovery.BuildServiceDiscovery(meta, s.ips, item)...)
 		}
 	}
 

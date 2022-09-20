@@ -22,8 +22,8 @@ import (
 	"net/http"
 	"os"
 
-	portsclient "github.com/ferryproxy/ferry/pkg/ports/client"
-	"github.com/ferryproxy/ferry/pkg/registry/server"
+	portsclient "github.com/ferryproxy/ferry/pkg/services/ports/client"
+	"github.com/ferryproxy/ferry/pkg/services/registry/server"
 	"github.com/ferryproxy/ferry/pkg/utils/env"
 	"github.com/ferryproxy/ferry/pkg/utils/signals"
 	"github.com/go-logr/zapr"

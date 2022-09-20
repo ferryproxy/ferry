@@ -14,18 +14,18 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package controller
+package controllers
 
 import (
 	"context"
 	"sync"
 	"time"
 
-	"github.com/ferryproxy/ferry/pkg/ferry-controller/controller/health"
-	"github.com/ferryproxy/ferry/pkg/ferry-controller/controller/hub"
-	"github.com/ferryproxy/ferry/pkg/ferry-controller/controller/mcs"
-	"github.com/ferryproxy/ferry/pkg/ferry-controller/controller/route"
-	"github.com/ferryproxy/ferry/pkg/ferry-controller/controller/route_policy"
+	"github.com/ferryproxy/ferry/pkg/controllers/hub"
+	"github.com/ferryproxy/ferry/pkg/controllers/hub/health"
+	"github.com/ferryproxy/ferry/pkg/controllers/mcs"
+	"github.com/ferryproxy/ferry/pkg/controllers/route"
+	"github.com/ferryproxy/ferry/pkg/controllers/route_policy"
 	"github.com/ferryproxy/ferry/pkg/utils/trybuffer"
 	"github.com/go-logr/logr"
 	restclient "k8s.io/client-go/rest"

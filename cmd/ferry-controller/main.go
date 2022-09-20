@@ -21,7 +21,7 @@ import (
 	"os"
 
 	"github.com/ferryproxy/ferry/pkg/consts"
-	"github.com/ferryproxy/ferry/pkg/ferry-controller/controller"
+	"github.com/ferryproxy/ferry/pkg/controllers"
 	"github.com/ferryproxy/ferry/pkg/utils/env"
 	"github.com/ferryproxy/ferry/pkg/utils/signals"
 	"github.com/go-logr/zapr"
@@ -49,7 +49,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	control := controller.NewController(&controller.ControllerConfig{
+	control := controllers.NewController(&controllers.ControllerConfig{
 		Logger:    log.WithName("controller"),
 		Config:    restConfig,
 		Namespace: namespace,

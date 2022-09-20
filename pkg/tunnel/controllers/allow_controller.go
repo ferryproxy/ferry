@@ -14,17 +14,18 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package controller
+package controllers
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"path/filepath"
-	"strings"
 	"sync"
 	"time"
 
 	"github.com/ferryproxy/ferry/pkg/consts"
+	"github.com/ferryproxy/ferry/pkg/router"
 	"github.com/ferryproxy/ferry/pkg/utils/objref"
 	"github.com/ferryproxy/ferry/pkg/utils/trybuffer"
 	"github.com/go-logr/logr"
@@ -35,27 +36,27 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
-type AuthorizedController struct {
+type AllowController struct {
 	mut           sync.Mutex
 	ctx           context.Context
 	namespace     string
 	labelSelector string
-	cache         map[string]map[string]string
+	cache         map[string]map[string]*router.AllowList
 	clientset     kubernetes.Interface
 	logger        logr.Logger
 	try           *trybuffer.TryBuffer
 }
 
-type AuthorizedControllerConfig struct {
+type AllowControllerConfig struct {
 	Namespace     string
 	LabelSelector string
 	Logger        logr.Logger
 	Clientset     kubernetes.Interface
 }
 
-func NewAuthorizedController(conf *AuthorizedControllerConfig) *AuthorizedController {
-	return &AuthorizedController{
-		cache:         map[string]map[string]string{},
+func NewAllowController(conf *AllowControllerConfig) *AllowController {
+	return &AllowController{
+		cache:         map[string]map[string]*router.AllowList{},
 		labelSelector: conf.LabelSelector,
 		namespace:     conf.Namespace,
 		clientset:     conf.Clientset,
@@ -63,7 +64,7 @@ func NewAuthorizedController(conf *AuthorizedControllerConfig) *AuthorizedContro
 	}
 }
 
-func (s *AuthorizedController) Run(ctx context.Context) error {
+func (s *AllowController) Run(ctx context.Context) error {
 	s.try = trybuffer.NewTryBuffer(func() {
 		s.mut.Lock()
 		defer s.mut.Unlock()
@@ -85,76 +86,86 @@ func (s *AuthorizedController) Run(ctx context.Context) error {
 	return nil
 }
 
-func (s *AuthorizedController) onAdd(obj interface{}) {
+func (s *AllowController) onAdd(obj interface{}) {
 	cm := obj.(*corev1.ConfigMap)
 	if len(cm.Data) == 0 {
 		return
 	}
 
-	s.logger.Info("add config map for authorized", "configmap", objref.KObj(cm))
+	s.logger.Info("add config map for allows", "configmap", objref.KObj(cm))
 	s.mut.Lock()
 	defer s.mut.Unlock()
 	s.Add(cm)
 }
 
-func (s *AuthorizedController) onUpdate(oldObj, newObj interface{}) {
+func (s *AllowController) onUpdate(oldObj, newObj interface{}) {
 	cm := newObj.(*corev1.ConfigMap)
 	if len(cm.Data) == 0 {
 		return
 	}
 
-	s.logger.Info("update config map for authorized", "configmap", objref.KObj(cm))
+	s.logger.Info("update config map for allows", "configmap", objref.KObj(cm))
 	s.mut.Lock()
 	defer s.mut.Unlock()
 	s.Add(cm)
 }
 
-func (s *AuthorizedController) onDelete(obj interface{}) {
+func (s *AllowController) onDelete(obj interface{}) {
 	cm := obj.(*corev1.ConfigMap)
 	if len(cm.Data) == 0 {
 		return
 	}
 
-	s.logger.Info("delete config map for authorized", "configmap", objref.KObj(cm))
+	s.logger.Info("delete config map for allows", "configmap", objref.KObj(cm))
 	s.mut.Lock()
 	defer s.mut.Unlock()
 	s.Del(cm)
 }
 
-func (s *AuthorizedController) Add(cm *corev1.ConfigMap) {
-	authorizedContent := cm.Data[consts.TunnelAuthorizedKeyName]
-	user := cm.Data[consts.TunnelUserKey]
-
-	s.cache[cm.Name] = map[string]string{
-		user: authorizedContent,
+func (s *AllowController) Add(cm *corev1.ConfigMap) {
+	allowData := map[string]*router.AllowList{}
+	allowContent := cm.Data[consts.TunnelRulesAllowKey]
+	err := json.Unmarshal([]byte(allowContent), &allowData)
+	if err != nil {
+		s.logger.Error(err, "unmarshal context failed",
+			"configmap", objref.KObj(cm),
+			"context", allowContent,
+		)
+		return
 	}
+	s.cache[cm.Name] = allowData
 
 	s.try.Try()
 }
 
-func (s *AuthorizedController) Del(cm *corev1.ConfigMap) {
+func (s *AllowController) Del(cm *corev1.ConfigMap) {
 	delete(s.cache, cm.Name)
 	s.try.Try()
 }
 
-func (s *AuthorizedController) sync() {
-	userAuthorized := map[string][]string{}
-	for _, authorized := range s.cache {
-		for user, auth := range authorized {
-			userAuthorized[user] = append(userAuthorized[user], auth)
+func (s *AllowController) sync() {
+	userAllow := map[string]*router.AllowList{}
+	for _, allows := range s.cache {
+		for user, allow := range allows {
+			a := userAllow[user]
+			userAllow[user] = a.Merge(allow)
 		}
 	}
-	for user, authorized := range userAuthorized {
-
-		file := filepath.Join(consts.TunnelSshHomeDir, user, ".ssh", consts.TunnelAuthorizedKeyName)
-		err := os.MkdirAll(filepath.Dir(file), 0755)
+	for user, allow := range userAllow {
+		allowConfig, err := json.Marshal(allow)
 		if err != nil {
-			s.logger.Error(err, "failed to mkdir for authorized config")
+			s.logger.Error(err, "failed to marshal allow config")
 			continue
 		}
-		err = atomicWrite(file, []byte(strings.Join(authorized, "\n")), 0644)
+		file := filepath.Join(consts.TunnelSshHomeDir, user, ".ssh", consts.TunnelPermissionsName)
+		err = os.MkdirAll(filepath.Dir(file), 0755)
 		if err != nil {
-			s.logger.Error(err, "failed to write authorized config")
+			s.logger.Error(err, "failed to mkdir for allow config")
+			continue
+		}
+		err = atomicWrite(file, allowConfig, 0644)
+		if err != nil {
+			s.logger.Error(err, "failed to write allow config")
 			continue
 		}
 	}

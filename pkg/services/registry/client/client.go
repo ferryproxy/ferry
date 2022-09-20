@@ -26,7 +26,7 @@ import (
 	"net/http"
 
 	"github.com/ferryproxy/ferry/pkg/ferryctl/kubectl"
-	"github.com/ferryproxy/ferry/pkg/registry/models"
+	"github.com/ferryproxy/ferry/pkg/services/registry/models"
 )
 
 type Client struct {

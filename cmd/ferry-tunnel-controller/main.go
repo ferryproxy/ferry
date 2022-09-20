@@ -23,9 +23,9 @@ import (
 	"os"
 
 	"github.com/ferryproxy/ferry/pkg/consts"
-	"github.com/ferryproxy/ferry/pkg/ferry-tunnel/controller"
-	healthserver "github.com/ferryproxy/ferry/pkg/health/server"
-	portsserver "github.com/ferryproxy/ferry/pkg/ports/server"
+	healthserver "github.com/ferryproxy/ferry/pkg/services/health/server"
+	portsserver "github.com/ferryproxy/ferry/pkg/services/ports/server"
+	"github.com/ferryproxy/ferry/pkg/tunnel/controllers"
 	"github.com/ferryproxy/ferry/pkg/utils/env"
 	"github.com/ferryproxy/ferry/pkg/utils/signals"
 	"github.com/go-logr/zapr"
@@ -72,28 +72,28 @@ func main() {
 	}()
 
 	if serviceName != "" {
-		svcSyncer := controller.NewDiscoveryController(&controller.DiscoveryControllerConfig{
+		svcSyncer := controllers.NewDiscoveryController(&controllers.DiscoveryControllerConfig{
 			Clientset:     clientset,
 			Logger:        log.WithName("discovery-controller"),
 			Namespace:     namespace,
 			LabelSelector: consts.TunnelConfigKey + "=" + consts.TunnelConfigDiscoverValue,
 		})
 
-		epWatcher := controller.NewEndpointWatcher(&controller.EndpointWatcherConfig{
+		epWatcher := controllers.NewEndpointWatcher(&controllers.EndpointWatcherConfig{
 			Clientset: clientset,
 			Name:      serviceName,
 			Namespace: namespace,
 			SyncFunc:  svcSyncer.UpdateIPs,
 		})
 
-		authorizedController := controller.NewAuthorizedController(&controller.AuthorizedControllerConfig{
+		authorizedController := controllers.NewAuthorizedController(&controllers.AuthorizedControllerConfig{
 			Clientset:     clientset,
 			Logger:        log.WithName("authorized-controller"),
 			Namespace:     namespace,
 			LabelSelector: consts.TunnelConfigKey + "=" + consts.TunnelConfigAuthorizedValue,
 		})
 
-		allowController := controller.NewAllowController(&controller.AllowControllerConfig{
+		allowController := controllers.NewAllowController(&controllers.AllowControllerConfig{
 			Clientset:     clientset,
 			Logger:        log.WithName("allow-controller"),
 			Namespace:     namespace,
@@ -159,7 +159,7 @@ func main() {
 		}()
 	}
 
-	ctr := controller.NewRuntimeController(&controller.RuntimeControllerConfig{
+	ctr := controllers.NewRuntimeController(&controllers.RuntimeControllerConfig{
 		Namespace:     namespace,
 		LabelSelector: consts.TunnelConfigKey + "=" + consts.TunnelConfigRulesValue,
 		Clientset:     clientset,

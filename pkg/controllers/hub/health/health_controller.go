@@ -23,7 +23,7 @@ import (
 
 	"github.com/ferryproxy/api/apis/traffic/v1alpha2"
 	ferryversioned "github.com/ferryproxy/client-go/generated/clientset/versioned"
-	healthclient "github.com/ferryproxy/ferry/pkg/health/client"
+	healthclient "github.com/ferryproxy/ferry/pkg/services/health/client"
 	"github.com/go-logr/logr"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	restclient "k8s.io/client-go/rest"
