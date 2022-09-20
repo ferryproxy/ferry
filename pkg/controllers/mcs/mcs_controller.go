@@ -105,7 +105,9 @@ func (m *MCSController) Sync(ctx context.Context) {
 		return
 	}
 
-	m.logger.Info("Update RoutePolicy with mcs", "size", len(updated))
+	m.logger.Info("Update RoutePolicy with mcs",
+		"size", len(updated),
+	)
 
 	// Update the cache of RoutePolicy
 	deleted := diffobjs.ShouldDeleted(m.cacheRoutePolicies, updated)

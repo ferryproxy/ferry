@@ -173,7 +173,7 @@ func (c *clusterServiceCache) UnregistryCallback(name string) {
 func (c *clusterServiceCache) onAdd(obj interface{}) {
 	svc := obj.(*corev1.Service)
 	c.logger.Info("onAdd",
-		"Service", objref.KObj(svc),
+		"service", objref.KObj(svc),
 	)
 	svc = svc.DeepCopy()
 
@@ -187,7 +187,7 @@ func (c *clusterServiceCache) onAdd(obj interface{}) {
 func (c *clusterServiceCache) onUpdate(oldObj, newObj interface{}) {
 	svc := newObj.(*corev1.Service)
 	c.logger.Info("onUpdate",
-		"Service", objref.KObj(svc),
+		"service", objref.KObj(svc),
 	)
 	svc = svc.DeepCopy()
 
@@ -201,7 +201,7 @@ func (c *clusterServiceCache) onUpdate(oldObj, newObj interface{}) {
 func (c *clusterServiceCache) onDelete(obj interface{}) {
 	svc := obj.(*corev1.Service)
 	c.logger.Info("onDelete",
-		"Service", objref.KObj(svc),
+		"service", objref.KObj(svc),
 	)
 	svc = svc.DeepCopy()
 

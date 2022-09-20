@@ -91,7 +91,9 @@ func (s *AuthorizedController) onAdd(obj interface{}) {
 		return
 	}
 
-	s.logger.Info("add config map for authorized", "configmap", objref.KObj(cm))
+	s.logger.Info("add config map for authorized",
+		"configMap", objref.KObj(cm),
+	)
 	s.mut.Lock()
 	defer s.mut.Unlock()
 	s.Add(cm)
@@ -103,7 +105,9 @@ func (s *AuthorizedController) onUpdate(oldObj, newObj interface{}) {
 		return
 	}
 
-	s.logger.Info("update config map for authorized", "configmap", objref.KObj(cm))
+	s.logger.Info("update config map for authorized",
+		"configMap", objref.KObj(cm),
+	)
 	s.mut.Lock()
 	defer s.mut.Unlock()
 	s.Add(cm)
@@ -115,7 +119,9 @@ func (s *AuthorizedController) onDelete(obj interface{}) {
 		return
 	}
 
-	s.logger.Info("delete config map for authorized", "configmap", objref.KObj(cm))
+	s.logger.Info("delete config map for authorized",
+		"configMap", objref.KObj(cm),
+	)
 	s.mut.Lock()
 	defer s.mut.Unlock()
 	s.Del(cm)

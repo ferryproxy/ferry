@@ -100,7 +100,10 @@ func (r *RuntimeController) Run(ctx context.Context) error {
 
 func (r *RuntimeController) watch(ctx context.Context) {
 	backoff := time.Second
-	r.logger.Info("starting watcher", "namespace", r.namespace, "labelSelector", r.labelSelector)
+	r.logger.Info("starting watcher",
+		"namespace", r.namespace,
+		"labelSelector", r.labelSelector,
+	)
 	for ctx.Err() == nil {
 		watcher := NewConfigWatcher(&ConfigWatcherConfig{
 			Clientset:     r.clientset,
@@ -150,7 +153,9 @@ func (r *RuntimeController) reload() error {
 	if err != nil {
 		return fmt.Errorf("failed to marshal tunnel config: %w", err)
 	}
-	r.logger.V(1).Info("Reload", "config", r)
+	r.logger.V(1).Info("Reload",
+		"config", r,
+	)
 
 	err = atomicWrite(consts.TunnelRulesConfigPath, tunnelConfig, 0644)
 	if err != nil {

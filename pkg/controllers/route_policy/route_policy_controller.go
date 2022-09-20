@@ -203,7 +203,9 @@ func (c *RoutePolicyController) onAdd(obj interface{}) {
 
 	err := c.UpdateRoutePolicyCondition(f.Name, 0)
 	if err != nil {
-		c.logger.Error(err, "failed to update status", "routePolicy", f.Name)
+		c.logger.Error(err, "failed to update status",
+			"routePolicy", objref.KObj(f),
+		)
 	}
 }
 
@@ -291,7 +293,9 @@ func (c *RoutePolicyController) Sync(ctx context.Context) {
 		}
 		err := c.UpdateRoutePolicyCondition(policy.Name, count)
 		if err != nil {
-			c.logger.Error(err, "failed to update status", "routePolicy", policy.Name)
+			c.logger.Error(err, "failed to update status",
+				"routePolicy", objref.KObj(policy),
+			)
 		}
 	}
 }

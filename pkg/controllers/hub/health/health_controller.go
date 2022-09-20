@@ -24,6 +24,7 @@ import (
 	"github.com/ferryproxy/api/apis/traffic/v1alpha2"
 	ferryversioned "github.com/ferryproxy/client-go/generated/clientset/versioned"
 	healthclient "github.com/ferryproxy/ferry/pkg/services/health/client"
+	"github.com/ferryproxy/ferry/pkg/utils/objref"
 	"github.com/go-logr/logr"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	restclient "k8s.io/client-go/rest"
@@ -88,7 +89,9 @@ func (m *HealthController) check(ctx context.Context, hubs []*v1alpha2.Hub) {
 		route := healthclient.NewClient("http://" + host)
 		err := route.Get(ctx)
 		if err != nil {
-			m.logger.Error(err, "health", "hub", hub.Name)
+			m.logger.Error(err, "health",
+				"hub", objref.KObj(hub),
+			)
 			err = m.hubInterface.UpdateHubConditions(hub.Name, []metav1.Condition{
 				{
 					Type:    v1alpha2.TunnelHealthCondition,
@@ -107,7 +110,9 @@ func (m *HealthController) check(ctx context.Context, hubs []*v1alpha2.Hub) {
 			})
 		}
 		if err != nil {
-			m.logger.Error(err, "Failed update hub status", "hub", hub.Name)
+			m.logger.Error(err, "Failed update hub status",
+				"hub", objref.KObj(hub),
+			)
 		}
 	}
 }

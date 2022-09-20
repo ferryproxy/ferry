@@ -28,6 +28,7 @@ import (
 	"github.com/ferryproxy/ferry/pkg/router"
 	"github.com/ferryproxy/ferry/pkg/router/discovery"
 	"github.com/ferryproxy/ferry/pkg/utils/diffobjs"
+	"github.com/ferryproxy/ferry/pkg/utils/objref"
 	"github.com/ferryproxy/ferry/pkg/utils/trybuffer"
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
@@ -301,14 +302,18 @@ func (d *MappingController) sync() {
 		for _, r := range updated {
 			err := r.Apply(ctx, cli)
 			if err != nil {
-				d.logger.Error(err, "Apply resource", "hub", hubName)
+				d.logger.Error(err, "Apply resource",
+					"hub", objref.KRef(consts.FerryNamespace, hubName),
+				)
 			}
 		}
 
 		for _, r := range deleled {
 			err := r.Delete(ctx, cli)
 			if err != nil {
-				d.logger.Error(err, "Delete resource", "hub", hubName)
+				d.logger.Error(err, "Delete resource",
+					"hub", objref.KRef(consts.FerryNamespace, hubName),
+				)
 			}
 		}
 	}
@@ -322,7 +327,9 @@ func (d *MappingController) sync() {
 		for _, r := range caches {
 			err := r.Delete(ctx, cli)
 			if err != nil {
-				d.logger.Error(err, "Delete resource", "hub", hubName)
+				d.logger.Error(err, "Delete resource",
+					"hub", objref.KRef(consts.FerryNamespace, hubName),
+				)
 			}
 		}
 	}
@@ -356,7 +363,9 @@ func (d *MappingController) Close() {
 		for _, r := range caches {
 			err := r.Delete(ctx, cli)
 			if err != nil {
-				d.logger.Error(err, "Delete resource", "hub", hubName)
+				d.logger.Error(err, "Delete resource",
+					"hub", objref.KRef(consts.FerryNamespace, hubName),
+				)
 			}
 		}
 	}

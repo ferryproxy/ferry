@@ -93,7 +93,9 @@ func (s *DiscoveryController) onAdd(obj interface{}) {
 		return
 	}
 
-	s.logger.Info("add config map for service", "configmap", objref.KObj(cm))
+	s.logger.Info("add config map for service",
+		"configMap", objref.KObj(cm),
+	)
 	s.mut.Lock()
 	defer s.mut.Unlock()
 	s.Add(cm)
@@ -105,7 +107,9 @@ func (s *DiscoveryController) onUpdate(oldObj, newObj interface{}) {
 		return
 	}
 
-	s.logger.Info("update config map for service", "configmap", objref.KObj(cm))
+	s.logger.Info("update config map for service",
+		"configMap", objref.KObj(cm),
+	)
 	s.mut.Lock()
 	defer s.mut.Unlock()
 	s.Add(cm)
@@ -117,7 +121,9 @@ func (s *DiscoveryController) onDelete(obj interface{}) {
 		return
 	}
 
-	s.logger.Info("delete config map for service", "configmap", objref.KObj(cm))
+	s.logger.Info("delete config map for service",
+		"configMap", objref.KObj(cm),
+	)
 	s.mut.Lock()
 	defer s.mut.Unlock()
 	s.Del(cm)
@@ -126,7 +132,10 @@ func (s *DiscoveryController) onDelete(obj interface{}) {
 func (s *DiscoveryController) UpdateIPs(ips []string) {
 	s.mut.Lock()
 	defer s.mut.Unlock()
-	s.logger.Info("update ips", "old", s.ips, "ips", ips)
+	s.logger.Info("update ips",
+		"old", s.ips,
+		"ips", ips,
+	)
 	s.ips = ips
 	s.sync()
 }

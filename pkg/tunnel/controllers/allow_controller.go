@@ -92,7 +92,9 @@ func (s *AllowController) onAdd(obj interface{}) {
 		return
 	}
 
-	s.logger.Info("add config map for allows", "configmap", objref.KObj(cm))
+	s.logger.Info("add config map for allows",
+		"configMap", objref.KObj(cm),
+	)
 	s.mut.Lock()
 	defer s.mut.Unlock()
 	s.Add(cm)
@@ -104,7 +106,9 @@ func (s *AllowController) onUpdate(oldObj, newObj interface{}) {
 		return
 	}
 
-	s.logger.Info("update config map for allows", "configmap", objref.KObj(cm))
+	s.logger.Info("update config map for allows",
+		"configMap", objref.KObj(cm),
+	)
 	s.mut.Lock()
 	defer s.mut.Unlock()
 	s.Add(cm)
@@ -116,7 +120,9 @@ func (s *AllowController) onDelete(obj interface{}) {
 		return
 	}
 
-	s.logger.Info("delete config map for allows", "configmap", objref.KObj(cm))
+	s.logger.Info("delete config map for allows",
+		"configMap", objref.KObj(cm),
+	)
 	s.mut.Lock()
 	defer s.mut.Unlock()
 	s.Del(cm)
@@ -128,7 +134,7 @@ func (s *AllowController) Add(cm *corev1.ConfigMap) {
 	err := json.Unmarshal([]byte(allowContent), &allowData)
 	if err != nil {
 		s.logger.Error(err, "unmarshal context failed",
-			"configmap", objref.KObj(cm),
+			"configMap", objref.KObj(cm),
 			"context", allowContent,
 		)
 		return

@@ -277,7 +277,9 @@ func (c *HubController) onAdd(obj interface{}) {
 	kubeconfig := c.cacheKubeconfig[f.Name]
 
 	if len(kubeconfig) == 0 {
-		c.logger.Info("Failed get kubeconfig ", "hub", f.Name)
+		c.logger.Info("failed get kubeconfig",
+			"hub", objref.KObj(f),
+		)
 		return
 	}
 

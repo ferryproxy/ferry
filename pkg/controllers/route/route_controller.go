@@ -201,7 +201,9 @@ func (c *RouteController) onAdd(obj interface{}) {
 			},
 		})
 		if err != nil {
-			c.logger.Error(err, "failed to update status", "route", f.Name)
+			c.logger.Error(err, "failed to update status",
+				"route", objref.KObj(f),
+			)
 		}
 		return
 	}
@@ -214,7 +216,9 @@ func (c *RouteController) onAdd(obj interface{}) {
 		},
 	})
 	if err != nil {
-		c.logger.Error(err, "failed to update status", "route", f.Name)
+		c.logger.Error(err, "failed to update status",
+			"route", objref.KObj(f),
+		)
 	}
 }
 
@@ -285,7 +289,9 @@ func (c *RouteController) onUpdate(oldObj, newObj interface{}) {
 			},
 		})
 		if err != nil {
-			c.logger.Error(err, "failed to update status", "route", f.Name)
+			c.logger.Error(err, "failed to update status",
+				"route", objref.KObj(f),
+			)
 		}
 		return
 	}
@@ -298,7 +304,9 @@ func (c *RouteController) onUpdate(oldObj, newObj interface{}) {
 		},
 	})
 	if err != nil {
-		c.logger.Error(err, "failed to update status", "route", f.Name)
+		c.logger.Error(err, "failed to update status",
+			"route", objref.KObj(f),
+		)
 	}
 }
 

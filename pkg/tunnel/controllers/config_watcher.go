@@ -108,7 +108,7 @@ func (c *ConfigWatcher) update(cm *corev1.ConfigMap) {
 	err := json.Unmarshal([]byte(content), &tmp)
 	if err != nil {
 		c.logger.Error(err, "unmarshal context failed",
-			"configmap", objref.KObj(cm),
+			"configMap", objref.KObj(cm),
 			"context", content,
 		)
 		return
@@ -117,7 +117,7 @@ func (c *ConfigWatcher) update(cm *corev1.ConfigMap) {
 		v, err := shrinkJSON(item)
 		if err != nil {
 			c.logger.Error(err, "shrink json failed",
-				"configmap", objref.KObj(cm),
+				"configMap", objref.KObj(cm),
 				"item", item,
 			)
 			continue
@@ -141,19 +141,25 @@ func (c *ConfigWatcher) delete(cm *corev1.ConfigMap) {
 
 func (c *ConfigWatcher) onAdd(obj interface{}) {
 	cm := obj.(*corev1.ConfigMap)
-	c.logger.Info("add configmap for rules", "configmap", objref.KObj(cm))
+	c.logger.Info("add configmap for rules",
+		"configMap", objref.KObj(cm),
+	)
 	c.update(cm)
 }
 
 func (c *ConfigWatcher) onUpdate(oldObj, newObj interface{}) {
 	cm := newObj.(*corev1.ConfigMap)
-	c.logger.Info("update configmap for rules", "configmap", objref.KObj(cm))
+	c.logger.Info("update configmap for rules",
+		"configMap", objref.KObj(cm),
+	)
 	c.update(cm)
 }
 
 func (c *ConfigWatcher) onDelete(obj interface{}) {
 	cm := obj.(*corev1.ConfigMap)
-	c.logger.Info("delete configmap for rules", "configmap", objref.KObj(cm))
+	c.logger.Info("delete configmap for rules",
+		"configMap", objref.KObj(cm),
+	)
 	c.delete(cm)
 }
 

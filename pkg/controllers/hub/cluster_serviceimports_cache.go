@@ -163,7 +163,7 @@ func (c *clusterServiceImportCache) ListByNamespace(namespace string) []*v1alpha
 func (c *clusterServiceImportCache) onAdd(obj interface{}) {
 	svc := obj.(*v1alpha1.ServiceImport)
 	c.logger.Info("onAdd",
-		"ServiceImport", objref.KObj(svc),
+		"serviceImport", objref.KObj(svc),
 	)
 	svc = svc.DeepCopy()
 
@@ -177,7 +177,7 @@ func (c *clusterServiceImportCache) onAdd(obj interface{}) {
 func (c *clusterServiceImportCache) onUpdate(oldObj, newObj interface{}) {
 	svc := newObj.(*v1alpha1.ServiceImport)
 	c.logger.Info("onUpdate",
-		"ServiceImport", objref.KObj(svc),
+		"serviceImport", objref.KObj(svc),
 	)
 	svc = svc.DeepCopy()
 
@@ -190,7 +190,7 @@ func (c *clusterServiceImportCache) onUpdate(oldObj, newObj interface{}) {
 func (c *clusterServiceImportCache) onDelete(obj interface{}) {
 	svc := obj.(*v1alpha1.ServiceImport)
 	c.logger.Info("onDelete",
-		"ServiceImport", objref.KObj(svc),
+		"serviceImport", objref.KObj(svc),
 	)
 	svc = svc.DeepCopy()
 
