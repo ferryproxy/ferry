@@ -21,7 +21,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/ferryproxy/ferry/pkg/registry/client"
+	"github.com/ferryproxy/ferry/pkg/services/registry/client"
 	"github.com/ferryproxy/ferry/pkg/utils/env"
 	"github.com/ferryproxy/ferry/pkg/utils/signals"
 	"github.com/go-logr/zapr"
