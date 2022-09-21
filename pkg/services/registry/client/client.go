@@ -39,7 +39,7 @@ func NewClient(baseUrl string) *Client {
 }
 
 func (c *Client) Create(ctx context.Context, hubName string) error {
-	kctl := kubectl.NewKubectlInCluster()
+	kctl := kubectl.NewKubectl()
 
 	key, err := kctl.GetSecretAuthorized(ctx)
 	if err != nil {
@@ -87,4 +87,24 @@ func (c *Client) Create(ctx context.Context, hubName string) error {
 		return err
 	}
 	return nil
+}
+
+func (c *Client) IsExist(ctx context.Context, hubName string) (bool, error) {
+	resp, err := c.client.Head(c.baseURL + "/" + hubName)
+	if err != nil {
+		return false, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode == http.StatusNotFound {
+		return false, nil
+	}
+	if resp.StatusCode == http.StatusCreated {
+		return true, nil
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return false, err
+	}
+	return false, fmt.Errorf("response %s:\n%s", http.StatusText(resp.StatusCode), string(body))
 }

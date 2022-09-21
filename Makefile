@@ -27,7 +27,7 @@ EXTRA_TAGS ?=
 
 BINARY ?= ferryctl
 
-IMAGE_BINARY ?= ferry-controller ferry-tunnel ferry-tunnel-controller ferry-register ferry-joiner
+IMAGE_BINARY ?= ferry-controller ferry-tunnel ferry-tunnel-controller ferry-register
 
 IMAGE_PREFIX ?= ghcr.io/ferryproxy/ferry
 
@@ -36,8 +36,6 @@ CONTROLLER_IMAGE ?= $(IMAGE_PREFIX)/ferry-controller
 TUNNEL_IMAGE ?= $(IMAGE_PREFIX)/ferry-tunnel
 
 REGISTER_IMAGE ?=  $(IMAGE_PREFIX)/ferry-register
-
-JOINER_IMAGE ?=  $(IMAGE_PREFIX)/ferry-joiner
 
 IMAGE_PLATFORMS ?= linux/amd64 linux/arm64
 
@@ -113,12 +111,6 @@ image:
 		--version=${VERSION} \
 		--dry-run=${DRY_RUN} \
 		--push=${PUSH}
-	@./images/ferry-joiner/build.sh \
-		$(addprefix --extra-tag=, $(EXTRA_TAGS)) \
-		--image=${JOINER_IMAGE} \
-		--version=${VERSION} \
-		--dry-run=${DRY_RUN} \
-		--push=${PUSH}
 
 ## cross-image: Build images for all supported platforms
 .PHONY: cross-image
@@ -148,13 +140,6 @@ cross-image:
 		$(addprefix --platform=, $(IMAGE_PLATFORMS)) \
 		$(addprefix --extra-tag=, $(EXTRA_TAGS)) \
 		--image=${REGISTER_IMAGE} \
-		--version=${VERSION} \
-		--dry-run=${DRY_RUN} \
-		--push=${PUSH}
-	@./images/ferry-joiner/build.sh \
-		$(addprefix --platform=, $(IMAGE_PLATFORMS)) \
-		$(addprefix --extra-tag=, $(EXTRA_TAGS)) \
-		--image=${JOINER_IMAGE} \
 		--version=${VERSION} \
 		--dry-run=${DRY_RUN} \
 		--push=${PUSH}
