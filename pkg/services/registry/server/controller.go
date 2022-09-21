@@ -25,26 +25,24 @@ import (
 	"sync"
 
 	"github.com/ferryproxy/api/apis/traffic/v1alpha2"
-	versioned "github.com/ferryproxy/client-go/generated/clientset/versioned"
+	"github.com/ferryproxy/ferry/pkg/client"
 	"github.com/ferryproxy/ferry/pkg/consts"
 	"github.com/ferryproxy/ferry/pkg/ferryctl/kubectl"
-	"github.com/ferryproxy/ferry/pkg/resource"
 	"github.com/ferryproxy/ferry/pkg/router"
 	"github.com/ferryproxy/ferry/pkg/services/registry/models"
+	"github.com/ferryproxy/ferry/pkg/utils/encoding"
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
 )
 
 type Controller struct {
-	mut            sync.Mutex
-	GetBindPort    func(ctx context.Context) (int32, error)
-	TunnelAddress  string
-	FerryClientset versioned.Interface
-	KubeClientset  kubernetes.Interface
-	Logger         logr.Logger
+	mut           sync.Mutex
+	GetBindPort   func(ctx context.Context) (int32, error)
+	TunnelAddress string
+	Clientset     client.Interface
+	Logger        logr.Logger
 }
 
 func (c *Controller) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
@@ -151,7 +149,7 @@ func (c *Controller) Create(rw http.ResponseWriter, r *http.Request) {
 	importHubResource := out[importHubName]
 	exportHubResource := out[exportHubName]
 
-	repo, err := resource.MarshalJSON(exportHubResource...)
+	repo, err := encoding.MarshalJSON(exportHubResource...)
 	if err != nil {
 		c.Logger.Error(err, "Marshal JSON")
 		http.Error(rw, err.Error(), http.StatusInternalServerError)
@@ -180,9 +178,9 @@ func (c *Controller) Create(rw http.ResponseWriter, r *http.Request) {
 		},
 	}
 
-	importHubResource = append(importHubResource, resource.Secret{&secret})
+	importHubResource = append(importHubResource, &secret)
 
-	hub := v1alpha2.Hub{
+	hub := &v1alpha2.Hub{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      joinHub.HubName,
 			Namespace: consts.FerryNamespace,
@@ -216,27 +214,28 @@ func (c *Controller) Create(rw http.ResponseWriter, r *http.Request) {
 
 	defer func() {
 		if err != nil {
+			ctx := context.Background()
 			for _, src := range importHubResource {
-				src.Delete(context.Background(), c.KubeClientset)
+				client.Delete(ctx, c.Clientset, src)
 			}
 		}
 	}()
 	for _, src := range importHubResource {
-		err = src.Apply(r.Context(), c.KubeClientset)
+		err = client.Apply(r.Context(), c.Clientset, src)
 		if err != nil {
 			c.Logger.Error(err, "Apply")
 			http.Error(rw, err.Error(), http.StatusInternalServerError)
 			return
 		}
 	}
-	h := resource.Hub{&hub}
 
 	defer func() {
 		if err != nil {
-			h.Delete(context.Background(), c.FerryClientset)
+			client.Delete(r.Context(), c.Clientset, hub)
 		}
 	}()
-	err = h.Apply(r.Context(), c.FerryClientset)
+
+	err = client.Apply(r.Context(), c.Clientset, hub)
 	if err != nil {
 		c.Logger.Error(err, "Apply")
 		http.Error(rw, err.Error(), http.StatusInternalServerError)
@@ -252,7 +251,11 @@ func (c *Controller) getHubName(r *http.Request) string {
 }
 
 func (c *Controller) isExistHub(ctx context.Context, hubName string) (bool, error) {
-	_, err := c.FerryClientset.TrafficV1alpha2().Hubs(consts.FerryNamespace).Get(ctx, hubName, metav1.GetOptions{})
+	_, err := c.Clientset.
+		Ferry().
+		TrafficV1alpha2().
+		Hubs(consts.FerryNamespace).
+		Get(ctx, hubName, metav1.GetOptions{})
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return false, nil

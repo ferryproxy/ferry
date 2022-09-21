@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package resource
+package client
 
 import (
 	"context"
@@ -22,54 +22,41 @@ import (
 	"reflect"
 
 	"github.com/ferryproxy/api/apis/traffic/v1alpha2"
-	versioned "github.com/ferryproxy/client-go/generated/clientset/versioned"
 	"github.com/ferryproxy/ferry/pkg/consts"
-	"github.com/ferryproxy/ferry/pkg/utils/encoding"
 	"github.com/ferryproxy/ferry/pkg/utils/objref"
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/kubernetes"
 )
 
-type Resourcer interface {
-	objref.KMetadata
-	Original() objref.KMetadata
-	Apply(ctx context.Context, clientset kubernetes.Interface) (err error)
-	Delete(ctx context.Context, clientset kubernetes.Interface) (err error)
-}
-
-type Hub struct {
+type hub struct {
 	*v1alpha2.Hub
 }
 
-func (r Hub) Original() objref.KMetadata {
-	return r.Hub
-}
-
-func (r Hub) Apply(ctx context.Context, clientset versioned.Interface) (err error) {
+func (r hub) Apply(ctx context.Context, clientset Interface) (err error) {
 	logger := logr.FromContextOrDiscard(ctx)
 	ori, err := clientset.
+		Ferry().
 		TrafficV1alpha2().
 		Hubs(r.Namespace).
 		Get(ctx, r.Name, metav1.GetOptions{})
 	if err != nil {
 		if !errors.IsNotFound(err) {
-			return fmt.Errorf("get Hub %s: %w", objref.KObj(r), err)
+			return fmt.Errorf("get hub %s: %w", objref.KObj(r), err)
 		}
-		logger.Info("Creating Hub",
+		logger.Info("Creating hub",
 			"hub", objref.KObj(r),
 		)
 		_, err = clientset.
+			Ferry().
 			TrafficV1alpha2().
 			Hubs(r.Namespace).
 			Create(ctx, r.Hub, metav1.CreateOptions{
 				FieldManager: consts.LabelFerryManagedByValue,
 			})
 		if err != nil {
-			return fmt.Errorf("create Hub %s: %w", objref.KObj(r), err)
+			return fmt.Errorf("create hub %s: %w", objref.KObj(r), err)
 		}
 	} else {
 		if reflect.DeepEqual(ori.Spec, r.Spec) {
@@ -77,45 +64,44 @@ func (r Hub) Apply(ctx context.Context, clientset versioned.Interface) (err erro
 		}
 
 		_, err = clientset.
+			Ferry().
 			TrafficV1alpha2().
 			Hubs(r.Namespace).
 			Update(ctx, ori, metav1.UpdateOptions{
 				FieldManager: consts.LabelFerryManagedByValue,
 			})
 		if err != nil {
-			return fmt.Errorf("update Hub %s: %w", objref.KObj(r), err)
+			return fmt.Errorf("update hub %s: %w", objref.KObj(r), err)
 		}
 	}
 	return nil
 }
 
-func (r Hub) Delete(ctx context.Context, clientset versioned.Interface) (err error) {
+func (r hub) Delete(ctx context.Context, clientset Interface) (err error) {
 	logger := logr.FromContextOrDiscard(ctx)
-	logger.Info("Deleting Hub",
+	logger.Info("Deleting hub",
 		"hub", objref.KObj(r),
 	)
 
 	err = clientset.
+		Ferry().
 		TrafficV1alpha2().
 		Hubs(r.Namespace).
 		Delete(ctx, r.Name, metav1.DeleteOptions{})
 	if err != nil && !errors.IsNotFound(err) {
-		return fmt.Errorf("delete Hub %s: %w", objref.KObj(r), err)
+		return fmt.Errorf("delete hub %s: %w", objref.KObj(r), err)
 	}
 	return nil
 }
 
-type RoutePolicy struct {
+type routePolicy struct {
 	*v1alpha2.RoutePolicy
 }
 
-func (r RoutePolicy) Original() objref.KMetadata {
-	return r.RoutePolicy
-}
-
-func (r RoutePolicy) Apply(ctx context.Context, clientset versioned.Interface) (err error) {
+func (r routePolicy) Apply(ctx context.Context, clientset Interface) (err error) {
 	logger := logr.FromContextOrDiscard(ctx)
 	ori, err := clientset.
+		Ferry().
 		TrafficV1alpha2().
 		RoutePolicies(r.Namespace).
 		Get(ctx, r.Name, metav1.GetOptions{})
@@ -123,10 +109,11 @@ func (r RoutePolicy) Apply(ctx context.Context, clientset versioned.Interface) (
 		if !errors.IsNotFound(err) {
 			return fmt.Errorf("get RoutePolicies %s: %w", objref.KObj(r), err)
 		}
-		logger.Info("Creating RoutePolicy",
+		logger.Info("Creating routePolicy",
 			"routePolicy", objref.KObj(r),
 		)
 		_, err = clientset.
+			Ferry().
 			TrafficV1alpha2().
 			RoutePolicies(r.Namespace).
 			Create(ctx, r.RoutePolicy, metav1.CreateOptions{
@@ -141,6 +128,7 @@ func (r RoutePolicy) Apply(ctx context.Context, clientset versioned.Interface) (
 		}
 
 		_, err = clientset.
+			Ferry().
 			TrafficV1alpha2().
 			RoutePolicies(r.Namespace).
 			Update(ctx, ori, metav1.UpdateOptions{
@@ -153,13 +141,14 @@ func (r RoutePolicy) Apply(ctx context.Context, clientset versioned.Interface) (
 	return nil
 }
 
-func (r RoutePolicy) Delete(ctx context.Context, clientset versioned.Interface) (err error) {
+func (r routePolicy) Delete(ctx context.Context, clientset Interface) (err error) {
 	logger := logr.FromContextOrDiscard(ctx)
 	logger.Info("Deleting RoutePolicies",
 		"routePolicy", objref.KObj(r),
 	)
 
 	err = clientset.
+		Ferry().
 		TrafficV1alpha2().
 		RoutePolicies(r.Namespace).
 		Delete(ctx, r.Name, metav1.DeleteOptions{})
@@ -169,17 +158,14 @@ func (r RoutePolicy) Delete(ctx context.Context, clientset versioned.Interface) 
 	return nil
 }
 
-type Route struct {
+type route struct {
 	*v1alpha2.Route
 }
 
-func (r Route) Original() objref.KMetadata {
-	return r.Route
-}
-
-func (r Route) Apply(ctx context.Context, clientset versioned.Interface) (err error) {
+func (r route) Apply(ctx context.Context, clientset Interface) (err error) {
 	logger := logr.FromContextOrDiscard(ctx)
 	ori, err := clientset.
+		Ferry().
 		TrafficV1alpha2().
 		Routes(r.Namespace).
 		Get(ctx, r.Name, metav1.GetOptions{})
@@ -187,10 +173,11 @@ func (r Route) Apply(ctx context.Context, clientset versioned.Interface) (err er
 		if !errors.IsNotFound(err) {
 			return fmt.Errorf("get route %s: %w", objref.KObj(r), err)
 		}
-		logger.Info("Creating Route",
+		logger.Info("Creating route",
 			"route", objref.KObj(r),
 		)
 		_, err = clientset.
+			Ferry().
 			TrafficV1alpha2().
 			Routes(r.Namespace).
 			Create(ctx, r.Route, metav1.CreateOptions{
@@ -205,6 +192,7 @@ func (r Route) Apply(ctx context.Context, clientset versioned.Interface) (err er
 		}
 
 		_, err = clientset.
+			Ferry().
 			TrafficV1alpha2().
 			Routes(r.Namespace).
 			Update(ctx, ori, metav1.UpdateOptions{
@@ -217,13 +205,14 @@ func (r Route) Apply(ctx context.Context, clientset versioned.Interface) (err er
 	return nil
 }
 
-func (r Route) Delete(ctx context.Context, clientset versioned.Interface) (err error) {
+func (r route) Delete(ctx context.Context, clientset Interface) (err error) {
 	logger := logr.FromContextOrDiscard(ctx)
-	logger.Info("Deleting Route",
+	logger.Info("Deleting route",
 		"route", objref.KObj(r),
 	)
 
 	err = clientset.
+		Ferry().
 		TrafficV1alpha2().
 		Routes(r.Namespace).
 		Delete(ctx, r.Name, metav1.DeleteOptions{})
@@ -233,17 +222,14 @@ func (r Route) Delete(ctx context.Context, clientset versioned.Interface) (err e
 	return nil
 }
 
-type Service struct {
+type service struct {
 	*corev1.Service
 }
 
-func (s Service) Original() objref.KMetadata {
-	return s.Service
-}
-
-func (s Service) Apply(ctx context.Context, clientset kubernetes.Interface) (err error) {
+func (s service) Apply(ctx context.Context, clientset Interface) (err error) {
 	logger := logr.FromContextOrDiscard(ctx)
 	ori, err := clientset.
+		Kubernetes().
 		CoreV1().
 		Services(s.Namespace).
 		Get(ctx, s.Name, metav1.GetOptions{})
@@ -251,10 +237,11 @@ func (s Service) Apply(ctx context.Context, clientset kubernetes.Interface) (err
 		if !errors.IsNotFound(err) {
 			return fmt.Errorf("get service %s: %w", objref.KObj(s), err)
 		}
-		logger.Info("Creating Service",
+		logger.Info("Creating service",
 			"service", objref.KObj(s),
 		)
 		_, err = clientset.
+			Kubernetes().
 			CoreV1().
 			Services(s.Namespace).
 			Create(ctx, s.Service, metav1.CreateOptions{
@@ -275,6 +262,7 @@ func (s Service) Apply(ctx context.Context, clientset kubernetes.Interface) (err
 
 		ori.Spec.Ports = s.Spec.Ports
 		_, err = clientset.
+			Kubernetes().
 			CoreV1().
 			Services(s.Namespace).
 			Update(ctx, ori, metav1.UpdateOptions{
@@ -287,13 +275,14 @@ func (s Service) Apply(ctx context.Context, clientset kubernetes.Interface) (err
 	return nil
 }
 
-func (s Service) Delete(ctx context.Context, clientset kubernetes.Interface) (err error) {
+func (s service) Delete(ctx context.Context, clientset Interface) (err error) {
 	logger := logr.FromContextOrDiscard(ctx)
-	logger.Info("Deleting Service",
+	logger.Info("Deleting service",
 		"service", objref.KObj(s),
 	)
 
 	err = clientset.
+		Kubernetes().
 		CoreV1().
 		Services(s.Namespace).
 		Delete(ctx, s.Name, metav1.DeleteOptions{})
@@ -303,35 +292,33 @@ func (s Service) Delete(ctx context.Context, clientset kubernetes.Interface) (er
 	return nil
 }
 
-type Endpoints struct {
+type endpoints struct {
 	*corev1.Endpoints
 }
 
-func (s Endpoints) Original() objref.KMetadata {
-	return s.Endpoints
-}
-
-func (s Endpoints) Apply(ctx context.Context, clientset kubernetes.Interface) (err error) {
+func (s endpoints) Apply(ctx context.Context, clientset Interface) (err error) {
 	logger := logr.FromContextOrDiscard(ctx)
 	ori, err := clientset.
+		Kubernetes().
 		CoreV1().
 		Endpoints(s.Namespace).
 		Get(ctx, s.Name, metav1.GetOptions{})
 	if err != nil {
 		if !errors.IsNotFound(err) {
-			return fmt.Errorf("get Endpoints %s: %w", objref.KObj(s), err)
+			return fmt.Errorf("get endpoints %s: %w", objref.KObj(s), err)
 		}
-		logger.Info("Creating Endpoints",
+		logger.Info("Creating endpoints",
 			"endpoints", objref.KObj(s),
 		)
 		_, err = clientset.
+			Kubernetes().
 			CoreV1().
 			Endpoints(s.Namespace).
 			Create(ctx, s.Endpoints, metav1.CreateOptions{
 				FieldManager: consts.LabelFerryManagedByValue,
 			})
 		if err != nil {
-			return fmt.Errorf("create Endpoints %s: %w", objref.KObj(s), err)
+			return fmt.Errorf("create endpoints %s: %w", objref.KObj(s), err)
 		}
 	} else {
 		if ori.Labels[consts.LabelGeneratedKey] == "" {
@@ -342,64 +329,64 @@ func (s Endpoints) Apply(ctx context.Context, clientset kubernetes.Interface) (e
 		}
 		ori.Subsets = s.Subsets
 		_, err = clientset.
+			Kubernetes().
 			CoreV1().
 			Endpoints(s.Namespace).
 			Update(ctx, ori, metav1.UpdateOptions{
 				FieldManager: consts.LabelFerryManagedByValue,
 			})
 		if err != nil {
-			return fmt.Errorf("update Endpoints %s: %w", objref.KObj(s), err)
+			return fmt.Errorf("update endpoints %s: %w", objref.KObj(s), err)
 		}
 	}
 	return nil
 }
 
-func (s Endpoints) Delete(ctx context.Context, clientset kubernetes.Interface) (err error) {
+func (s endpoints) Delete(ctx context.Context, clientset Interface) (err error) {
 	logger := logr.FromContextOrDiscard(ctx)
-	logger.Info("Deleting Endpoints",
+	logger.Info("Deleting endpoints",
 		"endpoints", objref.KObj(s),
 	)
 
 	err = clientset.
+		Kubernetes().
 		CoreV1().
 		Endpoints(s.Namespace).
 		Delete(ctx, s.Name, metav1.DeleteOptions{})
 	if err != nil && !errors.IsNotFound(err) {
-		return fmt.Errorf("delete Endpoints %s: %w", objref.KObj(s), err)
+		return fmt.Errorf("delete endpoints %s: %w", objref.KObj(s), err)
 	}
 	return nil
 }
 
-type ConfigMap struct {
+type configMap struct {
 	*corev1.ConfigMap
 }
 
-func (s ConfigMap) Original() objref.KMetadata {
-	return s.ConfigMap
-}
-
-func (s ConfigMap) Apply(ctx context.Context, clientset kubernetes.Interface) (err error) {
+func (s configMap) Apply(ctx context.Context, clientset Interface) (err error) {
 	logger := logr.FromContextOrDiscard(ctx)
 
 	ori, err := clientset.
+		Kubernetes().
 		CoreV1().
 		ConfigMaps(s.Namespace).
 		Get(ctx, s.Name, metav1.GetOptions{})
 	if err != nil {
 		if !errors.IsNotFound(err) {
-			return fmt.Errorf("get ConfigMap %s: %w", objref.KObj(s), err)
+			return fmt.Errorf("get configMap %s: %w", objref.KObj(s), err)
 		}
-		logger.Info("Creating ConfigMap",
+		logger.Info("Creating configMap",
 			"configMap", objref.KObj(s),
 		)
 		_, err = clientset.
+			Kubernetes().
 			CoreV1().
 			ConfigMaps(s.Namespace).
 			Create(ctx, s.ConfigMap, metav1.CreateOptions{
 				FieldManager: consts.LabelFerryManagedByValue,
 			})
 		if err != nil {
-			return fmt.Errorf("create ConfigMap %s: %w", objref.KObj(s), err)
+			return fmt.Errorf("create configMap %s: %w", objref.KObj(s), err)
 		}
 	} else {
 		if reflect.DeepEqual(ori.Data, s.Data) {
@@ -408,70 +395,70 @@ func (s ConfigMap) Apply(ctx context.Context, clientset kubernetes.Interface) (e
 
 		copyLabel(ori.Labels, s.Labels)
 
-		logger.Info("Update ConfigMap",
+		logger.Info("Update configMap",
 			"configMap", objref.KObj(s),
 		)
 		ori.Data = s.Data
 		_, err = clientset.
+			Kubernetes().
 			CoreV1().
 			ConfigMaps(s.Namespace).
 			Update(ctx, ori, metav1.UpdateOptions{
 				FieldManager: consts.LabelFerryManagedByValue,
 			})
 		if err != nil {
-			return fmt.Errorf("update ConfigMap %s: %w", objref.KObj(s), err)
+			return fmt.Errorf("update configMap %s: %w", objref.KObj(s), err)
 		}
 	}
 	return nil
 }
 
-func (s ConfigMap) Delete(ctx context.Context, clientset kubernetes.Interface) (err error) {
+func (s configMap) Delete(ctx context.Context, clientset Interface) (err error) {
 	logger := logr.FromContextOrDiscard(ctx)
-	logger.Info("Deleting ConfigMap",
+	logger.Info("Deleting configMap",
 		"configMap", objref.KObj(s),
 	)
 
 	err = clientset.
+		Kubernetes().
 		CoreV1().
 		ConfigMaps(s.Namespace).
 		Delete(ctx, s.Name, metav1.DeleteOptions{})
 	if err != nil && !errors.IsNotFound(err) {
-		return fmt.Errorf("delete ConfigMap %s: %w", objref.KObj(s), err)
+		return fmt.Errorf("delete configMap %s: %w", objref.KObj(s), err)
 	}
 
 	return nil
 }
 
-type Secret struct {
+type secret struct {
 	*corev1.Secret
 }
 
-func (s Secret) Original() objref.KMetadata {
-	return s.Secret
-}
-
-func (s Secret) Apply(ctx context.Context, clientset kubernetes.Interface) (err error) {
+func (s secret) Apply(ctx context.Context, clientset Interface) (err error) {
 	logger := logr.FromContextOrDiscard(ctx)
 
 	ori, err := clientset.
+		Kubernetes().
 		CoreV1().
 		Secrets(s.Namespace).
 		Get(ctx, s.Name, metav1.GetOptions{})
 	if err != nil {
 		if !errors.IsNotFound(err) {
-			return fmt.Errorf("get Secret %s: %w", objref.KObj(s), err)
+			return fmt.Errorf("get secret %s: %w", objref.KObj(s), err)
 		}
-		logger.Info("Creating Secret",
+		logger.Info("Creating secret",
 			"secret", objref.KObj(s),
 		)
 		_, err = clientset.
+			Kubernetes().
 			CoreV1().
 			Secrets(s.Namespace).
 			Create(ctx, s.Secret, metav1.CreateOptions{
 				FieldManager: consts.LabelFerryManagedByValue,
 			})
 		if err != nil {
-			return fmt.Errorf("create Secret %s: %w", objref.KObj(s), err)
+			return fmt.Errorf("create secret %s: %w", objref.KObj(s), err)
 		}
 	} else {
 		if reflect.DeepEqual(ori.Data, s.Data) {
@@ -480,36 +467,38 @@ func (s Secret) Apply(ctx context.Context, clientset kubernetes.Interface) (err 
 
 		copyLabel(ori.Labels, s.Labels)
 
-		logger.Info("Update Secret",
+		logger.Info("Update secret",
 			"secret", objref.KObj(s),
 		)
 
 		ori.Data = s.Data
 		_, err = clientset.
+			Kubernetes().
 			CoreV1().
 			Secrets(s.Namespace).
 			Update(ctx, ori, metav1.UpdateOptions{
 				FieldManager: consts.LabelFerryManagedByValue,
 			})
 		if err != nil {
-			return fmt.Errorf("update Secret %s: %w", objref.KObj(s), err)
+			return fmt.Errorf("update secret %s: %w", objref.KObj(s), err)
 		}
 	}
 	return nil
 }
 
-func (s Secret) Delete(ctx context.Context, clientset kubernetes.Interface) (err error) {
+func (s secret) Delete(ctx context.Context, clientset Interface) (err error) {
 	logger := logr.FromContextOrDiscard(ctx)
-	logger.Info("Deleting Secret",
+	logger.Info("Deleting secret",
 		"secret", objref.KObj(s),
 	)
 
 	err = clientset.
+		Kubernetes().
 		CoreV1().
 		Secrets(s.Namespace).
 		Delete(ctx, s.Name, metav1.DeleteOptions{})
 	if err != nil && !errors.IsNotFound(err) {
-		return fmt.Errorf("delete Secret %s: %w", objref.KObj(s), err)
+		return fmt.Errorf("delete secret %s: %w", objref.KObj(s), err)
 	}
 
 	return nil
@@ -529,30 +518,4 @@ func copyLabel(old, new map[string]string) {
 			}
 		}
 	}
-}
-
-func MarshalYAML(resources ...Resourcer) ([]byte, error) {
-	objs := make([]runtime.Object, 0, len(resources))
-	for _, resource := range resources {
-		obj, ok := resource.Original().(runtime.Object)
-		if !ok {
-			return nil, fmt.Errorf("failed convert to runtime.Object")
-		}
-		objs = append(objs, obj)
-	}
-
-	return encoding.MarshalYAML(objs...)
-}
-
-func MarshalJSON(resources ...Resourcer) ([]byte, error) {
-	objs := make([]runtime.Object, 0, len(resources))
-	for _, resource := range resources {
-		obj, ok := resource.Original().(runtime.Object)
-		if !ok {
-			return nil, fmt.Errorf("failed convert to runtime.Object")
-		}
-		objs = append(objs, obj)
-	}
-
-	return encoding.MarshalJSON(objs...)
 }

@@ -21,8 +21,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ferryproxy/ferry/pkg/client"
 	"github.com/ferryproxy/ferry/pkg/consts"
-	"github.com/ferryproxy/ferry/pkg/resource"
 	"github.com/ferryproxy/ferry/pkg/router/discovery"
 	"github.com/ferryproxy/ferry/pkg/utils/diffobjs"
 	"github.com/ferryproxy/ferry/pkg/utils/objref"
@@ -31,7 +31,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/informers"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -42,8 +41,8 @@ type DiscoveryController struct {
 	namespace     string
 	labelSelector string
 	cache         map[objref.ObjectRef]map[string][]discovery.MappingPort
-	cacheDiscover []resource.Resourcer
-	clientset     kubernetes.Interface
+	cacheDiscover []objref.KMetadata
+	clientset     client.Interface
 	logger        logr.Logger
 	try           *trybuffer.TryBuffer
 }
@@ -52,7 +51,7 @@ type DiscoveryControllerConfig struct {
 	Namespace     string
 	LabelSelector string
 	Logger        logr.Logger
-	Clientset     kubernetes.Interface
+	Clientset     client.Interface
 }
 
 func NewDiscoveryController(conf *DiscoveryControllerConfig) *DiscoveryController {
@@ -71,7 +70,7 @@ func (s *DiscoveryController) Run(ctx context.Context) error {
 		defer s.mut.Unlock()
 		s.sync()
 	}, time.Second/10)
-	informer := informers.NewSharedInformerFactoryWithOptions(s.clientset, 0,
+	informer := informers.NewSharedInformerFactoryWithOptions(s.clientset.Kubernetes(), 0,
 		informers.WithNamespace(s.namespace),
 		informers.WithTweakListOptions(func(options *metav1.ListOptions) {
 			options.LabelSelector = s.labelSelector
@@ -195,7 +194,7 @@ func (s *DiscoveryController) sync() {
 	if len(s.ips) == 0 {
 		return
 	}
-	resources := []resource.Resourcer{}
+	resources := []objref.KMetadata{}
 	for obj, item := range s.cache {
 		meta := metav1.ObjectMeta{
 			Name:      obj.Name,
@@ -212,14 +211,14 @@ func (s *DiscoveryController) sync() {
 		s.cacheDiscover = resources
 	}()
 	for _, r := range resources {
-		err := r.Apply(s.ctx, s.clientset)
+		err := client.Apply(s.ctx, s.clientset, r)
 		if err != nil {
 			s.logger.Error(err, "failed to update")
 		}
 	}
 
 	for _, r := range deleted {
-		err := r.Delete(s.ctx, s.clientset)
+		err := client.Delete(s.ctx, s.clientset, r)
 		if err != nil {
 			s.logger.Error(err, "failed to delete")
 		}

@@ -19,13 +19,13 @@ package discovery
 import (
 	"encoding/json"
 
-	"github.com/ferryproxy/ferry/pkg/resource"
+	"github.com/ferryproxy/ferry/pkg/utils/objref"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // BuildServiceDiscovery the Egress Discovery resource, perhaps Service or DNS
-func BuildServiceDiscovery(om metav1.ObjectMeta, ips []string, mappingPorts map[string][]MappingPort) []resource.Resourcer {
+func BuildServiceDiscovery(om metav1.ObjectMeta, ips []string, mappingPorts map[string][]MappingPort) []objref.KMetadata {
 	svc := corev1.Service{
 		ObjectMeta: om,
 	}
@@ -70,7 +70,7 @@ func BuildServiceDiscovery(om metav1.ObjectMeta, ips []string, mappingPorts map[
 		}
 	}
 
-	return []resource.Resourcer{resource.Service{&svc}, resource.Endpoints{&ep}}
+	return []objref.KMetadata{&svc, &ep}
 }
 
 func buildIPToEndpointAddress(ips []string) []corev1.EndpointAddress {

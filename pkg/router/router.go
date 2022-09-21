@@ -21,7 +21,6 @@ import (
 
 	"github.com/ferryproxy/api/apis/traffic/v1alpha2"
 	"github.com/ferryproxy/ferry/pkg/consts"
-	"github.com/ferryproxy/ferry/pkg/resource"
 	"github.com/ferryproxy/ferry/pkg/router/discovery"
 	"github.com/ferryproxy/ferry/pkg/utils/diffobjs"
 	"github.com/ferryproxy/ferry/pkg/utils/maps"
@@ -67,7 +66,7 @@ type Router struct {
 	hubsChain *HubsChain
 }
 
-func (d *Router) BuildResource(rules []*v1alpha2.Route, ways []string) (out map[string][]resource.Resourcer, err error) {
+func (d *Router) BuildResource(rules []*v1alpha2.Route, ways []string) (out map[string][]objref.KMetadata, err error) {
 	mappings := map[objref.ObjectRef][]*v1alpha2.Route{}
 
 	for _, rule := range rules {
@@ -75,7 +74,7 @@ func (d *Router) BuildResource(rules []*v1alpha2.Route, ways []string) (out map[
 		mappings[exportRef] = append(mappings[exportRef], rule)
 	}
 
-	out = map[string][]resource.Resourcer{}
+	out = map[string][]objref.KMetadata{}
 	svcs := d.hubInterface.ListServices(d.exportHubName)
 
 	labelsForRules := maps.Merge(d.labels, map[string]string{
@@ -162,7 +161,7 @@ func (d *Router) BuildResource(rules []*v1alpha2.Route, ways []string) (out map[
 				},
 				Data: data,
 			}
-			out[d.importHubName] = append(out[d.importHubName], resource.ConfigMap{configMap})
+			out[d.importHubName] = append(out[d.importHubName], configMap)
 		}
 	}
 

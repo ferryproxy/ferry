@@ -22,6 +22,7 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/ferryproxy/ferry/pkg/client"
 	"github.com/ferryproxy/ferry/pkg/consts"
 	healthserver "github.com/ferryproxy/ferry/pkg/services/health/server"
 	portsserver "github.com/ferryproxy/ferry/pkg/services/ports/server"
@@ -31,7 +32,6 @@ import (
 	"github.com/go-logr/zapr"
 	"github.com/gorilla/handlers"
 	"go.uber.org/zap"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 )
 
@@ -57,7 +57,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	clientset, err := kubernetes.NewForConfig(config)
+	clientset, err := client.NewForConfig(config)
 	if err != nil {
 		log.Error(err, "failed to create kubernetes client")
 		os.Exit(1)

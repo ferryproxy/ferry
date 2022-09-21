@@ -21,7 +21,7 @@ import (
 
 	"github.com/ferryproxy/api/apis/traffic/v1alpha2"
 	"github.com/ferryproxy/ferry/pkg/consts"
-	"github.com/ferryproxy/ferry/pkg/resource"
+	"github.com/ferryproxy/ferry/pkg/utils/objref"
 	"github.com/google/go-cmp/cmp"
 	"github.com/wzshiming/sshproxy/permissions"
 	corev1 "k8s.io/api/core/v1"
@@ -32,7 +32,7 @@ func TestManualBuildResource(t *testing.T) {
 	tests := []struct {
 		name    string
 		args    ManualConfig
-		wantOut map[string][]resource.Resourcer
+		wantOut map[string][]objref.KMetadata
 		wantErr bool
 	}{
 		{
@@ -57,9 +57,9 @@ func TestManualBuildResource(t *testing.T) {
 				Port:     80,
 				BindPort: 10000,
 			},
-			wantOut: map[string][]resource.Resourcer{
+			wantOut: map[string][]objref.KMetadata{
 				"export-hub": {
-					resource.ConfigMap{&corev1.ConfigMap{
+					&corev1.ConfigMap{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      "import-hub-authorized",
 							Namespace: "ferry-tunnel-system",
@@ -71,8 +71,8 @@ func TestManualBuildResource(t *testing.T) {
 							"authorized_keys": "import-authorized import-hub@ferryproxy.io",
 							"user":            "import-hub",
 						},
-					}},
-					resource.ConfigMap{&corev1.ConfigMap{
+					},
+					&corev1.ConfigMap{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      "manual-allows-80-10000",
 							Namespace: "ferry-tunnel-system",
@@ -93,10 +93,10 @@ func TestManualBuildResource(t *testing.T) {
 								},
 							),
 						},
-					}},
+					},
 				},
 				"import-hub": {
-					resource.ConfigMap{&corev1.ConfigMap{
+					&corev1.ConfigMap{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      "manual-service",
 							Namespace: "ferry-tunnel-system",
@@ -112,8 +112,8 @@ func TestManualBuildResource(t *testing.T) {
 							"import_service_namespace": "import-namespace",
 							"ports":                    `[{"protocol":"TCP","port":80,"targetPort":10000}]`,
 						},
-					}},
-					resource.ConfigMap{&corev1.ConfigMap{
+					},
+					&corev1.ConfigMap{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      "manual-tunnel-80-10000",
 							Namespace: "ferry-tunnel-system",
@@ -136,7 +136,7 @@ func TestManualBuildResource(t *testing.T) {
 								},
 							),
 						},
-					}},
+					},
 				},
 			},
 		},
@@ -162,9 +162,9 @@ func TestManualBuildResource(t *testing.T) {
 				Port:     80,
 				BindPort: 10000,
 			},
-			wantOut: map[string][]resource.Resourcer{
+			wantOut: map[string][]objref.KMetadata{
 				"export-hub": {
-					resource.ConfigMap{&corev1.ConfigMap{
+					&corev1.ConfigMap{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      "manual-tunnel-80-10000",
 							Namespace: "ferry-tunnel-system",
@@ -187,10 +187,10 @@ func TestManualBuildResource(t *testing.T) {
 								},
 							),
 						},
-					}},
+					},
 				},
 				"import-hub": {
-					resource.ConfigMap{&corev1.ConfigMap{
+					&corev1.ConfigMap{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      "export-hub-authorized",
 							Namespace: "ferry-tunnel-system",
@@ -202,8 +202,8 @@ func TestManualBuildResource(t *testing.T) {
 							"authorized_keys": "export-authorized export-hub@ferryproxy.io",
 							"user":            "export-hub",
 						},
-					}},
-					resource.ConfigMap{&corev1.ConfigMap{
+					},
+					&corev1.ConfigMap{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      "manual-allows-80-10000",
 							Namespace: "ferry-tunnel-system",
@@ -224,8 +224,8 @@ func TestManualBuildResource(t *testing.T) {
 								},
 							),
 						},
-					}},
-					resource.ConfigMap{&corev1.ConfigMap{
+					},
+					&corev1.ConfigMap{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      "manual-service",
 							Namespace: "ferry-tunnel-system",
@@ -241,7 +241,7 @@ func TestManualBuildResource(t *testing.T) {
 							"import_service_namespace": "import-namespace",
 							"ports":                    `[{"protocol":"TCP","port":80,"targetPort":10000}]`,
 						},
-					}},
+					},
 				},
 			},
 		},

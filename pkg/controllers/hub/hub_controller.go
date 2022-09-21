@@ -25,7 +25,6 @@ import (
 	"sync"
 
 	"github.com/ferryproxy/api/apis/traffic/v1alpha2"
-	versioned "github.com/ferryproxy/client-go/generated/clientset/versioned"
 	externalversions "github.com/ferryproxy/client-go/generated/informers/externalversions"
 	"github.com/ferryproxy/ferry/pkg/client"
 	"github.com/ferryproxy/ferry/pkg/conditions"
@@ -37,7 +36,6 @@ import (
 	apiextensions "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
@@ -58,10 +56,9 @@ type HubController struct {
 	ctx                context.Context
 	logger             logr.Logger
 	config             *restclient.Config
-	clientset          versioned.Interface
-	kubeClientset      kubernetes.Interface
+	clientset          client.Interface
 	cacheHub           map[string]*v1alpha2.Hub
-	cacheClientset     map[string]kubernetes.Interface
+	cacheClientset     map[string]client.Interface
 	cacheService       map[string]*clusterServiceCache
 	cacheServiceExport map[string]*clusterServiceExportCache
 	cacheServiceImport map[string]*clusterServiceImportCache
@@ -80,7 +77,7 @@ func NewHubController(conf HubControllerConfig) *HubController {
 		logger:             conf.Logger,
 		syncFunc:           conf.SyncFunc,
 		cacheHub:           map[string]*v1alpha2.Hub{},
-		cacheClientset:     map[string]kubernetes.Interface{},
+		cacheClientset:     map[string]client.Interface{},
 		cacheService:       map[string]*clusterServiceCache{},
 		cacheServiceExport: map[string]*clusterServiceExportCache{},
 		cacheServiceImport: map[string]*clusterServiceImportCache{},
@@ -92,23 +89,17 @@ func NewHubController(conf HubControllerConfig) *HubController {
 }
 
 func (c *HubController) Run(ctx context.Context) error {
-	c.logger.Info("Hub controller started")
-	defer c.logger.Info("Hub controller stopped")
+	c.logger.Info("hub controller started")
+	defer c.logger.Info("hub controller stopped")
 
-	clientset, err := versioned.NewForConfig(c.config)
+	clientset, err := client.NewForConfig(c.config)
 	if err != nil {
 		return err
 	}
 	c.clientset = clientset
 
-	kubeClientset, err := kubernetes.NewForConfig(c.config)
-	if err != nil {
-		return err
-	}
-	c.kubeClientset = kubeClientset
-
 	c.ctx = ctx
-	informerFactory := externalversions.NewSharedInformerFactoryWithOptions(clientset, 0,
+	informerFactory := externalversions.NewSharedInformerFactoryWithOptions(clientset.Ferry(), 0,
 		externalversions.WithNamespace(c.namespace))
 	informer := informerFactory.
 		Traffic().
@@ -139,7 +130,7 @@ func (c *HubController) UpdateHubConditions(name string, conditions []metav1.Con
 
 	ci := c.cacheHub[name]
 	if ci == nil {
-		return fmt.Errorf("not found Hub %s", name)
+		return fmt.Errorf("not found hub %s", name)
 	}
 
 	status := ci.Status.DeepCopy()
@@ -173,13 +164,14 @@ func (c *HubController) UpdateHubConditions(name string, conditions []metav1.Con
 		return err
 	}
 	_, err = c.clientset.
+		Ferry().
 		TrafficV1alpha2().
 		Hubs(ci.Namespace).
 		Patch(c.ctx, ci.Name, types.MergePatchType, data, metav1.PatchOptions{}, "status")
 	return err
 }
 
-func (c *HubController) Clientset(name string) kubernetes.Interface {
+func (c *HubController) Clientset(name string) client.Interface {
 	c.mut.RLock()
 	defer c.mut.RUnlock()
 	return c.cacheClientset[name]
@@ -289,7 +281,7 @@ func (c *HubController) onAdd(obj interface{}) {
 		return
 	}
 
-	clientset, err := kubernetes.NewForConfig(restConfig)
+	clientset, err := client.NewForConfig(restConfig)
 	if err != nil {
 		c.logger.Error(err, "NewForConfig")
 		err = c.UpdateHubConditions(f.Name, []metav1.Condition{
@@ -365,6 +357,7 @@ func IsEnabledMCS(f *v1alpha2.Hub) bool {
 
 func (c *HubController) updateAuthorized(name string) error {
 	secret, err := c.cacheClientset[name].
+		Kubernetes().
 		CoreV1().
 		Secrets(consts.FerryTunnelNamespace).
 		Get(c.ctx, consts.FerryTunnelName, metav1.GetOptions{})
@@ -383,7 +376,8 @@ func (c *HubController) updateAuthorized(name string) error {
 }
 
 func (c *HubController) updateKubeconfig(name string) error {
-	secret, err := c.kubeClientset.
+	secret, err := c.clientset.
+		Kubernetes().
 		CoreV1().
 		Secrets(c.namespace).
 		Get(c.ctx, name, metav1.GetOptions{})
@@ -435,7 +429,7 @@ func (c *HubController) onUpdate(oldObj, newObj interface{}) {
 			return
 		}
 
-		clientset, err := kubernetes.NewForConfig(restConfig)
+		clientset, err := client.NewForConfig(restConfig)
 		if err != nil {
 			c.logger.Error(err, "NewForConfig")
 			err = c.UpdateHubConditions(f.Name, []metav1.Condition{

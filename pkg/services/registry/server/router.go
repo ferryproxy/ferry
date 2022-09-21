@@ -20,27 +20,21 @@ import (
 	"context"
 	"net/http"
 
-	versioned "github.com/ferryproxy/client-go/generated/clientset/versioned"
+	"github.com/ferryproxy/ferry/pkg/client"
 	"github.com/go-logr/logr"
-	"k8s.io/client-go/kubernetes"
 	rest "k8s.io/client-go/rest"
 )
 
 func Serve(mux *http.ServeMux, logger logr.Logger, config *rest.Config, address string, getBindPort func(ctx context.Context) (int32, error)) error {
-	kubeClientset, err := kubernetes.NewForConfig(config)
-	if err != nil {
-		return err
-	}
-	ferryClientset, err := versioned.NewForConfig(config)
+	clientset, err := client.NewForConfig(config)
 	if err != nil {
 		return err
 	}
 	c := &Controller{
-		FerryClientset: ferryClientset,
-		KubeClientset:  kubeClientset,
-		TunnelAddress:  address,
-		Logger:         logger,
-		GetBindPort:    getBindPort,
+		Clientset:     clientset,
+		TunnelAddress: address,
+		Logger:        logger,
+		GetBindPort:   getBindPort,
 	}
 	mux.Handle("/hubs/", c)
 	return nil

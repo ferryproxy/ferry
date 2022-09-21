@@ -18,6 +18,7 @@ package encoding
 
 import (
 	"github.com/ferryproxy/api/apis/traffic/v1alpha2"
+	"github.com/ferryproxy/ferry/pkg/utils/objref"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -28,4 +29,12 @@ var scheme = runtime.NewScheme()
 func init() {
 	utilruntime.Must(corev1.AddToScheme(scheme))
 	utilruntime.Must(v1alpha2.AddToScheme(scheme))
+}
+
+func convert(objs []objref.KMetadata) []runtime.Object {
+	out := []runtime.Object{}
+	for _, obj := range objs {
+		out = append(out, obj)
+	}
+	return out
 }
