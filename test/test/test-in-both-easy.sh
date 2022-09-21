@@ -46,6 +46,7 @@ spec:
     - hubName: ${CLUSTER_2}
 EOF
 
+  wait-routes-ready "${CONTROL_PLANE}"
   fetch-route "${CONTROL_PLANE}"
 
   fetch-tunnel-config "${CLUSTER_2}"
@@ -80,6 +81,7 @@ spec:
     - hubName: ${CLUSTER_1}
 EOF
 
+  wait-routes-ready "${CONTROL_PLANE}"
   fetch-route "${CONTROL_PLANE}"
 
   fetch-tunnel-config "${CLUSTER_2}"
@@ -114,6 +116,7 @@ spec:
     - hubName: ${CLUSTER_2}
 EOF
 
+  wait-routes-ready "${CONTROL_PLANE}"
   fetch-route "${CONTROL_PLANE}"
 
   fetch-tunnel-config "${CLUSTER_2}"
@@ -143,6 +146,7 @@ spec:
   imports: []
 EOF
 
+  wait-routes-ready "${CONTROL_PLANE}"
   fetch-route "${CONTROL_PLANE}"
 
   fetch-tunnel-config "${CLUSTER_2}"
@@ -195,9 +199,9 @@ function steps() {
   done
 }
 
-wait-controller-ready "${CONTROL_PLANE}"
-wait-tunnel-ready "${CLUSTER_1}"
-wait-tunnel-ready "${CLUSTER_2}"
+wait-hubs-ready "${CONTROL_PLANE}"
+wait-pods-ready "${CLUSTER_1}"
+wait-pods-ready "${CLUSTER_2}"
 
 if [[ "${CONTROL_PLANE}" != "${CLUSTER_1}" ]] && [[ "${CONTROL_PLANE}" != "${CLUSTER_2}" ]] ; then
   show-cluster-info "${CONTROL_PLANE}"

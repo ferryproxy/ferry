@@ -51,7 +51,8 @@ metadata:
   namespace: test
 EOF
 
-  sleep 1
+  wait-routepolicies-ready "${CONTROL_PLANE}"
+  wait-routes-ready "${CONTROL_PLANE}"
   fetch-routepolicy "${CONTROL_PLANE}"
   fetch-route "${CONTROL_PLANE}"
   fetch-tunnel-config "${CLUSTER_2}"
@@ -103,7 +104,8 @@ metadata:
   namespace: test
 EOF
 
-  sleep 1
+  wait-routepolicies-ready "${CONTROL_PLANE}"
+  wait-routes-ready "${CONTROL_PLANE}"
   fetch-routepolicy "${CONTROL_PLANE}"
   fetch-route "${CONTROL_PLANE}"
   fetch-tunnel-config "${CLUSTER_2}"
@@ -155,7 +157,8 @@ metadata:
   namespace: test
 EOF
 
-  sleep 1
+  wait-routepolicies-ready "${CONTROL_PLANE}"
+  wait-routes-ready "${CONTROL_PLANE}"
   fetch-routepolicy "${CONTROL_PLANE}"
   fetch-route "${CONTROL_PLANE}"
   fetch-tunnel-config "${CLUSTER_2}"
@@ -202,7 +205,8 @@ metadata:
   namespace: test
 EOF
 
-  sleep 1
+  wait-routepolicies-ready "${CONTROL_PLANE}"
+  wait-routes-ready "${CONTROL_PLANE}"
   fetch-routepolicy "${CONTROL_PLANE}"
   fetch-route "${CONTROL_PLANE}"
   fetch-tunnel-config "${CLUSTER_2}"
@@ -255,9 +259,9 @@ function steps() {
   done
 }
 
-wait-controller-ready "${CONTROL_PLANE}"
-wait-tunnel-ready "${CLUSTER_1}"
-wait-tunnel-ready "${CLUSTER_2}"
+wait-hubs-ready "${CONTROL_PLANE}"
+wait-pods-ready "${CLUSTER_1}"
+wait-pods-ready "${CLUSTER_2}"
 
 show-cluster-info "${CONTROL_PLANE}"
 
@@ -270,17 +274,17 @@ fetch-tunnel-log "${CLUSTER_1}" &
 steps 10
 
 recreate-tunnel "${CLUSTER_1}"
-wait-tunnel-ready "${CLUSTER_1}"
+wait-pods-ready "${CLUSTER_1}"
 fetch-tunnel-log "${CLUSTER_1}" &
 
 steps 2
 
 recreate-controller "${CONTROL_PLANE}"
-wait-controller-ready "${CONTROL_PLANE}"
+wait-hubs-ready "${CONTROL_PLANE}"
 fetch-controller-log "${CONTROL_PLANE}" &
 
 steps 2
 
 recreate-tunnel "${CLUSTER_2}"
-wait-tunnel-ready "${CLUSTER_2}"
+wait-pods-ready "${CLUSTER_2}"
 fetch-tunnel-log "${CLUSTER_2}" &

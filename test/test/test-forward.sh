@@ -49,7 +49,7 @@ function check-forward-listen() {
   echo "::endgroup::"
 }
 
-wait-tunnel-ready cluster-0
+wait-pods-ready cluster-0
 
 check-forward-dial
 stats
