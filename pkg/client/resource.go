@@ -258,8 +258,6 @@ func (s service) Apply(ctx context.Context, clientset Interface) (err error) {
 			return nil
 		}
 
-		copyLabel(ori.Labels, s.Labels)
-
 		ori.Spec.Ports = s.Spec.Ports
 		_, err = clientset.
 			Kubernetes().
@@ -280,6 +278,18 @@ func (s service) Delete(ctx context.Context, clientset Interface) (err error) {
 	logger.Info("Deleting service",
 		"service", objref.KObj(s),
 	)
+
+	ori, err := clientset.
+		Kubernetes().
+		CoreV1().
+		Services(s.Namespace).
+		Get(ctx, s.Name, metav1.GetOptions{})
+	if err != nil && errors.IsNotFound(err) {
+		return nil
+	}
+	if ori != nil && (len(ori.Labels) == 0 || ori.Labels[consts.LabelGeneratedKey] == "") {
+		return fmt.Errorf("service %s is not managed by ferry", objref.KObj(s))
+	}
 
 	err = clientset.
 		Kubernetes().
@@ -348,6 +358,18 @@ func (s endpoints) Delete(ctx context.Context, clientset Interface) (err error) 
 		"endpoints", objref.KObj(s),
 	)
 
+	ori, err := clientset.
+		Kubernetes().
+		CoreV1().
+		Endpoints(s.Namespace).
+		Get(ctx, s.Name, metav1.GetOptions{})
+	if err != nil && errors.IsNotFound(err) {
+		return nil
+	}
+	if ori != nil && (len(ori.Labels) == 0 || ori.Labels[consts.LabelGeneratedKey] == "") {
+		return fmt.Errorf("endpoints %s is not managed by ferry", objref.KObj(s))
+	}
+
 	err = clientset.
 		Kubernetes().
 		CoreV1().
@@ -392,8 +414,6 @@ func (s configMap) Apply(ctx context.Context, clientset Interface) (err error) {
 		if reflect.DeepEqual(ori.Data, s.Data) {
 			return nil
 		}
-
-		copyLabel(ori.Labels, s.Labels)
 
 		logger.Info("Update configMap",
 			"configMap", objref.KObj(s),
@@ -465,8 +485,6 @@ func (s secret) Apply(ctx context.Context, clientset Interface) (err error) {
 			return nil
 		}
 
-		copyLabel(ori.Labels, s.Labels)
-
 		logger.Info("Update secret",
 			"secret", objref.KObj(s),
 		)
@@ -502,20 +520,4 @@ func (s secret) Delete(ctx context.Context, clientset Interface) (err error) {
 	}
 
 	return nil
-}
-
-func copyLabel(old, new map[string]string) {
-	keys := []string{
-		consts.LabelFerryExportedFromKey,
-		consts.LabelFerryImportedToKey,
-	}
-	for _, key := range keys {
-		if v, ok := new[key]; ok {
-			old[key] = v
-		} else {
-			if _, ok := old[key]; ok {
-				delete(old, key)
-			}
-		}
-	}
 }
