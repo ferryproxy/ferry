@@ -18,6 +18,8 @@ package route
 
 import (
 	"context"
+	"fmt"
+	"reflect"
 	"strings"
 	"sync"
 	"time"
@@ -151,10 +153,42 @@ func (d *MappingController) Sync() {
 	d.try.Try()
 }
 
-func (d *MappingController) SetRoutes(rules []*v1alpha2.Route) {
+func (d *MappingController) SetRoutes(routes []*v1alpha2.Route) {
 	d.mut.Lock()
 	defer d.mut.Unlock()
-	d.routes = rules
+	if reflect.DeepEqual(d.routes, routes) {
+		return
+	}
+	for _, route := range routes {
+		conds := []metav1.Condition{}
+		err := d.updatePort(route)
+		if err != nil {
+			conds = append(conds, metav1.Condition{
+				Type:    v1alpha2.PortsAllocatedCondition,
+				Status:  metav1.ConditionFalse,
+				Reason:  "FailedPortsAllocated",
+				Message: err.Error(),
+			})
+		} else {
+			conds = append(conds, metav1.Condition{
+				Type:   v1alpha2.PortsAllocatedCondition,
+				Status: metav1.ConditionTrue,
+				Reason: v1alpha2.PortsAllocatedCondition,
+			})
+		}
+		err = d.routeInterface.UpdateRouteCondition(route.Name, conds)
+		if err != nil {
+			d.logger.Error(err, "failed to update status")
+		}
+	}
+	deleted := diffobjs.ShouldDeleted(d.routes, routes)
+	for _, route := range deleted {
+		err := d.deletePort(route)
+		if err != nil {
+			d.logger.Error(err, "delete port")
+		}
+	}
+	d.routes = routes
 }
 
 func (d *MappingController) loadLastConfigMap(ctx context.Context, name string, opt metav1.ListOptions) error {
@@ -369,4 +403,41 @@ func (d *MappingController) Close() {
 			}
 		}
 	}
+}
+
+func (c *MappingController) updatePort(f *v1alpha2.Route) error {
+	svc, ok := c.hubInterface.GetService(f.Spec.Export.HubName, f.Spec.Export.Service.Namespace, f.Spec.Export.Service.Name)
+	if !ok {
+		return fmt.Errorf("not found export service")
+	}
+
+	for _, port := range svc.Spec.Ports {
+		if port.Protocol != corev1.ProtocolTCP {
+			continue
+		}
+		_, err := c.hubInterface.GetPortPeer(f.Spec.Import.HubName,
+			f.Spec.Export.HubName, f.Spec.Export.Service.Namespace, f.Spec.Export.Service.Name, port.Port)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (c *MappingController) deletePort(f *v1alpha2.Route) error {
+	svc, ok := c.hubInterface.GetService(f.Spec.Export.HubName, f.Spec.Export.Service.Namespace, f.Spec.Export.Service.Name)
+	if !ok {
+		return fmt.Errorf("not found export service")
+	}
+	for _, port := range svc.Spec.Ports {
+		if port.Protocol != corev1.ProtocolTCP {
+			continue
+		}
+		_, err := c.hubInterface.DeletePortPeer(f.Spec.Import.HubName,
+			f.Spec.Export.HubName, f.Spec.Export.Service.Namespace, f.Spec.Export.Service.Name, port.Port)
+		if err == nil {
+			continue
+		}
+	}
+	return nil
 }
