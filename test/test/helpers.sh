@@ -137,32 +137,32 @@ function check-should-failed() {
 function recreate-tunnel() {
   local cluster=$1
   kubectl --kubeconfig="${KUBECONFIG_DIR}/${cluster}.yaml" delete pod -n ferry-tunnel-system --all
-  wait-tunnel-ready "${cluster}"
 }
 
-function wait-tunnel-ready() {
+function wait-pods-ready() {
   local cluster=$1
 
-  while [[ $(kubectl --kubeconfig="${KUBECONFIG_DIR}/${cluster}.yaml" get pod -n ferry-tunnel-system | grep "Running") == "" ]]; do
-    echo "waiting for cluster ${cluster} tunnel to be ready"
-    sleep 5
-  done
-  echo "cluster ${cluster} tunnel is ready"
+  kubectl --kubeconfig="${KUBECONFIG_DIR}/${cluster}.yaml" wait --for=condition=Ready pods --all -A
+}
+
+function wait-hubs-ready() {
+  local cluster=$1
+  kubectl --kubeconfig="${KUBECONFIG_DIR}/${cluster}.yaml" wait --for=condition=Ready hubs.traffic.ferryproxy.io --all -A
+}
+
+function wait-routes-ready() {
+  local cluster=$1
+  kubectl --kubeconfig="${KUBECONFIG_DIR}/${cluster}.yaml" wait --for=condition=Ready routes.traffic.ferryproxy.io --all -A
+}
+
+function wait-routepolicies-ready() {
+  local cluster=$1
+  kubectl --kubeconfig="${KUBECONFIG_DIR}/${cluster}.yaml" wait --for=condition=Ready routepolicies.traffic.ferryproxy.io --all -A
 }
 
 function recreate-controller() {
   local cluster=$1
   kubectl --kubeconfig="${KUBECONFIG_DIR}/${cluster}.yaml" delete pod -n ferry-system --all
-}
-
-function wait-controller-ready() {
-  local cluster=$1
-
-  while [[ $(kubectl --kubeconfig="${KUBECONFIG_DIR}/${cluster}.yaml" get pod -n ferry-system | grep "Running") == "" ]]; do
-    echo "waiting for cluster ${cluster} controller to be ready"
-    sleep 5
-  done
-  echo "cluster ${cluster} controller is ready"
 }
 
 function show-cluster-info() {

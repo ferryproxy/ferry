@@ -40,9 +40,9 @@ function check-import-reachable() {
   echo "::endgroup::"
 }
 
-wait-tunnel-ready cluster-0
+wait-pods-ready cluster-0
 fetch-tunnel-log cluster-0 &
-wait-tunnel-ready cluster-1
+wait-pods-ready cluster-1
 fetch-tunnel-log cluster-1 &
 
 fetch-tunnel-config cluster-0

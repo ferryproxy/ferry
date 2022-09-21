@@ -50,6 +50,7 @@ spec:
         name: sum
 EOF
 
+  wait-routes-ready "${CONTROL_PLANE}"
   fetch-route "${CONTROL_PLANE}"
   fetch-tunnel-config "${CLUSTER_3}"
   fetch-tunnel-config "${CLUSTER_2}"
@@ -66,10 +67,10 @@ EOF
   echo "::endgroup::"
 }
 
-wait-controller-ready "${CONTROL_PLANE}"
-wait-tunnel-ready "${CLUSTER_1}"
-wait-tunnel-ready "${CLUSTER_2}"
-wait-tunnel-ready "${CLUSTER_3}"
+wait-hubs-ready "${CONTROL_PLANE}"
+wait-pods-ready "${CLUSTER_1}"
+wait-pods-ready "${CLUSTER_2}"
+wait-pods-ready "${CLUSTER_3}"
 
 show-cluster-info "${CONTROL_PLANE}"
 
