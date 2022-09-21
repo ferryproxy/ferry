@@ -41,7 +41,5 @@ var (
 
 	FerryRegisterImage = env.GetEnv("FERRY_REGISTER_IMAGE", FerryImagePrefix+"/ferry-register:"+FerryVersion)
 
-	FerryJoinerImage = env.GetEnv("FERRY_JOINER_IMAGE", FerryImagePrefix+"/ferry-joiner:"+FerryVersion)
-
 	AutoPlaceholders = "AUTO"
 )

@@ -24,7 +24,7 @@ import (
 	"github.com/ferryproxy/ferry/pkg/ferryctl/data_plane"
 	"github.com/ferryproxy/ferry/pkg/ferryctl/kubectl"
 	"github.com/ferryproxy/ferry/pkg/ferryctl/log"
-	"github.com/ferryproxy/ferry/pkg/ferryctl/registry/register"
+	"github.com/ferryproxy/ferry/pkg/ferryctl/register"
 	"github.com/ferryproxy/ferry/pkg/ferryctl/vars"
 	"github.com/spf13/cobra"
 )

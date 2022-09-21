@@ -311,15 +311,3 @@ func commandRun(ctx context.Context, name string, args ...string) ([]byte, error
 	}
 	return bytes.TrimSpace(out.Bytes()), nil
 }
-
-func (c *Kubectl) LogsJoiner(ctx context.Context) (string, error) {
-	_, err := commandRun(ctx, "kubectl", "--kubeconfig="+c.Kubeconfig, "wait", "-n", consts.FerryTunnelNamespace, "job/ferry-joiner", "--for=condition=Complete")
-	if err != nil {
-		return "", err
-	}
-	out, err := commandRun(ctx, "kubectl", "--kubeconfig="+c.Kubeconfig, "logs", "-n", consts.FerryTunnelNamespace, "job/ferry-joiner")
-	if err != nil {
-		return "", err
-	}
-	return string(out), nil
-}

@@ -45,7 +45,6 @@ func NewCommand(logger log.Logger) *cobra.Command {
 	persistentFlags.StringVar(&vars.FerryControllerImage, "ferry-controller-image", vars.FerryControllerImage, "default ferry controller image")
 	persistentFlags.StringVar(&vars.FerryTunnelImage, "ferry-tunnel-image", vars.FerryTunnelImage, "default ferry tunnel image")
 	persistentFlags.StringVar(&vars.FerryRegisterImage, "ferry-register-image", vars.FerryRegisterImage, "default ferry register image")
-	persistentFlags.StringVar(&vars.FerryJoinerImage, "ferry-joiner-image", vars.FerryJoinerImage, "default ferry joiner image")
 	persistentFlags.StringVar(&vars.ControlPlaneName, "control-plane-name", vars.ControlPlaneName, "default control plane name")
 
 	cmd.AddCommand(
