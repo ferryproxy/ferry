@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/ferryproxy/api/apis/traffic/v1alpha2"
+	"github.com/ferryproxy/ferry/pkg/consts"
 	"github.com/ferryproxy/ferry/pkg/router"
 	"github.com/ferryproxy/ferry/pkg/utils/encoding"
 )
@@ -81,6 +82,9 @@ func Second(conf SecondConfig) (applyResource, otherResource, importAddress stri
 	}
 
 	mc := router.ManualConfig{
+		Labels: map[string]string{
+			consts.TunnelRouteKey: routeName,
+		},
 		RouteName:       routeName,
 		ImportHubName:   importHubName,
 		ImportName:      importName,

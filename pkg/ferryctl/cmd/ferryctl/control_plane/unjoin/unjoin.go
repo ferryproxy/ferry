@@ -14,37 +14,35 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package data_plane
+package unjoin
 
 import (
-	"fmt"
-
-	"github.com/ferryproxy/ferry/pkg/ferryctl/cmd/ferryctl/data_plane/auto"
-	initcmd "github.com/ferryproxy/ferry/pkg/ferryctl/cmd/ferryctl/data_plane/init"
-	"github.com/ferryproxy/ferry/pkg/ferryctl/cmd/ferryctl/data_plane/join"
-	"github.com/ferryproxy/ferry/pkg/ferryctl/cmd/ferryctl/data_plane/remove"
+	"github.com/ferryproxy/ferry/pkg/consts"
+	"github.com/ferryproxy/ferry/pkg/ferryctl/kubectl"
 	"github.com/ferryproxy/ferry/pkg/ferryctl/log"
 	"github.com/spf13/cobra"
 )
 
 func NewCommand(logger log.Logger) *cobra.Command {
+
 	cmd := &cobra.Command{
-		Args: cobra.NoArgs,
-		Use:  "data-plane",
+		Args: cobra.ExactArgs(1),
+		Use:  "unjoin <data-plane-hub-name>",
 		Aliases: []string{
-			"data",
-			"d",
+			"u",
 		},
-		Short: "Data plane commands",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return fmt.Errorf("subcommand is required")
+		Short: "Control plane unjoin commands",
+		Long:  `Control plane unjoin commands`,
+		RunE: func(cmd *cobra.Command, args []string) (err error) {
+			dataPlaneName := args[0]
+
+			kctl := kubectl.NewKubectl()
+			kctl.Wrap(cmd.Context(), "delete", "hub.traffic.ferryproxy.io", "-n", consts.FerryNamespace, dataPlaneName)
+			kctl.Wrap(cmd.Context(), "delete", "secret", "-n", consts.FerryNamespace, dataPlaneName)
+			kctl.Wrap(cmd.Context(), "delete", "cm", "-n", consts.FerryTunnelNamespace, "-l", consts.TunnelRouteKey+"="+dataPlaneName)
+
+			return nil
 		},
 	}
-	cmd.AddCommand(
-		initcmd.NewCommand(logger),
-		join.NewCommand(logger),
-		auto.NewCommand(logger),
-		remove.NewCommand(logger),
-	)
 	return cmd
 }

@@ -14,15 +14,11 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package data_plane
+package remove
 
 import (
-	"fmt"
-
-	"github.com/ferryproxy/ferry/pkg/ferryctl/cmd/ferryctl/data_plane/auto"
-	initcmd "github.com/ferryproxy/ferry/pkg/ferryctl/cmd/ferryctl/data_plane/init"
-	"github.com/ferryproxy/ferry/pkg/ferryctl/cmd/ferryctl/data_plane/join"
-	"github.com/ferryproxy/ferry/pkg/ferryctl/cmd/ferryctl/data_plane/remove"
+	"github.com/ferryproxy/ferry/pkg/consts"
+	"github.com/ferryproxy/ferry/pkg/ferryctl/kubectl"
 	"github.com/ferryproxy/ferry/pkg/ferryctl/log"
 	"github.com/spf13/cobra"
 )
@@ -30,21 +26,19 @@ import (
 func NewCommand(logger log.Logger) *cobra.Command {
 	cmd := &cobra.Command{
 		Args: cobra.NoArgs,
-		Use:  "data-plane",
+		Use:  "remove",
 		Aliases: []string{
-			"data",
-			"d",
+			"r",
 		},
-		Short: "Data plane commands",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return fmt.Errorf("subcommand is required")
+		Short: "Data plane remove commands",
+		Long:  `Data plane remove commands`,
+		RunE: func(cmd *cobra.Command, args []string) (err error) {
+			kctl := kubectl.NewKubectl()
+			kctl.Wrap(cmd.Context(), "delete", "cm", "-n", consts.FerryTunnelNamespace, "--all")
+			kctl.Wrap(cmd.Context(), "delete", "ns", consts.FerryTunnelNamespace)
+
+			return nil
 		},
 	}
-	cmd.AddCommand(
-		initcmd.NewCommand(logger),
-		join.NewCommand(logger),
-		auto.NewCommand(logger),
-		remove.NewCommand(logger),
-	)
 	return cmd
 }
