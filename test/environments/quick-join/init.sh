@@ -34,9 +34,11 @@ echo ferryctl control-plane init "--control-plane-tunnel-address=${HOST_IP}:3100
 ferryctl control-plane init "--control-plane-tunnel-address=${HOST_IP}:31000" --enable-register
 echo "::endgroup::"
 
+kubectl --kubeconfig="${KUBECONFIG}" wait --for=condition=Ready pods --all -A
+
 echo "::group::Data plane cluster-1 initialization"
 KUBECONFIG="${KUBECONFIG_DIR}/cluster-1.yaml"
 echo "KUBECONFIG=${KUBECONFIG}"
-echo ferryctl data-plane auto cluster-1 "--register-url=http://${HOST_IP}:31080/hubs"
-ferryctl data-plane auto cluster-1 "--register-url=http://${HOST_IP}:31080/hubs"
+echo ferryctl data-plane auto cluster-1 "--register-url=http://127.0.0.1:31080/hubs"
+ferryctl data-plane auto cluster-1 "--register-url=http://127.0.0.1:31080/hubs"
 echo "::endgroup::"
