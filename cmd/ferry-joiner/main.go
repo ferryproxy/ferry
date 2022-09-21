@@ -54,6 +54,15 @@ func main() {
 	}
 
 	cli := client.NewClient(registerServiceURL)
+	isExist, err := cli.Exist(ctx, hubName)
+	if err != nil {
+		log.Error(err, "failed to head")
+		os.Exit(1)
+	}
+	if isExist {
+		log.Info("the name is already taken", "hubName", hubName)
+		os.Exit(1)
+	}
 	err = cli.Create(ctx, hubName)
 	if err != nil {
 		log.Error(err, "failed to join")

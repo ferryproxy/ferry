@@ -17,13 +17,12 @@ limitations under the License.
 package auto
 
 import (
-	"strings"
+	"fmt"
 
 	"github.com/ferryproxy/ferry/pkg/ferryctl/data_plane"
-	"github.com/ferryproxy/ferry/pkg/ferryctl/kubectl"
 	"github.com/ferryproxy/ferry/pkg/ferryctl/log"
-	"github.com/ferryproxy/ferry/pkg/ferryctl/registry/joiner"
 	"github.com/ferryproxy/ferry/pkg/ferryctl/vars"
+	"github.com/ferryproxy/ferry/pkg/services/registry/client"
 	"github.com/spf13/cobra"
 )
 
@@ -50,19 +49,18 @@ func NewCommand(logger log.Logger) *cobra.Command {
 				return err
 			}
 
-			data, err := joiner.BuildInitJoiner(joiner.BuildInitJoinerConfig{
-				Image:   vars.FerryJoinerImage,
-				BaseURL: registerBaseURL,
-				HubName: name,
-			})
-
-			kctl := kubectl.NewKubectl()
-			err = kctl.ApplyWithReader(cmd.Context(), strings.NewReader(data))
+			cli := client.NewClient(registerBaseURL)
+			isExist, err := cli.IsExist(cmd.Context(), name)
 			if err != nil {
 				return err
 			}
-
-			kctl.LogsJoiner(cmd.Context())
+			if isExist {
+				return fmt.Errorf("the name %s is already taken", name)
+			}
+			err = cli.Create(cmd.Context(), name)
+			if err != nil {
+				return err
+			}
 			return nil
 		},
 	}

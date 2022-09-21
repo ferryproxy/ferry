@@ -48,8 +48,8 @@ type Controller struct {
 func (c *Controller) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 	switch r.Method {
-	case http.MethodGet, http.MethodHead:
-		c.Get(rw, r)
+	case http.MethodHead:
+		c.Head(rw, r)
 	case http.MethodPost:
 		c.Create(rw, r)
 	default:
@@ -58,8 +58,8 @@ func (c *Controller) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// Get GET,HEAD /hubs/{hub_name}
-func (c *Controller) Get(rw http.ResponseWriter, r *http.Request) {
+// Head HEAD /hubs/{hub_name}
+func (c *Controller) Head(rw http.ResponseWriter, r *http.Request) {
 	c.mut.Lock()
 	defer c.mut.Unlock()
 
