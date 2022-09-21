@@ -84,7 +84,7 @@ func NewCommand(logger log.Logger) *cobra.Command {
 					"--import-service=" + dataPlaneName + "-apiserver.ferry-tunnel-system",
 					"--import-hub=" + vars.ControlPlaneName + "-" + dataPlaneName + "-apiserver",
 					"--export-hub=" + dataPlaneName + "-apiserver",
-					"--route-name=" + dataPlaneName + "-apiserver",
+					"--route-name=" + dataPlaneName,
 				}
 				dataPlaneApiserverAddress = dataPlaneName + "-apiserver.ferry-tunnel-system:443"
 			} else {
@@ -97,7 +97,7 @@ func NewCommand(logger log.Logger) *cobra.Command {
 						"--import-service=" + dataPlaneName + "-apiserver.ferry-tunnel-system",
 						"--import-hub=" + vars.ControlPlaneName + "-" + dataPlaneName + "-apiserver",
 						"--export-hub=" + dataPlaneName + "-apiserver",
-						"--route-name=" + dataPlaneName + "-apiserver",
+						"--route-name=" + dataPlaneName,
 					}
 					dataPlaneApiserverAddress = dataPlaneName + "-apiserver.ferry-tunnel-system:443"
 				}

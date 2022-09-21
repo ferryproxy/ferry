@@ -24,6 +24,7 @@ import (
 )
 
 type ManualConfig struct {
+	Labels           map[string]string
 	RouteName        string
 	ExportHubName    string
 	ExportName       string
@@ -46,6 +47,7 @@ type Manual struct {
 func NewManual(conf ManualConfig) *Manual {
 	return &Manual{
 		dateSource: dateSource{
+			labels:           conf.Labels,
 			routeName:        conf.RouteName,
 			exportHubName:    conf.ExportHubName,
 			exportName:       conf.ExportName,
@@ -64,6 +66,7 @@ func NewManual(conf ManualConfig) *Manual {
 }
 
 type dateSource struct {
+	labels           map[string]string
 	routeName        string
 	exportHubName    string
 	exportName       string
@@ -135,7 +138,7 @@ func (f *Manual) BuildResource() (out map[string][]objref.KMetadata, err error) 
 	}
 
 	router := NewRouter(RouterConfig{
-		Labels:        map[string]string{},
+		Labels:        f.dateSource.labels,
 		ExportHubName: f.dateSource.exportHubName,
 		ImportHubName: f.dateSource.importHubName,
 		HubInterface:  &f.dateSource,

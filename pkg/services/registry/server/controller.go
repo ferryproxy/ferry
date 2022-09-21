@@ -118,6 +118,9 @@ func (c *Controller) Create(rw http.ResponseWriter, r *http.Request) {
 	}
 
 	mc := router.ManualConfig{
+		Labels: map[string]string{
+			consts.TunnelRouteKey: joinHub.HubName,
+		},
 		RouteName:       exportHubName + "-apiserver",
 		ImportHubName:   importHubName,
 		ImportName:      exportHubName + "-apiserver",

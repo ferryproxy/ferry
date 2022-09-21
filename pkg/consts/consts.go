@@ -51,6 +51,8 @@ const (
 	TunnelConfigAuthorizedValue = "authorized"
 	TunnelConfigAllowValue      = "allows"
 
+	TunnelRouteKey = "tunnel.ferryproxy.io/route"
+
 	TunnelRulesConfigPath   = "/var/ferry/bridge.conf"
 	TunnelSshDir            = "/var/ferry/ssh/"
 	TunnelSshHomeDir        = "/var/ferry/home/"
