@@ -24,8 +24,8 @@ import (
 	"sync"
 
 	"github.com/ferryproxy/api/apis/traffic/v1alpha2"
-	versioned "github.com/ferryproxy/client-go/generated/clientset/versioned"
 	externalversions "github.com/ferryproxy/client-go/generated/informers/externalversions"
+	"github.com/ferryproxy/ferry/pkg/client"
 	"github.com/ferryproxy/ferry/pkg/conditions"
 	"github.com/ferryproxy/ferry/pkg/consts"
 	"github.com/ferryproxy/ferry/pkg/utils/objref"
@@ -50,7 +50,7 @@ type RouteController struct {
 	mut                    sync.RWMutex
 	mutStatus              sync.Mutex
 	config                 *restclient.Config
-	clientset              versioned.Interface
+	clientset              client.Interface
 	hubInterface           HubInterface
 	cache                  map[string]*v1alpha2.Route
 	cacheMappingController map[clusterPair]*MappingController
@@ -91,13 +91,13 @@ func (c *RouteController) Run(ctx context.Context) error {
 	c.logger.Info("Route controller started")
 	defer c.logger.Info("Route controller stopped")
 
-	clientset, err := versioned.NewForConfig(c.config)
+	clientset, err := client.NewForConfig(c.config)
 	if err != nil {
 		return err
 	}
 	c.clientset = clientset
 	c.ctx = ctx
-	informerFactory := externalversions.NewSharedInformerFactoryWithOptions(clientset, 0,
+	informerFactory := externalversions.NewSharedInformerFactoryWithOptions(clientset.Ferry(), 0,
 		externalversions.WithNamespace(c.namespace))
 	informer := informerFactory.
 		Traffic().
@@ -170,6 +170,7 @@ func (c *RouteController) UpdateRouteCondition(name string, conditions []metav1.
 		return err
 	}
 	_, err = c.clientset.
+		Ferry().
 		TrafficV1alpha2().
 		Routes(fp.Namespace).
 		Patch(c.ctx, fp.Name, types.MergePatchType, data, metav1.PatchOptions{}, "status")

@@ -18,7 +18,7 @@ package router
 
 import (
 	"github.com/ferryproxy/api/apis/traffic/v1alpha2"
-	"github.com/ferryproxy/ferry/pkg/resource"
+	"github.com/ferryproxy/ferry/pkg/utils/objref"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -124,7 +124,7 @@ func (f *dateSource) GetAuthorized(name string) string {
 	return ""
 }
 
-func (f *Manual) BuildResource() (out map[string][]resource.Resourcer, err error) {
+func (f *Manual) BuildResource() (out map[string][]objref.KMetadata, err error) {
 	solution := NewSolution(SolutionConfig{
 		GetHubGateway: f.dateSource.GetHubGateway,
 	})

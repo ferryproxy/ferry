@@ -23,7 +23,7 @@ import (
 
 	"github.com/ferryproxy/api/apis/traffic/v1alpha2"
 	"github.com/ferryproxy/ferry/pkg/consts"
-	"github.com/ferryproxy/ferry/pkg/resource"
+	"github.com/ferryproxy/ferry/pkg/utils/objref"
 	"github.com/google/go-cmp/cmp"
 	"github.com/wzshiming/sshproxy/permissions"
 	corev1 "k8s.io/api/core/v1"
@@ -34,7 +34,7 @@ func TestRouter(t *testing.T) {
 	tests := []struct {
 		name string
 		args fakeRouter
-		want map[string][]resource.Resourcer
+		want map[string][]objref.KMetadata
 	}{
 		{
 			name: "export reachable",
@@ -122,94 +122,86 @@ func TestRouter(t *testing.T) {
 				},
 			},
 
-			want: map[string][]resource.Resourcer{
+			want: map[string][]objref.KMetadata{
 				"export": {
-					resource.ConfigMap{
-						ConfigMap: &corev1.ConfigMap{
-							ObjectMeta: metav1.ObjectMeta{
-								Name:      "import-authorized",
-								Namespace: "ferry-tunnel-system",
-								Labels: map[string]string{
-									"tunnel.ferryproxy.io/config": "authorized",
-								},
-							},
-							Data: map[string]string{
-								"authorized_keys": "import-authorized import@ferryproxy.io",
-								"user":            "import",
+					&corev1.ConfigMap{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "import-authorized",
+							Namespace: "ferry-tunnel-system",
+							Labels: map[string]string{
+								"tunnel.ferryproxy.io/config": "authorized",
 							},
 						},
+						Data: map[string]string{
+							"authorized_keys": "import-authorized import@ferryproxy.io",
+							"user":            "import",
+						},
 					},
-					resource.ConfigMap{
-						ConfigMap: &corev1.ConfigMap{
-							ObjectMeta: metav1.ObjectMeta{
-								Name:      "svc1-allows-80-10001",
-								Namespace: "ferry-tunnel-system",
-								Labels: map[string]string{
-									"tunnel.ferryproxy.io/config": "allows",
-								},
+					&corev1.ConfigMap{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "svc1-allows-80-10001",
+							Namespace: "ferry-tunnel-system",
+							Labels: map[string]string{
+								"tunnel.ferryproxy.io/config": "allows",
 							},
-							Data: map[string]string{
-								consts.TunnelRulesAllowKey: toJson(
-									map[string]AllowList{
-										"import": {
-											DirectTcpip: permissions.Permission{
-												Allows: []string{
-													"svc1.test.svc:80",
-												},
+						},
+						Data: map[string]string{
+							consts.TunnelRulesAllowKey: toJson(
+								map[string]AllowList{
+									"import": {
+										DirectTcpip: permissions.Permission{
+											Allows: []string{
+												"svc1.test.svc:80",
 											},
 										},
 									},
-								),
-							},
+								},
+							),
 						},
 					},
 				},
 				"import": {
-					resource.ConfigMap{
-						ConfigMap: &corev1.ConfigMap{
-							ObjectMeta: metav1.ObjectMeta{
-								Name:      "svc1-service",
-								Namespace: "ferry-tunnel-system",
-								Labels: map[string]string{
-									"tunnel.ferryproxy.io/config": "service",
-								},
-							},
-							Data: map[string]string{
-								"export_hub_name":          "export",
-								"export_service_name":      "svc1",
-								"export_service_namespace": "test",
-								"import_service_name":      "svc1",
-								"import_service_namespace": "test",
-								"ports":                    `[{"name":"http","protocol":"TCP","port":80,"targetPort":10001}]`,
+					&corev1.ConfigMap{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "svc1-service",
+							Namespace: "ferry-tunnel-system",
+							Labels: map[string]string{
+								"tunnel.ferryproxy.io/config": "service",
 							},
 						},
+						Data: map[string]string{
+							"export_hub_name":          "export",
+							"export_service_name":      "svc1",
+							"export_service_namespace": "test",
+							"import_service_name":      "svc1",
+							"import_service_namespace": "test",
+							"ports":                    `[{"name":"http","protocol":"TCP","port":80,"targetPort":10001}]`,
+						},
 					},
-					resource.ConfigMap{
-						ConfigMap: &corev1.ConfigMap{
-							ObjectMeta: metav1.ObjectMeta{
-								Name:      "svc1-tunnel-80-10001",
-								Namespace: "ferry-tunnel-system",
-								Labels: map[string]string{
-									"tunnel.ferryproxy.io/config": "rules",
-								},
+					&corev1.ConfigMap{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "svc1-tunnel-80-10001",
+							Namespace: "ferry-tunnel-system",
+							Labels: map[string]string{
+								"tunnel.ferryproxy.io/config": "rules",
 							},
-							Data: map[string]string{
-								consts.TunnelRulesKey: toJson(
-									[]Chain{
-										{
-											Bind: []string{
-												":10001",
-											},
-											Proxy: []string{
-												"svc1.test.svc:80",
-												"ssh://import@10.0.0.1:8080?identity_file=/var/ferry/ssh/identity&target_hub=export",
-												"socks5://reception2",
-												"socks5://reception1",
-											},
+						},
+						Data: map[string]string{
+							consts.TunnelRulesKey: toJson(
+								[]Chain{
+									{
+										Bind: []string{
+											":10001",
+										},
+										Proxy: []string{
+											"svc1.test.svc:80",
+											"ssh://import@10.0.0.1:8080?identity_file=/var/ferry/ssh/identity&target_hub=export",
+											"socks5://reception2",
+											"socks5://reception1",
 										},
 									},
-								),
-							},
+								},
+							),
 						},
 					},
 				},
@@ -300,94 +292,86 @@ func TestRouter(t *testing.T) {
 					},
 				},
 			},
-			want: map[string][]resource.Resourcer{
+			want: map[string][]objref.KMetadata{
 				"import": {
-					resource.ConfigMap{
-						ConfigMap: &corev1.ConfigMap{
-							ObjectMeta: metav1.ObjectMeta{
-								Name:      "export-authorized",
-								Namespace: "ferry-tunnel-system",
-								Labels: map[string]string{
-									"tunnel.ferryproxy.io/config": "authorized",
-								},
-							},
-							Data: map[string]string{
-								"authorized_keys": "export-authorized export@ferryproxy.io",
-								"user":            "export",
+					&corev1.ConfigMap{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "export-authorized",
+							Namespace: "ferry-tunnel-system",
+							Labels: map[string]string{
+								"tunnel.ferryproxy.io/config": "authorized",
 							},
 						},
+						Data: map[string]string{
+							"authorized_keys": "export-authorized export@ferryproxy.io",
+							"user":            "export",
+						},
 					},
-					resource.ConfigMap{
-						ConfigMap: &corev1.ConfigMap{
-							ObjectMeta: metav1.ObjectMeta{
-								Name:      "svc1-allows-80-10001",
-								Namespace: "ferry-tunnel-system",
-								Labels: map[string]string{
-									"tunnel.ferryproxy.io/config": "allows",
-								},
+					&corev1.ConfigMap{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "svc1-allows-80-10001",
+							Namespace: "ferry-tunnel-system",
+							Labels: map[string]string{
+								"tunnel.ferryproxy.io/config": "allows",
 							},
-							Data: map[string]string{
-								consts.TunnelRulesAllowKey: toJson(
-									map[string]AllowList{
-										"export": {
-											TcpipForward: permissions.Permission{
-												Allows: []string{
-													":10001",
-												},
+						},
+						Data: map[string]string{
+							consts.TunnelRulesAllowKey: toJson(
+								map[string]AllowList{
+									"export": {
+										TcpipForward: permissions.Permission{
+											Allows: []string{
+												":10001",
 											},
 										},
 									},
-								),
-							},
+								},
+							),
 						},
 					},
-					resource.ConfigMap{
-						ConfigMap: &corev1.ConfigMap{
-							ObjectMeta: metav1.ObjectMeta{
-								Name:      "svc1-service",
-								Namespace: "ferry-tunnel-system",
-								Labels: map[string]string{
-									"tunnel.ferryproxy.io/config": "service",
-								},
+					&corev1.ConfigMap{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "svc1-service",
+							Namespace: "ferry-tunnel-system",
+							Labels: map[string]string{
+								"tunnel.ferryproxy.io/config": "service",
 							},
-							Data: map[string]string{
-								"export_hub_name":          "export",
-								"export_service_name":      "svc1",
-								"export_service_namespace": "test",
-								"import_service_name":      "svc1",
-								"import_service_namespace": "test",
-								"ports":                    `[{"name":"http","protocol":"TCP","port":80,"targetPort":10001}]`,
-							},
+						},
+						Data: map[string]string{
+							"export_hub_name":          "export",
+							"export_service_name":      "svc1",
+							"export_service_namespace": "test",
+							"import_service_name":      "svc1",
+							"import_service_namespace": "test",
+							"ports":                    `[{"name":"http","protocol":"TCP","port":80,"targetPort":10001}]`,
 						},
 					},
 				},
 				"export": {
-					resource.ConfigMap{
-						ConfigMap: &corev1.ConfigMap{
-							ObjectMeta: metav1.ObjectMeta{
-								Name:      "svc1-tunnel-80-10001",
-								Namespace: "ferry-tunnel-system",
-								Labels: map[string]string{
-									"tunnel.ferryproxy.io/config": "rules",
-								},
+					&corev1.ConfigMap{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "svc1-tunnel-80-10001",
+							Namespace: "ferry-tunnel-system",
+							Labels: map[string]string{
+								"tunnel.ferryproxy.io/config": "rules",
 							},
-							Data: map[string]string{
-								consts.TunnelRulesKey: toJson(
-									[]Chain{
-										{
-											Bind: []string{
-												":10001",
-												"ssh://export@10.0.0.2:8080?identity_file=/var/ferry/ssh/identity&target_hub=import",
-												"socks5://reception2",
-												"socks5://reception1",
-											},
-											Proxy: []string{
-												"svc1.test.svc:80",
-											},
+						},
+						Data: map[string]string{
+							consts.TunnelRulesKey: toJson(
+								[]Chain{
+									{
+										Bind: []string{
+											":10001",
+											"ssh://export@10.0.0.2:8080?identity_file=/var/ferry/ssh/identity&target_hub=import",
+											"socks5://reception2",
+											"socks5://reception1",
+										},
+										Proxy: []string{
+											"svc1.test.svc:80",
 										},
 									},
-								),
-							},
+								},
+							),
 						},
 					},
 				},
@@ -481,142 +465,130 @@ func TestRouter(t *testing.T) {
 					},
 				},
 			},
-			want: map[string][]resource.Resourcer{
+			want: map[string][]objref.KMetadata{
 				"export": {
-					resource.ConfigMap{
-						ConfigMap: &corev1.ConfigMap{
-							ObjectMeta: metav1.ObjectMeta{
-								Name:      "svc1-tunnel-80-10001",
-								Namespace: "ferry-tunnel-system",
-								Labels: map[string]string{
-									"tunnel.ferryproxy.io/config": "rules",
-								},
+					&corev1.ConfigMap{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "svc1-tunnel-80-10001",
+							Namespace: "ferry-tunnel-system",
+							Labels: map[string]string{
+								"tunnel.ferryproxy.io/config": "rules",
 							},
-							Data: map[string]string{
-								consts.TunnelRulesKey: toJson(
-									[]Chain{
-										{
-											Bind: []string{
-												"unix:///dev/shm/svc1-tunnel-80-10001.socks",
-												"ssh://export@10.0.0.3:8080?identity_file=/var/ferry/ssh/identity&target_hub=proxy",
-											},
-											Proxy: []string{
-												"svc1.test.svc:80",
-											},
+						},
+						Data: map[string]string{
+							consts.TunnelRulesKey: toJson(
+								[]Chain{
+									{
+										Bind: []string{
+											"unix:///dev/shm/svc1-tunnel-80-10001.socks",
+											"ssh://export@10.0.0.3:8080?identity_file=/var/ferry/ssh/identity&target_hub=proxy",
+										},
+										Proxy: []string{
+											"svc1.test.svc:80",
 										},
 									},
-								),
-							},
+								},
+							),
 						},
 					},
 				},
 				"import": {
-					resource.ConfigMap{
-						ConfigMap: &corev1.ConfigMap{
-							ObjectMeta: metav1.ObjectMeta{
-								Name:      "svc1-service",
-								Namespace: "ferry-tunnel-system",
-								Labels: map[string]string{
-									"tunnel.ferryproxy.io/config": "service",
-								},
-							},
-							Data: map[string]string{
-								"export_hub_name":          "export",
-								"export_service_name":      "svc1",
-								"export_service_namespace": "test",
-								"import_service_name":      "svc1",
-								"import_service_namespace": "test",
-								"ports":                    `[{"name":"http","protocol":"TCP","port":80,"targetPort":10001}]`,
+					&corev1.ConfigMap{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "svc1-service",
+							Namespace: "ferry-tunnel-system",
+							Labels: map[string]string{
+								"tunnel.ferryproxy.io/config": "service",
 							},
 						},
+						Data: map[string]string{
+							"export_hub_name":          "export",
+							"export_service_name":      "svc1",
+							"export_service_namespace": "test",
+							"import_service_name":      "svc1",
+							"import_service_namespace": "test",
+							"ports":                    `[{"name":"http","protocol":"TCP","port":80,"targetPort":10001}]`,
+						},
 					},
-					resource.ConfigMap{
-						ConfigMap: &corev1.ConfigMap{
-							ObjectMeta: metav1.ObjectMeta{
-								Name:      "svc1-tunnel-80-10001",
-								Namespace: "ferry-tunnel-system",
-								Labels: map[string]string{
-									"tunnel.ferryproxy.io/config": "rules",
-								},
+					&corev1.ConfigMap{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "svc1-tunnel-80-10001",
+							Namespace: "ferry-tunnel-system",
+							Labels: map[string]string{
+								"tunnel.ferryproxy.io/config": "rules",
 							},
-							Data: map[string]string{
-								consts.TunnelRulesKey: toJson(
-									[]Chain{
-										{
-											Bind: []string{
-												":10001",
-											},
-											Proxy: []string{
-												"unix:///dev/shm/svc1-tunnel-80-10001.socks",
-												"ssh://import@10.0.0.3:8080?identity_file=/var/ferry/ssh/identity&target_hub=proxy",
-											},
+						},
+						Data: map[string]string{
+							consts.TunnelRulesKey: toJson(
+								[]Chain{
+									{
+										Bind: []string{
+											":10001",
+										},
+										Proxy: []string{
+											"unix:///dev/shm/svc1-tunnel-80-10001.socks",
+											"ssh://import@10.0.0.3:8080?identity_file=/var/ferry/ssh/identity&target_hub=proxy",
 										},
 									},
-								),
-							},
+								},
+							),
 						},
 					},
 				},
 				"proxy": {
-					resource.ConfigMap{
-						ConfigMap: &corev1.ConfigMap{
-							ObjectMeta: metav1.ObjectMeta{
-								Name:      "export-authorized",
-								Namespace: "ferry-tunnel-system",
-								Labels: map[string]string{
-									"tunnel.ferryproxy.io/config": "authorized",
-								},
-							},
-							Data: map[string]string{
-								"authorized_keys": "export-authorized export@ferryproxy.io",
-								"user":            "export",
+					&corev1.ConfigMap{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "export-authorized",
+							Namespace: "ferry-tunnel-system",
+							Labels: map[string]string{
+								"tunnel.ferryproxy.io/config": "authorized",
 							},
 						},
-					},
-					resource.ConfigMap{
-						ConfigMap: &corev1.ConfigMap{
-							ObjectMeta: metav1.ObjectMeta{
-								Name:      "import-authorized",
-								Namespace: "ferry-tunnel-system",
-								Labels: map[string]string{
-									"tunnel.ferryproxy.io/config": "authorized",
-								},
-							},
-							Data: map[string]string{
-								"authorized_keys": "import-authorized import@ferryproxy.io",
-								"user":            "import",
-							},
+						Data: map[string]string{
+							"authorized_keys": "export-authorized export@ferryproxy.io",
+							"user":            "export",
 						},
 					},
-					resource.ConfigMap{
-						ConfigMap: &corev1.ConfigMap{
-							ObjectMeta: metav1.ObjectMeta{
-								Name:      "svc1-allows-80-10001",
-								Namespace: "ferry-tunnel-system",
-								Labels: map[string]string{
-									"tunnel.ferryproxy.io/config": "allows",
-								},
+					&corev1.ConfigMap{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "import-authorized",
+							Namespace: "ferry-tunnel-system",
+							Labels: map[string]string{
+								"tunnel.ferryproxy.io/config": "authorized",
 							},
-							Data: map[string]string{
-								consts.TunnelRulesAllowKey: toJson(
-									map[string]AllowList{
-										"export": {
-											StreamlocalForward: permissions.Permission{
-												Allows: []string{
-													"/dev/shm/svc1-tunnel-80-10001.socks",
-												},
-											},
-										},
-										"import": {
-											DirectStreamlocal: permissions.Permission{
-												Allows: []string{
-													"/dev/shm/svc1-tunnel-80-10001.socks",
-												},
+						},
+						Data: map[string]string{
+							"authorized_keys": "import-authorized import@ferryproxy.io",
+							"user":            "import",
+						},
+					},
+					&corev1.ConfigMap{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "svc1-allows-80-10001",
+							Namespace: "ferry-tunnel-system",
+							Labels: map[string]string{
+								"tunnel.ferryproxy.io/config": "allows",
+							},
+						},
+						Data: map[string]string{
+							consts.TunnelRulesAllowKey: toJson(
+								map[string]AllowList{
+									"export": {
+										StreamlocalForward: permissions.Permission{
+											Allows: []string{
+												"/dev/shm/svc1-tunnel-80-10001.socks",
 											},
 										},
 									},
-								),
-							},
+									"import": {
+										DirectStreamlocal: permissions.Permission{
+											Allows: []string{
+												"/dev/shm/svc1-tunnel-80-10001.socks",
+											},
+										},
+									},
+								},
+							),
 						},
 					},
 				},
@@ -649,7 +621,7 @@ type fakeRouter struct {
 	Routes   []*v1alpha2.Route
 }
 
-func (f *fakeRouter) BuildResource() (out map[string][]resource.Resourcer, err error) {
+func (f *fakeRouter) BuildResource() (out map[string][]objref.KMetadata, err error) {
 	hubs := map[string]*v1alpha2.Hub{}
 	for _, hub := range f.Hubs {
 		hubs[hub.Name] = hub

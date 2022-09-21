@@ -24,6 +24,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ferryproxy/ferry/pkg/client"
 	"github.com/ferryproxy/ferry/pkg/consts"
 	"github.com/ferryproxy/ferry/pkg/router"
 	"github.com/ferryproxy/ferry/pkg/utils/objref"
@@ -32,7 +33,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/informers"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -42,7 +42,7 @@ type AllowController struct {
 	namespace     string
 	labelSelector string
 	cache         map[string]map[string]*router.AllowList
-	clientset     kubernetes.Interface
+	clientset     client.Interface
 	logger        logr.Logger
 	try           *trybuffer.TryBuffer
 }
@@ -51,7 +51,7 @@ type AllowControllerConfig struct {
 	Namespace     string
 	LabelSelector string
 	Logger        logr.Logger
-	Clientset     kubernetes.Interface
+	Clientset     client.Interface
 }
 
 func NewAllowController(conf *AllowControllerConfig) *AllowController {
@@ -70,7 +70,7 @@ func (s *AllowController) Run(ctx context.Context) error {
 		defer s.mut.Unlock()
 		s.sync()
 	}, time.Second/10)
-	informer := informers.NewSharedInformerFactoryWithOptions(s.clientset, 0,
+	informer := informers.NewSharedInformerFactoryWithOptions(s.clientset.Kubernetes(), 0,
 		informers.WithNamespace(s.namespace),
 		informers.WithTweakListOptions(func(options *metav1.ListOptions) {
 			options.LabelSelector = s.labelSelector

@@ -20,11 +20,11 @@ import (
 	"bytes"
 	"encoding/json"
 
-	"k8s.io/apimachinery/pkg/runtime"
+	"github.com/ferryproxy/ferry/pkg/utils/objref"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
-func MarshalJSON(objs ...runtime.Object) ([]byte, error) {
+func MarshalJSON(objs ...objref.KMetadata) ([]byte, error) {
 	buf := bytes.NewBuffer(nil)
 	for _, obj := range objs {
 		gvks, _, err := scheme.ObjectKinds(obj)

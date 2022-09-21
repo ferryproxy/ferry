@@ -26,7 +26,6 @@ import (
 
 	"github.com/ferryproxy/api/apis/traffic/v1alpha2"
 	"github.com/ferryproxy/ferry/pkg/consts"
-	"github.com/ferryproxy/ferry/pkg/resource"
 	"github.com/ferryproxy/ferry/pkg/utils/objref"
 	"github.com/wzshiming/sshproxy/permissions"
 	corev1 "k8s.io/api/core/v1"
@@ -327,8 +326,8 @@ func sshURI(address string, target string) string {
 	return fmt.Sprintf("ssh://%s?target_hub=%s", address, target)
 }
 
-func ConvertInboundToResourcers(name, namespace string, labels map[string]string, cs map[string]*Bound) (map[string][]resource.Resourcer, error) {
-	out := map[string][]resource.Resourcer{}
+func ConvertInboundToResourcers(name, namespace string, labels map[string]string, cs map[string]*Bound) (map[string][]objref.KMetadata, error) {
+	out := map[string][]objref.KMetadata{}
 
 	for inboundHub, bound := range cs {
 		if len(bound.Inbound) == 0 {
@@ -344,7 +343,7 @@ func ConvertInboundToResourcers(name, namespace string, labels map[string]string
 	return out, nil
 }
 
-func convertInboundToResourcer(name, namespace string, labels map[string]string, b *Bound) ([]resource.Resourcer, error) {
+func convertInboundToResourcer(name, namespace string, labels map[string]string, b *Bound) ([]objref.KMetadata, error) {
 	inbound, err := json.Marshal(b.Inbound)
 	if err != nil {
 		return nil, err
@@ -361,11 +360,11 @@ func convertInboundToResourcer(name, namespace string, labels map[string]string,
 		},
 	}
 
-	return []resource.Resourcer{resource.ConfigMap{configMap}}, nil
+	return []objref.KMetadata{configMap}, nil
 }
 
-func ConvertInboundAuthorizedToResourcers(suffix, namespace string, labels map[string]string, cs map[string]*Bound, getAuthorized func(name string) string) (map[string][]resource.Resourcer, error) {
-	out := map[string][]resource.Resourcer{}
+func ConvertInboundAuthorizedToResourcers(suffix, namespace string, labels map[string]string, cs map[string]*Bound, getAuthorized func(name string) string) (map[string][]objref.KMetadata, error) {
+	out := map[string][]objref.KMetadata{}
 	for inboundHub, bound := range cs {
 		if len(bound.Inbound) == 0 {
 			continue
@@ -382,7 +381,7 @@ func ConvertInboundAuthorizedToResourcers(suffix, namespace string, labels map[s
 	return out, nil
 }
 
-func convertInboundAuthorizedToResourcer(hubName, name, namespace string, labels map[string]string, getAuthorized func(name string) string) ([]resource.Resourcer, error) {
+func convertInboundAuthorizedToResourcer(hubName, name, namespace string, labels map[string]string, getAuthorized func(name string) string) ([]objref.KMetadata, error) {
 	authorized := strings.TrimSpace(getAuthorized(hubName))
 	if authorized == "" {
 		return nil, fmt.Errorf("failed get authorized %q", hubName)
@@ -398,11 +397,11 @@ func convertInboundAuthorizedToResourcer(hubName, name, namespace string, labels
 			consts.TunnelAuthorizedKeyName: fmt.Sprintf("%s %s@ferryproxy.io", authorized, hubName),
 		},
 	}
-	return []resource.Resourcer{resource.ConfigMap{configMap}}, nil
+	return []objref.KMetadata{configMap}, nil
 }
 
-func ConvertOutboundToResourcers(name, namespace string, labels map[string]string, cs map[string]*Bound) (map[string][]resource.Resourcer, error) {
-	out := map[string][]resource.Resourcer{}
+func ConvertOutboundToResourcers(name, namespace string, labels map[string]string, cs map[string]*Bound) (map[string][]objref.KMetadata, error) {
+	out := map[string][]objref.KMetadata{}
 
 	for k, bound := range cs {
 		if len(bound.Outbound) == 0 {
@@ -418,7 +417,7 @@ func ConvertOutboundToResourcers(name, namespace string, labels map[string]strin
 	return out, nil
 }
 
-func convertOutboundToResourcer(name, namespace string, labels map[string]string, b *Bound) ([]resource.Resourcer, error) {
+func convertOutboundToResourcer(name, namespace string, labels map[string]string, b *Bound) ([]objref.KMetadata, error) {
 	outbound, err := json.Marshal(b.Outbound)
 	if err != nil {
 		return nil, err
@@ -435,7 +434,7 @@ func convertOutboundToResourcer(name, namespace string, labels map[string]string
 		},
 	}
 
-	return []resource.Resourcer{resource.ConfigMap{configMap}}, nil
+	return []objref.KMetadata{configMap}, nil
 }
 
 type Chain struct {

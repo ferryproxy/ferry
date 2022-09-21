@@ -19,12 +19,12 @@ package encoding
 import (
 	"bytes"
 
-	"k8s.io/apimachinery/pkg/runtime"
+	"github.com/ferryproxy/ferry/pkg/utils/objref"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/yaml"
 )
 
-func MarshalYAML(objs ...runtime.Object) ([]byte, error) {
+func MarshalYAML(objs ...objref.KMetadata) ([]byte, error) {
 	buf := bytes.NewBuffer(nil)
 	for i, obj := range objs {
 		if i != 0 {

@@ -21,13 +21,13 @@ import (
 	"testing"
 
 	"github.com/ferryproxy/api/apis/traffic/v1alpha2"
+	"github.com/ferryproxy/ferry/pkg/utils/objref"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 )
 
 func TestMarshalYAML(t *testing.T) {
 	type args struct {
-		objs []runtime.Object
+		objs []objref.KMetadata
 	}
 	tests := []struct {
 		name    string
@@ -37,7 +37,7 @@ func TestMarshalYAML(t *testing.T) {
 	}{
 		{
 			args: args{
-				objs: []runtime.Object{
+				objs: []objref.KMetadata{
 					&corev1.Pod{},
 					&v1alpha2.Hub{},
 				},

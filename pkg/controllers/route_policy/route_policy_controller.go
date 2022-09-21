@@ -27,11 +27,10 @@ import (
 	"sync"
 
 	"github.com/ferryproxy/api/apis/traffic/v1alpha2"
-	versioned "github.com/ferryproxy/client-go/generated/clientset/versioned"
 	externalversions "github.com/ferryproxy/client-go/generated/informers/externalversions"
+	"github.com/ferryproxy/ferry/pkg/client"
 	"github.com/ferryproxy/ferry/pkg/conditions"
 	"github.com/ferryproxy/ferry/pkg/consts"
-	"github.com/ferryproxy/ferry/pkg/resource"
 	"github.com/ferryproxy/ferry/pkg/utils/diffobjs"
 	"github.com/ferryproxy/ferry/pkg/utils/maps"
 	"github.com/ferryproxy/ferry/pkg/utils/objref"
@@ -62,7 +61,7 @@ type RoutePolicyController struct {
 	mut                    sync.RWMutex
 	mutStatus              sync.Mutex
 	config                 *restclient.Config
-	clientset              versioned.Interface
+	clientset              client.Interface
 	hubInterface           HubInterface
 	cache                  map[string]*v1alpha2.RoutePolicy
 	namespace              string
@@ -104,10 +103,10 @@ func (c *RoutePolicyController) get(name string) *v1alpha2.RoutePolicy {
 }
 
 func (c *RoutePolicyController) Run(ctx context.Context) error {
-	c.logger.Info("RoutePolicy controller started")
-	defer c.logger.Info("RoutePolicy controller stopped")
+	c.logger.Info("routePolicy controller started")
+	defer c.logger.Info("routePolicy controller stopped")
 
-	clientset, err := versioned.NewForConfig(c.config)
+	clientset, err := client.NewForConfig(c.config)
 	if err != nil {
 		return err
 	}
@@ -115,6 +114,7 @@ func (c *RoutePolicyController) Run(ctx context.Context) error {
 	c.ctx = ctx
 
 	list, err := c.clientset.
+		Ferry().
 		TrafficV1alpha2().
 		Routes(c.namespace).
 		List(ctx, metav1.ListOptions{
@@ -127,7 +127,7 @@ func (c *RoutePolicyController) Run(ctx context.Context) error {
 		c.cacheRoutePolicyRoutes = append(c.cacheRoutePolicyRoutes, item.DeepCopy())
 	}
 
-	informerFactory := externalversions.NewSharedInformerFactoryWithOptions(clientset, 0,
+	informerFactory := externalversions.NewSharedInformerFactoryWithOptions(clientset.Ferry(), 0,
 		externalversions.WithNamespace(c.namespace))
 	informer := informerFactory.
 		Traffic().
@@ -149,7 +149,7 @@ func (c *RoutePolicyController) UpdateRoutePolicyCondition(name string, routeCou
 	defer c.mutStatus.Unlock()
 	fp := c.get(name)
 	if fp == nil {
-		return fmt.Errorf("not found RoutePolicy %s", name)
+		return fmt.Errorf("not found routePolicy %s", name)
 	}
 
 	status := fp.Status.DeepCopy()
@@ -181,6 +181,7 @@ func (c *RoutePolicyController) UpdateRoutePolicyCondition(name string, routeCou
 		return err
 	}
 	_, err = c.clientset.
+		Ferry().
 		TrafficV1alpha2().
 		RoutePolicies(fp.Namespace).
 		Patch(c.ctx, fp.Name, types.MergePatchType, data, metav1.PatchOptions{}, "status")
@@ -268,16 +269,14 @@ func (c *RoutePolicyController) Sync(ctx context.Context) {
 	}()
 
 	for _, r := range deleted {
-		mr := resource.Route{r}
-		err := mr.Delete(ctx, c.clientset)
+		err := client.Delete(ctx, c.clientset, r)
 		if err != nil {
 			c.logger.Error(err, "failed to delete mapping rule")
 		}
 	}
 
 	for _, r := range updated {
-		mr := resource.Route{r}
-		err := mr.Apply(ctx, c.clientset)
+		err := client.Apply(ctx, c.clientset, r)
 		if err != nil {
 			c.logger.Error(err, "failed to update mapping rule")
 		}

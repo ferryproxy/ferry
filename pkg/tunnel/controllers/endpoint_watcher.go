@@ -24,10 +24,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ferryproxy/ferry/pkg/client"
 	"github.com/ferryproxy/ferry/pkg/utils/trybuffer"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
 )
 
 type EndpointWatcher struct {
@@ -36,14 +36,14 @@ type EndpointWatcher struct {
 	try       *trybuffer.TryBuffer
 	name      string
 	namespace string
-	clientset kubernetes.Interface
+	clientset client.Interface
 	syncFunc  func(ips []string)
 }
 
 type EndpointWatcherConfig struct {
 	Name      string
 	Namespace string
-	Clientset kubernetes.Interface
+	Clientset client.Interface
 	SyncFunc  func(ips []string)
 }
 
@@ -59,6 +59,7 @@ func NewEndpointWatcher(conf *EndpointWatcherConfig) *EndpointWatcher {
 func (e *EndpointWatcher) Run(ctx context.Context) error {
 	fieldSelector := fmt.Sprintf("metadata.name=%s", e.name)
 	watch, err := e.clientset.
+		Kubernetes().
 		CoreV1().
 		Endpoints(e.namespace).
 		Watch(ctx, metav1.ListOptions{

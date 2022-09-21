@@ -23,8 +23,8 @@ import (
 	"time"
 
 	"github.com/ferryproxy/api/apis/traffic/v1alpha2"
+	"github.com/ferryproxy/ferry/pkg/client"
 	"github.com/ferryproxy/ferry/pkg/consts"
-	"github.com/ferryproxy/ferry/pkg/resource"
 	"github.com/ferryproxy/ferry/pkg/router"
 	"github.com/ferryproxy/ferry/pkg/router/discovery"
 	"github.com/ferryproxy/ferry/pkg/utils/diffobjs"
@@ -34,7 +34,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/kubernetes"
 )
 
 type HubInterface interface {
@@ -43,7 +42,7 @@ type HubInterface interface {
 	GetHub(name string) *v1alpha2.Hub
 	GetHubGateway(hubName string, forHub string) v1alpha2.HubSpecGateway
 	GetAuthorized(name string) string
-	Clientset(name string) kubernetes.Interface
+	Clientset(name string) client.Interface
 	LoadPortPeer(importHubName string, cluster, namespace, name string, port, bindPort int32) error
 	GetPortPeer(importHubName string, cluster, namespace, name string, port int32) (int32, error)
 	DeletePortPeer(importHubName string, cluster, namespace, name string, port int32) (int32, error)
@@ -73,7 +72,7 @@ func NewMappingController(conf MappingControllerConfig) *MappingController {
 		logger:         conf.Logger,
 		hubInterface:   conf.HubInterface,
 		routeInterface: conf.RouteInterface,
-		cacheResources: map[string][]resource.Resourcer{},
+		cacheResources: map[string][]objref.KMetadata{},
 	}
 }
 
@@ -93,7 +92,7 @@ type MappingController struct {
 	routeInterface RouteInterface
 
 	routes         []*v1alpha2.Route
-	cacheResources map[string][]resource.Resourcer
+	cacheResources map[string][]objref.KMetadata
 	logger         logr.Logger
 	way            []string
 
@@ -160,6 +159,7 @@ func (d *MappingController) SetRoutes(rules []*v1alpha2.Route) {
 
 func (d *MappingController) loadLastConfigMap(ctx context.Context, name string, opt metav1.ListOptions) error {
 	cmList, err := d.hubInterface.Clientset(name).
+		Kubernetes().
 		CoreV1().
 		ConfigMaps(d.namespace).
 		List(ctx, opt)
@@ -167,7 +167,7 @@ func (d *MappingController) loadLastConfigMap(ctx context.Context, name string, 
 		return err
 	}
 	for _, item := range cmList.Items {
-		d.cacheResources[name] = append(d.cacheResources[name], resource.ConfigMap{item.DeepCopy()})
+		d.cacheResources[name] = append(d.cacheResources[name], item.DeepCopy())
 	}
 	for _, item := range cmList.Items {
 		if item.Labels != nil && item.Labels[consts.TunnelConfigKey] == consts.TunnelConfigDiscoverValue {
@@ -300,7 +300,7 @@ func (d *MappingController) sync() {
 		deleled := diffobjs.ShouldDeleted(cacheResource, updated)
 		cli := d.hubInterface.Clientset(hubName)
 		for _, r := range updated {
-			err := r.Apply(ctx, cli)
+			err := client.Apply(ctx, cli, r)
 			if err != nil {
 				d.logger.Error(err, "Apply resource",
 					"hub", objref.KRef(consts.FerryNamespace, hubName),
@@ -309,7 +309,7 @@ func (d *MappingController) sync() {
 		}
 
 		for _, r := range deleled {
-			err := r.Delete(ctx, cli)
+			err := client.Delete(ctx, cli, r)
 			if err != nil {
 				d.logger.Error(err, "Delete resource",
 					"hub", objref.KRef(consts.FerryNamespace, hubName),
@@ -325,7 +325,7 @@ func (d *MappingController) sync() {
 		}
 		cli := d.hubInterface.Clientset(hubName)
 		for _, r := range caches {
-			err := r.Delete(ctx, cli)
+			err := client.Apply(ctx, cli, r)
 			if err != nil {
 				d.logger.Error(err, "Delete resource",
 					"hub", objref.KRef(consts.FerryNamespace, hubName),
@@ -361,7 +361,7 @@ func (d *MappingController) Close() {
 	for hubName, caches := range d.cacheResources {
 		cli := d.hubInterface.Clientset(hubName)
 		for _, r := range caches {
-			err := r.Delete(ctx, cli)
+			err := client.Delete(ctx, cli, r)
 			if err != nil {
 				d.logger.Error(err, "Delete resource",
 					"hub", objref.KRef(consts.FerryNamespace, hubName),

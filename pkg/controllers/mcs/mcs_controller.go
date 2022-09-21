@@ -24,9 +24,8 @@ import (
 	"sync"
 
 	"github.com/ferryproxy/api/apis/traffic/v1alpha2"
-	ferryversioned "github.com/ferryproxy/client-go/generated/clientset/versioned"
+	"github.com/ferryproxy/ferry/pkg/client"
 	"github.com/ferryproxy/ferry/pkg/consts"
-	"github.com/ferryproxy/ferry/pkg/resource"
 	"github.com/ferryproxy/ferry/pkg/utils/diffobjs"
 	"github.com/ferryproxy/ferry/pkg/utils/objref"
 	"github.com/go-logr/logr"
@@ -34,7 +33,6 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	restclient "k8s.io/client-go/rest"
 	"sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
-	"sigs.k8s.io/mcs-api/pkg/client/clientset/versioned"
 )
 
 type HubInterface interface {
@@ -50,8 +48,7 @@ type MCSControllerConfig struct {
 
 type MCSController struct {
 	ctx                context.Context
-	clientset          versioned.Interface
-	ferryClientset     *ferryversioned.Clientset
+	clientset          client.Interface
 	config             *restclient.Config
 	logger             logr.Logger
 	namespace          string
@@ -70,13 +67,14 @@ func NewMCSController(conf *MCSControllerConfig) *MCSController {
 }
 
 func (m *MCSController) Start(ctx context.Context) error {
-	clientset, err := ferryversioned.NewForConfig(m.config)
+	clientset, err := client.NewForConfig(m.config)
 	if err != nil {
 		return err
 	}
-	m.ferryClientset = clientset
+	m.clientset = clientset
 
-	list, err := m.ferryClientset.
+	list, err := m.clientset.
+		Ferry().
 		TrafficV1alpha2().
 		RoutePolicies(m.namespace).
 		List(ctx, metav1.ListOptions{
@@ -101,33 +99,31 @@ func (m *MCSController) Sync(ctx context.Context) {
 	updated := mcsToRoutePolicies(importMap, exportMap)
 
 	if reflect.DeepEqual(m.cacheRoutePolicies, updated) {
-		m.logger.Info("RoutePolicy not modified")
+		m.logger.Info("routePolicy not modified")
 		return
 	}
 
-	m.logger.Info("Update RoutePolicy with mcs",
+	m.logger.Info("Update routePolicy with mcs",
 		"size", len(updated),
 	)
 
-	// Update the cache of RoutePolicy
+	// Update the cache of routePolicy
 	deleted := diffobjs.ShouldDeleted(m.cacheRoutePolicies, updated)
 	defer func() {
 		m.cacheRoutePolicies = updated
 	}()
 
 	for _, r := range updated {
-		mr := resource.RoutePolicy{r}
-		err := mr.Apply(ctx, m.ferryClientset)
+		err := client.Apply(ctx, m.clientset, r)
 		if err != nil {
-			m.logger.Error(err, "failed to update RoutePolicy")
+			m.logger.Error(err, "failed to update routePolicy")
 		}
 	}
 
 	for _, r := range deleted {
-		mr := resource.RoutePolicy{r}
-		err := mr.Delete(ctx, m.ferryClientset)
+		err := client.Delete(ctx, m.clientset, r)
 		if err != nil {
-			m.logger.Error(err, "failed to delete RoutePolicy")
+			m.logger.Error(err, "failed to delete routePolicy")
 		}
 	}
 }

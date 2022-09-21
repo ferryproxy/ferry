@@ -23,18 +23,18 @@ import (
 	"sort"
 	"sync"
 
+	"github.com/ferryproxy/ferry/pkg/client"
 	"github.com/ferryproxy/ferry/pkg/consts"
 	"github.com/ferryproxy/ferry/pkg/utils/objref"
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/informers"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 )
 
 type ConfigWatcher struct {
-	clientset     kubernetes.Interface
+	clientset     client.Interface
 	namespace     string
 	labelSelector string
 	logger        logr.Logger
@@ -44,7 +44,7 @@ type ConfigWatcher struct {
 }
 
 type ConfigWatcherConfig struct {
-	Clientset     kubernetes.Interface
+	Clientset     client.Interface
 	Logger        logr.Logger
 	Namespace     string
 	LabelSelector string
@@ -64,7 +64,7 @@ func NewConfigWatcher(conf *ConfigWatcherConfig) *ConfigWatcher {
 }
 
 func (c *ConfigWatcher) Run(ctx context.Context) error {
-	informer := informers.NewSharedInformerFactoryWithOptions(c.clientset, 0,
+	informer := informers.NewSharedInformerFactoryWithOptions(c.clientset.Kubernetes(), 0,
 		informers.WithNamespace(c.namespace),
 		informers.WithTweakListOptions(func(options *metav1.ListOptions) {
 			options.LabelSelector = c.labelSelector

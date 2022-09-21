@@ -28,10 +28,10 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/ferryproxy/ferry/pkg/client"
 	"github.com/ferryproxy/ferry/pkg/consts"
 	"github.com/ferryproxy/ferry/pkg/utils/trybuffer"
 	"github.com/go-logr/logr"
-	"k8s.io/client-go/kubernetes"
 )
 
 type RuntimeController struct {
@@ -42,14 +42,14 @@ type RuntimeController struct {
 	namespace     string
 	labelSelector string
 	logger        logr.Logger
-	clientset     kubernetes.Interface
+	clientset     client.Interface
 }
 
 type RuntimeControllerConfig struct {
 	Namespace     string
 	LabelSelector string
 	Logger        logr.Logger
-	Clientset     kubernetes.Interface
+	Clientset     client.Interface
 }
 
 func NewRuntimeController(conf *RuntimeControllerConfig) *RuntimeController {

@@ -22,13 +22,13 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ferryproxy/ferry/pkg/client"
 	"github.com/ferryproxy/ferry/pkg/utils/objref"
 	"github.com/ferryproxy/ferry/pkg/utils/trybuffer"
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/informers"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -37,7 +37,7 @@ type clusterServiceCache struct {
 	ctx       context.Context
 	cancel    context.CancelFunc
 
-	clientset kubernetes.Interface
+	clientset client.Interface
 	cache     map[objref.ObjectRef]*corev1.Service
 	callback  map[string]func()
 
@@ -50,7 +50,7 @@ type clusterServiceCache struct {
 }
 
 type clusterServiceCacheConfig struct {
-	Clientset kubernetes.Interface
+	Clientset client.Interface
 	Logger    logr.Logger
 }
 
@@ -64,7 +64,7 @@ func newClusterServiceCache(conf clusterServiceCacheConfig) *clusterServiceCache
 	return c
 }
 
-func (c *clusterServiceCache) ResetClientset(clientset kubernetes.Interface) error {
+func (c *clusterServiceCache) ResetClientset(clientset client.Interface) error {
 	c.mut.Lock()
 	defer c.mut.Unlock()
 
@@ -74,7 +74,7 @@ func (c *clusterServiceCache) ResetClientset(clientset kubernetes.Interface) err
 	}
 	c.ctx, c.cancel = context.WithCancel(c.parentCtx)
 	c.clientset = clientset
-	informerFactory := informers.NewSharedInformerFactoryWithOptions(c.clientset, 0)
+	informerFactory := informers.NewSharedInformerFactoryWithOptions(c.clientset.Kubernetes(), 0)
 	informer := informerFactory.
 		Core().
 		V1().

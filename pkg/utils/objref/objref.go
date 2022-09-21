@@ -18,6 +18,8 @@ package objref
 
 import (
 	"fmt"
+
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 // ObjectRef references a kubernetes object
@@ -36,6 +38,7 @@ func (ref ObjectRef) String() string {
 type KMetadata interface {
 	GetName() string
 	GetNamespace() string
+	runtime.Object
 }
 
 func KObj[T KMetadata](obj T) ObjectRef {

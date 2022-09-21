@@ -23,8 +23,8 @@ import (
 	"time"
 
 	"github.com/ferryproxy/api/apis/traffic/v1alpha2"
-	"github.com/ferryproxy/ferry/pkg/resource"
 	"github.com/ferryproxy/ferry/pkg/router"
+	"github.com/ferryproxy/ferry/pkg/utils/encoding"
 )
 
 type SecondConfig struct {
@@ -111,11 +111,11 @@ func Second(conf SecondConfig) (applyResource, otherResource, importAddress stri
 		return "", "", "", fmt.Errorf("failed build resource: output is empty")
 	}
 
-	importResource, err := resource.MarshalYAML(resources[importHubName]...)
+	importResource, err := encoding.MarshalYAML(resources[importHubName]...)
 	if err != nil {
 		return "", "", "", err
 	}
-	exportResource, err := resource.MarshalYAML(resources[exportHubName]...)
+	exportResource, err := encoding.MarshalYAML(resources[exportHubName]...)
 	if err != nil {
 		return "", "", "", err
 	}
