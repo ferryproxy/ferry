@@ -174,6 +174,7 @@ func (c *Controller) Create(rw http.ResponseWriter, r *http.Request) {
 			Name:      joinHub.HubName,
 			Namespace: consts.FerryNamespace,
 		},
+		Type: "traffic.ferryproxy.io/kubeconfig-key",
 		Data: map[string][]byte{
 			"kubeconfig": []byte(kubeconfig),
 		},
