@@ -107,10 +107,6 @@ func (m *MappingController) Start(ctx context.Context) error {
 	m.mut.Lock()
 	defer m.mut.Unlock()
 
-	m.logger.Info("DataPlane controller started")
-	defer func() {
-		m.logger.Info("DataPlane controller stopped")
-	}()
 	m.ctx = ctx
 
 	m.solution = router.NewSolution(router.SolutionConfig{
