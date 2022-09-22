@@ -115,7 +115,9 @@ func (c *clusterServiceCache) Start(ctx context.Context) error {
 
 func (c *clusterServiceCache) Close() {
 	c.try.Close()
-	c.cancel()
+	if c.cancel != nil {
+		c.cancel()
+	}
 }
 
 func (c *clusterServiceCache) ForEach(fun func(svc *corev1.Service)) {

@@ -171,10 +171,14 @@ func (c *HubController) UpdateHubConditions(name string, conditions []metav1.Con
 	return err
 }
 
-func (c *HubController) Clientset(name string) client.Interface {
+func (c *HubController) Clientset(hubName string) (client.Interface, error) {
 	c.mut.RLock()
 	defer c.mut.RUnlock()
-	return c.cacheClientset[name]
+	clientset, ok := c.cacheClientset[hubName]
+	if !ok {
+		return nil, fmt.Errorf("hub %q is disconnected", hubName)
+	}
+	return clientset, nil
 }
 
 func (c *HubController) GetService(hubName string, namespace, name string) (*corev1.Service, bool) {
@@ -297,20 +301,20 @@ func (c *HubController) onAdd(obj interface{}) {
 				"hub", objref.KObj(f),
 			)
 		}
-	} else {
-		c.cacheClientset[f.Name] = clientset
-		err = c.UpdateHubConditions(f.Name, []metav1.Condition{
-			{
-				Type:   v1alpha2.ConnectedCondition,
-				Status: metav1.ConditionTrue,
-				Reason: "Connected",
-			},
-		})
-		if err != nil {
-			c.logger.Error(err, "failed to update status",
-				"hub", objref.KObj(f),
-			)
-		}
+		return
+	}
+	c.cacheClientset[f.Name] = clientset
+	err = c.UpdateHubConditions(f.Name, []metav1.Condition{
+		{
+			Type:   v1alpha2.ConnectedCondition,
+			Status: metav1.ConditionTrue,
+			Reason: "Connected",
+		},
+	})
+	if err != nil {
+		c.logger.Error(err, "failed to update status",
+			"hub", objref.KObj(f),
+		)
 	}
 
 	host := c.GetTunnelAddressInControlPlane(f.Name)
@@ -356,6 +360,9 @@ func IsEnabledMCS(f *v1alpha2.Hub) bool {
 }
 
 func (c *HubController) updateAuthorized(name string) error {
+	if c.cacheClientset[name] == nil {
+		return fmt.Errorf("hub %q is disconnected", name)
+	}
 	secret, err := c.cacheClientset[name].
 		Kubernetes().
 		CoreV1().

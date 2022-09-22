@@ -44,7 +44,7 @@ type HubInterface interface {
 	GetHub(name string) *v1alpha2.Hub
 	GetHubGateway(hubName string, forHub string) v1alpha2.HubSpecGateway
 	GetAuthorized(name string) string
-	Clientset(name string) client.Interface
+	Clientset(hubName string) (client.Interface, error)
 	LoadPortPeer(importHubName string, cluster, namespace, name string, port, bindPort int32) error
 	GetPortPeer(importHubName string, cluster, namespace, name string, port int32) (int32, error)
 	DeletePortPeer(importHubName string, cluster, namespace, name string, port int32) (int32, error)
@@ -188,7 +188,11 @@ func (m *MappingController) SetRoutes(routes []*v1alpha2.Route) {
 }
 
 func (m *MappingController) loadLastConfigMap(ctx context.Context, name string, opt metav1.ListOptions) error {
-	cmList, err := m.hubInterface.Clientset(name).
+	clientset, err := m.hubInterface.Clientset(name)
+	if err != nil {
+		return err
+	}
+	cmList, err := clientset.
 		Kubernetes().
 		CoreV1().
 		ConfigMaps(m.namespace).
@@ -328,7 +332,13 @@ func (m *MappingController) sync() {
 	for hubName, updated := range resources {
 		cacheResource := m.cacheResources[hubName]
 		deleled := diffobjs.ShouldDeleted(cacheResource, updated)
-		cli := m.hubInterface.Clientset(hubName)
+		cli, err := m.hubInterface.Clientset(hubName)
+		if err != nil {
+			m.logger.Error(err, "Clientset",
+				"hub", objref.KRef(consts.FerryNamespace, hubName),
+			)
+			continue
+		}
 		for _, r := range updated {
 			err := client.Apply(ctx, cli, r)
 			if err != nil {
@@ -353,7 +363,13 @@ func (m *MappingController) sync() {
 		if ok && len(v) != 0 {
 			continue
 		}
-		cli := m.hubInterface.Clientset(hubName)
+		cli, err := m.hubInterface.Clientset(hubName)
+		if err != nil {
+			m.logger.Error(err, "Clientset",
+				"hub", objref.KRef(consts.FerryNamespace, hubName),
+			)
+			continue
+		}
 		for _, r := range caches {
 			err := client.Apply(ctx, cli, r)
 			if err != nil {
@@ -389,7 +405,13 @@ func (m *MappingController) Close() {
 	ctx := context.Background()
 
 	for hubName, caches := range m.cacheResources {
-		cli := m.hubInterface.Clientset(hubName)
+		cli, err := m.hubInterface.Clientset(hubName)
+		if err != nil {
+			m.logger.Error(err, "Clientset",
+				"hub", objref.KRef(consts.FerryNamespace, hubName),
+			)
+			continue
+		}
 		for _, r := range caches {
 			err := client.Delete(ctx, cli, r)
 			if err != nil {
