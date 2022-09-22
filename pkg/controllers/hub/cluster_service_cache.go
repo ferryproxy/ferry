@@ -27,7 +27,6 @@ import (
 	"github.com/ferryproxy/ferry/pkg/utils/trybuffer"
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/tools/cache"
 )
@@ -91,18 +90,6 @@ func (c *clusterServiceCache) ResetClientset(clientset client.Interface) error {
 	return nil
 }
 
-func (c *clusterServiceCache) waitForCacheSync() bool {
-	err := wait.PollImmediateUntil(1*time.Second,
-		func() (bool, error) {
-			return c.informer.HasSynced(), nil
-		},
-		c.ctx.Done())
-	if err != nil {
-		return false
-	}
-	return true
-}
-
 func (c *clusterServiceCache) Start(ctx context.Context) error {
 	c.parentCtx = ctx
 	c.try = trybuffer.NewTryBuffer(c.sync, time.Second/10)
@@ -121,8 +108,6 @@ func (c *clusterServiceCache) Close() {
 }
 
 func (c *clusterServiceCache) ForEach(fun func(svc *corev1.Service)) {
-	c.waitForCacheSync()
-
 	c.mut.RLock()
 	defer c.mut.RUnlock()
 
@@ -132,8 +117,6 @@ func (c *clusterServiceCache) ForEach(fun func(svc *corev1.Service)) {
 }
 
 func (c *clusterServiceCache) Get(namespace, name string) (*corev1.Service, bool) {
-	c.waitForCacheSync()
-
 	c.mut.RLock()
 	defer c.mut.RUnlock()
 	svc, ok := c.cache[objref.KRef(namespace, name)]

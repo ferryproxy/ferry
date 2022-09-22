@@ -25,7 +25,6 @@ import (
 	"github.com/ferryproxy/ferry/pkg/utils/objref"
 	"github.com/ferryproxy/ferry/pkg/utils/trybuffer"
 	"github.com/go-logr/logr"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 	"sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 	"sigs.k8s.io/mcs-api/pkg/client/clientset/versioned"
@@ -92,18 +91,6 @@ func (c *clusterServiceExportCache) ResetClientset(clientset versioned.Interface
 	return nil
 }
 
-func (c *clusterServiceExportCache) waitForCacheSync() bool {
-	err := wait.PollImmediateUntil(1*time.Second,
-		func() (bool, error) {
-			return c.informer.HasSynced(), nil
-		},
-		c.ctx.Done())
-	if err != nil {
-		return false
-	}
-	return true
-}
-
 func (c *clusterServiceExportCache) Start(ctx context.Context) error {
 	c.parentCtx = ctx
 	c.try = trybuffer.NewTryBuffer(c.syncFunc, time.Second/10)
@@ -120,8 +107,6 @@ func (c *clusterServiceExportCache) Close() {
 }
 
 func (c *clusterServiceExportCache) ForEach(fun func(svc *v1alpha1.ServiceExport)) {
-	c.waitForCacheSync()
-
 	c.mut.RLock()
 	defer c.mut.RUnlock()
 
