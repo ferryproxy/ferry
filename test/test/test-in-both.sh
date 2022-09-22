@@ -23,6 +23,30 @@ CLUSTER_2="${CLUSTER_2:-cluster-2}"
 TARGET_1="${TARGET_1:-web-1}"
 TARGET_2="${TARGET_2:-web-2}"
 
+function with-failed-hub() {
+  resource-apply "${CONTROL_PLANE}" <<EOF
+apiVersion: traffic.ferryproxy.io/v1alpha2
+kind: Hub
+metadata:
+  name: unreachable
+  namespace: ferry-system
+spec:
+  gateway:
+    reachable: false
+---
+apiVersion: v1
+data:
+  kubeconfig: YXBpVmVyc2lvbjogdjEKa2luZDogQ29uZmlnCmN1cnJlbnQtY29udGV4dDogdW5yZWFjaGFibGUKY2x1c3RlcnM6CiAgLSBuYW1lOiB1bnJlYWNoYWJsZQogICAgY2x1c3RlcjoKICAgICAgc2VydmVyOiBodHRwOi8vdW5yZWFjaGFibGU6ODA4MApjb250ZXh0czoKICAtIG5hbWU6IHVucmVhY2hhYmxlCiAgICBjb250ZXh0OgogICAgICBjbHVzdGVyOiB1bnJlYWNoYWJsZQo=
+kind: Secret
+metadata:
+  annotations:
+    traffic.ferryproxy.io/ssh-key: default
+  name: unreachable
+  namespace: ferry-system
+type: traffic.ferryproxy.io/kubeconfig-key
+EOF
+}
+
 function check-both() {
   echo "::group::Check both"
   resource-apply "${CONTROL_PLANE}" <<EOF
@@ -204,6 +228,8 @@ wait-pods-ready "${CONTROL_PLANE}"
 wait-pods-ready "${CLUSTER_1}"
 wait-pods-ready "${CLUSTER_2}"
 
+with-failed-hub "${CONTROL_PLANE}"
+
 show-cluster-info "${CONTROL_PLANE}"
 
 show-hub "${CONTROL_PLANE}"
@@ -221,7 +247,6 @@ fetch-tunnel-log "${CLUSTER_1}" &
 steps 2
 
 recreate-controller "${CONTROL_PLANE}"
-wait-hubs-ready "${CONTROL_PLANE}"
 wait-pods-ready "${CONTROL_PLANE}"
 fetch-controller-log "${CONTROL_PLANE}" &
 

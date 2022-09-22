@@ -279,13 +279,13 @@ func (c *RouteController) startMappingController(ctx context.Context, key cluste
 		return mc, nil
 	}
 
-	exportClientset := c.hubInterface.Clientset(key.Export)
-	if exportClientset == nil {
-		return nil, fmt.Errorf("not found clientset %q", key.Export)
+	_, err := c.hubInterface.Clientset(key.Export)
+	if err != nil {
+		return nil, err
 	}
-	importClientset := c.hubInterface.Clientset(key.Import)
-	if importClientset == nil {
-		return nil, fmt.Errorf("not found clientset %q", key.Import)
+	_, err = c.hubInterface.Clientset(key.Import)
+	if err != nil {
+		return nil, err
 	}
 
 	exportCluster := c.hubInterface.GetHub(key.Export)
@@ -310,7 +310,7 @@ func (c *RouteController) startMappingController(ctx context.Context, key cluste
 	})
 	c.cacheMappingController[key] = mc
 
-	err := mc.Start(ctx)
+	err = mc.Start(ctx)
 	if err != nil {
 		return nil, err
 	}
