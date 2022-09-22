@@ -18,6 +18,8 @@ package route
 
 import (
 	"context"
+	"fmt"
+	"reflect"
 	"strings"
 	"sync"
 	"time"
@@ -101,121 +103,149 @@ type MappingController struct {
 	isClose bool
 }
 
-func (d *MappingController) Start(ctx context.Context) error {
-	d.mut.Lock()
-	defer d.mut.Unlock()
+func (m *MappingController) Start(ctx context.Context) error {
+	m.mut.Lock()
+	defer m.mut.Unlock()
 
-	d.logger.Info("DataPlane controller started")
-	defer func() {
-		d.logger.Info("DataPlane controller stopped")
-	}()
-	d.ctx = ctx
+	m.ctx = ctx
 
-	d.solution = router.NewSolution(router.SolutionConfig{
-		GetHubGateway: d.hubInterface.GetHubGateway,
+	m.solution = router.NewSolution(router.SolutionConfig{
+		GetHubGateway: m.hubInterface.GetHubGateway,
 	})
 
 	// Mark managed by ferry
 	opt := metav1.ListOptions{
-		LabelSelector: labels.SelectorFromSet(d.getLabel()).String(),
+		LabelSelector: labels.SelectorFromSet(m.getLabel()).String(),
 	}
 
-	way, err := d.solution.CalculateWays(d.exportHubName, d.importHubName)
+	way, err := m.solution.CalculateWays(m.exportHubName, m.importHubName)
 	if err != nil {
-		d.logger.Error(err, "calculate ways")
+		m.logger.Error(err, "calculate ways")
 		return err
 	}
-	d.way = way
+	m.way = way
 
 	for _, w := range way {
-		err := d.loadLastConfigMap(ctx, w, opt)
+		err := m.loadLastConfigMap(ctx, w, opt)
 		if err != nil {
 			return err
 		}
 	}
-	d.router = router.NewRouter(router.RouterConfig{
-		Labels:        d.getLabel(),
-		ExportHubName: d.exportHubName,
-		ImportHubName: d.importHubName,
-		HubInterface:  d.hubInterface,
+	m.router = router.NewRouter(router.RouterConfig{
+		Labels:        m.getLabel(),
+		ExportHubName: m.exportHubName,
+		ImportHubName: m.importHubName,
+		HubInterface:  m.hubInterface,
 	})
 
-	d.try = trybuffer.NewTryBuffer(d.sync, time.Second/10)
+	m.try = trybuffer.NewTryBuffer(m.sync, time.Second/10)
 
-	d.hubInterface.RegistryServiceCallback(d.exportHubName, d.importHubName, d.Sync)
+	m.hubInterface.RegistryServiceCallback(m.exportHubName, m.importHubName, m.Sync)
 
 	return nil
 }
 
-func (d *MappingController) Sync() {
-	d.try.Try()
+func (m *MappingController) Sync() {
+	m.try.Try()
 }
 
-func (d *MappingController) SetRoutes(rules []*v1alpha2.Route) {
-	d.mut.Lock()
-	defer d.mut.Unlock()
-	d.routes = rules
+func (m *MappingController) SetRoutes(routes []*v1alpha2.Route) {
+	m.mut.Lock()
+	defer m.mut.Unlock()
+	if reflect.DeepEqual(m.routes, routes) {
+		return
+	}
+	for _, route := range routes {
+		conds := []metav1.Condition{}
+		err := m.updatePort(route)
+		if err != nil {
+			conds = append(conds, metav1.Condition{
+				Type:    v1alpha2.PortsAllocatedCondition,
+				Status:  metav1.ConditionFalse,
+				Reason:  "FailedPortsAllocated",
+				Message: err.Error(),
+			})
+		} else {
+			conds = append(conds, metav1.Condition{
+				Type:   v1alpha2.PortsAllocatedCondition,
+				Status: metav1.ConditionTrue,
+				Reason: v1alpha2.PortsAllocatedCondition,
+			})
+		}
+		err = m.routeInterface.UpdateRouteCondition(route.Name, conds)
+		if err != nil {
+			m.logger.Error(err, "failed to update status")
+		}
+	}
+	deleted := diffobjs.ShouldDeleted(m.routes, routes)
+	for _, route := range deleted {
+		err := m.deletePort(route)
+		if err != nil {
+			m.logger.Error(err, "delete port")
+		}
+	}
+	m.routes = routes
 }
 
-func (d *MappingController) loadLastConfigMap(ctx context.Context, name string, opt metav1.ListOptions) error {
-	cmList, err := d.hubInterface.Clientset(name).
+func (m *MappingController) loadLastConfigMap(ctx context.Context, name string, opt metav1.ListOptions) error {
+	cmList, err := m.hubInterface.Clientset(name).
 		Kubernetes().
 		CoreV1().
-		ConfigMaps(d.namespace).
+		ConfigMaps(m.namespace).
 		List(ctx, opt)
 	if err != nil {
 		return err
 	}
 	for _, item := range cmList.Items {
-		d.cacheResources[name] = append(d.cacheResources[name], item.DeepCopy())
+		m.cacheResources[name] = append(m.cacheResources[name], item.DeepCopy())
 	}
 	for _, item := range cmList.Items {
 		if item.Labels != nil && item.Labels[consts.TunnelConfigKey] == consts.TunnelConfigDiscoverValue {
-			d.loadPorts(name, &item)
+			m.loadPorts(name, &item)
 		}
 	}
 	return nil
 }
 
-func (d *MappingController) loadPorts(importHubName string, cm *corev1.ConfigMap) {
+func (m *MappingController) loadPorts(importHubName string, cm *corev1.ConfigMap) {
 	data, err := discovery.ServiceFrom(cm.Data)
 	if err != nil {
-		d.logger.Error(err, "ServiceFrom")
+		m.logger.Error(err, "ServiceFrom")
 		return
 	}
 	for _, port := range data.Ports {
-		err = d.hubInterface.LoadPortPeer(importHubName, data.ExportHubName, data.ExportServiceNamespace, data.ExportServiceName, port.Port, port.TargetPort)
+		err = m.hubInterface.LoadPortPeer(importHubName, data.ExportHubName, data.ExportServiceNamespace, data.ExportServiceName, port.Port, port.TargetPort)
 		if err != nil {
-			d.logger.Error(err, "LoadPortPeer")
+			m.logger.Error(err, "LoadPortPeer")
 		}
 	}
 }
 
-func (d *MappingController) getLabel() map[string]string {
-	if d.labels != nil {
-		return d.labels
+func (m *MappingController) getLabel() map[string]string {
+	if m.labels != nil {
+		return m.labels
 	}
-	d.labels = map[string]string{
+	m.labels = map[string]string{
 		consts.LabelGeneratedKey:         consts.LabelGeneratedValue,
-		consts.LabelFerryExportedFromKey: d.exportHubName,
-		consts.LabelFerryImportedToKey:   d.importHubName,
+		consts.LabelFerryExportedFromKey: m.exportHubName,
+		consts.LabelFerryImportedToKey:   m.importHubName,
 	}
-	return d.labels
+	return m.labels
 }
 
-func (d *MappingController) sync() {
-	d.mut.Lock()
-	defer d.mut.Unlock()
+func (m *MappingController) sync() {
+	m.mut.Lock()
+	defer m.mut.Unlock()
 
-	if d.isClose {
+	if m.isClose {
 		return
 	}
-	ctx := d.ctx
+	ctx := m.ctx
 
 	// TODO: check for failures sync
 	conds := []metav1.Condition{}
 
-	importHubReady := d.hubInterface.HubReady(d.importHubName)
+	importHubReady := m.hubInterface.HubReady(m.importHubName)
 	if importHubReady {
 		conds = append(conds, metav1.Condition{
 			Type:   v1alpha2.ImportHubReadyCondition,
@@ -230,7 +260,7 @@ func (d *MappingController) sync() {
 		})
 	}
 
-	exportHubReady := d.hubInterface.HubReady(d.exportHubName)
+	exportHubReady := m.hubInterface.HubReady(m.exportHubName)
 	if exportHubReady {
 		conds = append(conds, metav1.Condition{
 			Type:   v1alpha2.ExportHubReadyCondition,
@@ -246,21 +276,21 @@ func (d *MappingController) sync() {
 	}
 
 	defer func() {
-		for _, route := range d.routes {
-			err := d.routeInterface.UpdateRouteCondition(route.Name, conds)
+		for _, route := range m.routes {
+			err := m.routeInterface.UpdateRouteCondition(route.Name, conds)
 			if err != nil {
-				d.logger.Error(err, "failed to update status")
+				m.logger.Error(err, "failed to update status")
 			}
 		}
 	}()
 
-	way, err := d.solution.CalculateWays(d.exportHubName, d.importHubName)
+	way, err := m.solution.CalculateWays(m.exportHubName, m.importHubName)
 	if err != nil {
-		d.logger.Error(err, "calculate ways")
+		m.logger.Error(err, "calculate ways")
 		return
 	}
 
-	resources, err := d.router.BuildResource(d.routes, way)
+	resources, err := m.router.BuildResource(m.routes, way)
 	if err != nil {
 		conds = append(conds,
 			metav1.Condition{
@@ -270,7 +300,7 @@ func (d *MappingController) sync() {
 				Message: err.Error(),
 			},
 		)
-		d.logger.Error(err, "build resource")
+		m.logger.Error(err, "build resource")
 		return
 	}
 	msg := ""
@@ -289,20 +319,20 @@ func (d *MappingController) sync() {
 		},
 	)
 
-	d.way = way
+	m.way = way
 
 	defer func() {
-		d.cacheResources = resources
+		m.cacheResources = resources
 	}()
 
 	for hubName, updated := range resources {
-		cacheResource := d.cacheResources[hubName]
+		cacheResource := m.cacheResources[hubName]
 		deleled := diffobjs.ShouldDeleted(cacheResource, updated)
-		cli := d.hubInterface.Clientset(hubName)
+		cli := m.hubInterface.Clientset(hubName)
 		for _, r := range updated {
 			err := client.Apply(ctx, cli, r)
 			if err != nil {
-				d.logger.Error(err, "Apply resource",
+				m.logger.Error(err, "Apply resource",
 					"hub", objref.KRef(consts.FerryNamespace, hubName),
 				)
 			}
@@ -311,23 +341,23 @@ func (d *MappingController) sync() {
 		for _, r := range deleled {
 			err := client.Delete(ctx, cli, r)
 			if err != nil {
-				d.logger.Error(err, "Delete resource",
+				m.logger.Error(err, "Delete resource",
 					"hub", objref.KRef(consts.FerryNamespace, hubName),
 				)
 			}
 		}
 	}
 
-	for hubName, caches := range d.cacheResources {
+	for hubName, caches := range m.cacheResources {
 		v, ok := resources[hubName]
 		if ok && len(v) != 0 {
 			continue
 		}
-		cli := d.hubInterface.Clientset(hubName)
+		cli := m.hubInterface.Clientset(hubName)
 		for _, r := range caches {
 			err := client.Apply(ctx, cli, r)
 			if err != nil {
-				d.logger.Error(err, "Delete resource",
+				m.logger.Error(err, "Delete resource",
 					"hub", objref.KRef(consts.FerryNamespace, hubName),
 				)
 			}
@@ -345,28 +375,65 @@ func (d *MappingController) sync() {
 	return
 }
 
-func (d *MappingController) Close() {
-	d.mut.Lock()
-	defer d.mut.Unlock()
+func (m *MappingController) Close() {
+	m.mut.Lock()
+	defer m.mut.Unlock()
 
-	if d.isClose {
+	if m.isClose {
 		return
 	}
-	d.isClose = true
-	d.hubInterface.UnregistryServiceCallback(d.exportHubName, d.importHubName)
-	d.try.Close()
+	m.isClose = true
+	m.hubInterface.UnregistryServiceCallback(m.exportHubName, m.importHubName)
+	m.try.Close()
 
 	ctx := context.Background()
 
-	for hubName, caches := range d.cacheResources {
-		cli := d.hubInterface.Clientset(hubName)
+	for hubName, caches := range m.cacheResources {
+		cli := m.hubInterface.Clientset(hubName)
 		for _, r := range caches {
 			err := client.Delete(ctx, cli, r)
 			if err != nil {
-				d.logger.Error(err, "Delete resource",
+				m.logger.Error(err, "Delete resource",
 					"hub", objref.KRef(consts.FerryNamespace, hubName),
 				)
 			}
 		}
 	}
+}
+
+func (m *MappingController) updatePort(f *v1alpha2.Route) error {
+	svc, ok := m.hubInterface.GetService(f.Spec.Export.HubName, f.Spec.Export.Service.Namespace, f.Spec.Export.Service.Name)
+	if !ok {
+		return fmt.Errorf("not found export service")
+	}
+
+	for _, port := range svc.Spec.Ports {
+		if port.Protocol != corev1.ProtocolTCP {
+			continue
+		}
+		_, err := m.hubInterface.GetPortPeer(f.Spec.Import.HubName,
+			f.Spec.Export.HubName, f.Spec.Export.Service.Namespace, f.Spec.Export.Service.Name, port.Port)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (m *MappingController) deletePort(f *v1alpha2.Route) error {
+	svc, ok := m.hubInterface.GetService(f.Spec.Export.HubName, f.Spec.Export.Service.Namespace, f.Spec.Export.Service.Name)
+	if !ok {
+		return fmt.Errorf("not found export service")
+	}
+	for _, port := range svc.Spec.Ports {
+		if port.Protocol != corev1.ProtocolTCP {
+			continue
+		}
+		_, err := m.hubInterface.DeletePortPeer(f.Spec.Import.HubName,
+			f.Spec.Export.HubName, f.Spec.Export.Service.Namespace, f.Spec.Export.Service.Name, port.Port)
+		if err == nil {
+			continue
+		}
+	}
+	return nil
 }
