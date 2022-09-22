@@ -68,6 +68,7 @@ EOF
 }
 
 wait-hubs-ready "${CONTROL_PLANE}"
+wait-pods-ready "${CONTROL_PLANE}"
 wait-pods-ready "${CLUSTER_1}"
 wait-pods-ready "${CLUSTER_2}"
 wait-pods-ready "${CLUSTER_3}"
