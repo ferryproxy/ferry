@@ -241,6 +241,7 @@ func (c *RoutePolicyController) onDelete(obj interface{}) {
 
 	delete(c.cache, f.Name)
 
+	c.conditionsManager.Delete(f.Name)
 	c.syncFunc()
 }
 
