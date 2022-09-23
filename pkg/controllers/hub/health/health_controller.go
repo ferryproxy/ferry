@@ -95,7 +95,7 @@ func (m *HealthController) check(ctx context.Context, hubs []*v1alpha2.Hub) {
 			err = m.hubInterface.UpdateHubConditions(hub.Name, []metav1.Condition{
 				{
 					Type:    v1alpha2.TunnelHealthCondition,
-					Status:  metav1.ConditionTrue,
+					Status:  metav1.ConditionFalse,
 					Reason:  "Unhealth",
 					Message: err.Error(),
 				},

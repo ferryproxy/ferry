@@ -71,3 +71,9 @@ func (c *ConditionsManager) IsTrue(name string, conditionType string) bool {
 	}
 	return meta.IsStatusConditionTrue(cond, conditionType)
 }
+
+func (c *ConditionsManager) Delete(name string) {
+	c.mut.Lock()
+	defer c.mut.Unlock()
+	delete(c.cache, name)
+}

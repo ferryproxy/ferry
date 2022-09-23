@@ -664,6 +664,7 @@ func (c *HubController) onDelete(obj interface{}) {
 	delete(c.cacheAuthorized, f.Name)
 	c.disableMCS(f)
 
+	c.conditionsManager.Delete(f.Name)
 	c.syncFunc()
 }
 
