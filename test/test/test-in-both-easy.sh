@@ -199,10 +199,10 @@ function steps() {
   done
 }
 
-wait-hubs-ready "${CONTROL_PLANE}"
 wait-pods-ready "${CONTROL_PLANE}"
 wait-pods-ready "${CLUSTER_1}"
 wait-pods-ready "${CLUSTER_2}"
+wait-hubs-ready "${CONTROL_PLANE}"
 
 if [[ "${CONTROL_PLANE}" != "${CLUSTER_1}" ]] && [[ "${CONTROL_PLANE}" != "${CLUSTER_2}" ]] ; then
   show-cluster-info "${CONTROL_PLANE}"
