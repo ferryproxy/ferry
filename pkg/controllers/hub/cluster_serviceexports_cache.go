@@ -22,12 +22,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ferryproxy/ferry/pkg/client"
 	"github.com/ferryproxy/ferry/pkg/utils/objref"
 	"github.com/ferryproxy/ferry/pkg/utils/trybuffer"
 	"github.com/go-logr/logr"
 	"k8s.io/client-go/tools/cache"
 	"sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
-	"sigs.k8s.io/mcs-api/pkg/client/clientset/versioned"
 	"sigs.k8s.io/mcs-api/pkg/client/informers/externalversions"
 )
 
@@ -36,7 +36,7 @@ type clusterServiceExportCache struct {
 	ctx       context.Context
 	cancel    context.CancelFunc
 
-	clientset versioned.Interface
+	clientset client.Interface
 	cache     map[objref.ObjectRef]*v1alpha1.ServiceExport
 	syncFunc  func()
 
@@ -49,7 +49,7 @@ type clusterServiceExportCache struct {
 }
 
 type clusterServiceExportCacheConfig struct {
-	Clientset versioned.Interface
+	Clientset client.Interface
 	Logger    logr.Logger
 	SyncFunc  func()
 }
@@ -64,7 +64,7 @@ func newClusterServiceExportCache(conf clusterServiceExportCacheConfig) *cluster
 	return c
 }
 
-func (c *clusterServiceExportCache) ResetClientset(clientset versioned.Interface) error {
+func (c *clusterServiceExportCache) ResetClientset(clientset client.Interface) error {
 	c.mut.Lock()
 	defer c.mut.Unlock()
 
@@ -74,7 +74,7 @@ func (c *clusterServiceExportCache) ResetClientset(clientset versioned.Interface
 	}
 	c.ctx, c.cancel = context.WithCancel(c.parentCtx)
 	c.clientset = clientset
-	informerFactory := externalversions.NewSharedInformerFactoryWithOptions(c.clientset, 0)
+	informerFactory := externalversions.NewSharedInformerFactoryWithOptions(c.clientset.MCS(), 0)
 	informer := informerFactory.
 		Multicluster().
 		V1alpha1().

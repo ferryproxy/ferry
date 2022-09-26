@@ -21,6 +21,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ferryproxy/ferry/pkg/client"
 	"github.com/ferryproxy/ferry/pkg/controllers/hub"
 	"github.com/ferryproxy/ferry/pkg/controllers/hub/health"
 	"github.com/ferryproxy/ferry/pkg/controllers/mcs"
@@ -28,14 +29,13 @@ import (
 	"github.com/ferryproxy/ferry/pkg/controllers/route_policy"
 	"github.com/ferryproxy/ferry/pkg/utils/trybuffer"
 	"github.com/go-logr/logr"
-	restclient "k8s.io/client-go/rest"
 )
 
 type Controller struct {
 	mut                   sync.Mutex
 	ctx                   context.Context
 	logger                logr.Logger
-	config                *restclient.Config
+	clientset             client.Interface
 	namespace             string
 	hubController         *hub.HubController
 	routeController       *route.RouteController
@@ -46,7 +46,7 @@ type Controller struct {
 }
 
 type ControllerConfig struct {
-	Config    *restclient.Config
+	Clientset client.Interface
 	Logger    logr.Logger
 	Namespace string
 }
@@ -54,7 +54,7 @@ type ControllerConfig struct {
 func NewController(conf *ControllerConfig) *Controller {
 	return &Controller{
 		logger:    conf.Logger,
-		config:    conf.Config,
+		clientset: conf.Clientset,
 		namespace: conf.Namespace,
 	}
 }
@@ -65,7 +65,7 @@ func (c *Controller) Run(ctx context.Context) error {
 	c.try = trybuffer.NewTryBuffer(c.sync, time.Second/10)
 
 	hubController := hub.NewHubController(hub.HubControllerConfig{
-		Config:    c.config,
+		Clientset: c.clientset,
 		Namespace: c.namespace,
 		Logger:    c.logger.WithName("hub"),
 		SyncFunc:  c.try.Try,
@@ -73,7 +73,7 @@ func (c *Controller) Run(ctx context.Context) error {
 	c.hubController = hubController
 
 	routeController := route.NewRouteController(&route.RouteControllerConfig{
-		Config:       c.config,
+		Clientset:    c.clientset,
 		Namespace:    c.namespace,
 		HubInterface: hubController,
 		Logger:       c.logger.WithName("route"),
@@ -82,7 +82,7 @@ func (c *Controller) Run(ctx context.Context) error {
 	c.routeController = routeController
 
 	routePolicyController := route_policy.NewRoutePolicyController(route_policy.RoutePolicyControllerConfig{
-		Config:       c.config,
+		Clientset:    c.clientset,
 		Namespace:    c.namespace,
 		HubInterface: hubController,
 		Logger:       c.logger.WithName("route-policy"),
@@ -99,7 +99,7 @@ func (c *Controller) Run(ctx context.Context) error {
 	}()
 
 	mcsController := mcs.NewMCSController(&mcs.MCSControllerConfig{
-		Config:       c.config,
+		Clientset:    c.clientset,
 		Namespace:    c.namespace,
 		HubInterface: hubController,
 		Logger:       c.logger.WithName("mcs"),
@@ -111,7 +111,7 @@ func (c *Controller) Run(ctx context.Context) error {
 	}
 
 	healthController := health.NewHealthController(&health.HealthControllerConfig{
-		Config:       c.config,
+		Clientset:    c.clientset,
 		HubInterface: hubController,
 		Logger:       c.logger.WithName("health"),
 	})

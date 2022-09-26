@@ -33,19 +33,15 @@ import (
 	"github.com/ferryproxy/ferry/pkg/utils/objref"
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
-	apiextensions "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/rest"
-	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
-	mcsversioned "sigs.k8s.io/mcs-api/pkg/client/clientset/versioned"
 )
 
 type HubControllerConfig struct {
 	Logger    logr.Logger
-	Config    *restclient.Config
+	Clientset client.Interface
 	Namespace string
 	SyncFunc  func()
 }
@@ -55,7 +51,6 @@ type HubController struct {
 	mutStatus          sync.Mutex
 	ctx                context.Context
 	logger             logr.Logger
-	config             *restclient.Config
 	clientset          client.Interface
 	cacheHub           map[string]*v1alpha2.Hub
 	cacheClientset     map[string]client.Interface
@@ -72,7 +67,7 @@ type HubController struct {
 
 func NewHubController(conf HubControllerConfig) *HubController {
 	return &HubController{
-		config:             conf.Config,
+		clientset:          conf.Clientset,
 		namespace:          conf.Namespace,
 		logger:             conf.Logger,
 		syncFunc:           conf.SyncFunc,
@@ -92,14 +87,8 @@ func (c *HubController) Run(ctx context.Context) error {
 	c.logger.Info("hub controller started")
 	defer c.logger.Info("hub controller stopped")
 
-	clientset, err := client.NewForConfig(c.config)
-	if err != nil {
-		return err
-	}
-	c.clientset = clientset
-
 	c.ctx = ctx
-	informerFactory := externalversions.NewSharedInformerFactoryWithOptions(clientset.Ferry(), 0,
+	informerFactory := externalversions.NewSharedInformerFactoryWithOptions(c.clientset.Ferry(), 0,
 		externalversions.WithNamespace(c.namespace))
 	informer := informerFactory.
 		Traffic().
@@ -220,30 +209,47 @@ func (c *HubController) GetAuthorized(name string) string {
 func (c *HubController) RegistryServiceCallback(exportHubName, importHubName string, cb func()) {
 	c.mut.Lock()
 	defer c.mut.Unlock()
+	if c.cacheService[exportHubName] == nil {
+		c.logger.Info("failed to registry service callback")
+		return
+	}
 	c.cacheService[exportHubName].RegistryCallback(importHubName, cb)
 }
 
 func (c *HubController) UnregistryServiceCallback(exportHubName, importHubName string) {
 	c.mut.Lock()
 	defer c.mut.Unlock()
+	if c.cacheService[exportHubName] == nil {
+		c.logger.Info("failed to unregistry service callback")
+		return
+	}
 	c.cacheService[exportHubName].UnregistryCallback(importHubName)
 }
 
 func (c *HubController) LoadPortPeer(importHubName string, cluster, namespace, name string, port, bindPort int32) error {
 	c.mut.RLock()
 	defer c.mut.RUnlock()
+	if c.cacheTunnelPorts[importHubName] == nil {
+		return fmt.Errorf("failed to get load peer on hub %q", importHubName)
+	}
 	return c.cacheTunnelPorts[importHubName].LoadPortBind(cluster, namespace, name, port, bindPort)
 }
 
 func (c *HubController) GetPortPeer(importHubName string, cluster, namespace, name string, port int32) (int32, error) {
 	c.mut.RLock()
 	defer c.mut.RUnlock()
+	if c.cacheTunnelPorts[importHubName] == nil {
+		return 0, fmt.Errorf("failed to get port peer on hub %q", importHubName)
+	}
 	return c.cacheTunnelPorts[importHubName].GetPortBind(cluster, namespace, name, port)
 }
 
 func (c *HubController) DeletePortPeer(importHubName string, cluster, namespace, name string, port int32) (int32, error) {
 	c.mut.RLock()
 	defer c.mut.RUnlock()
+	if c.cacheTunnelPorts[importHubName] == nil {
+		return 0, fmt.Errorf("failed to delete port peer on hub %q", importHubName)
+	}
 	return c.cacheTunnelPorts[importHubName].DeletePortBind(cluster, namespace, name, port)
 }
 
@@ -346,7 +352,7 @@ func (c *HubController) onAdd(obj interface{}) {
 	}
 
 	if IsEnabledMCS(f) {
-		err = c.enableMCS(f, restConfig)
+		err = c.enableMCS(f, clientset)
 		if err != nil {
 			c.logger.Error(err, "enable mcs")
 		}
@@ -487,7 +493,7 @@ func (c *HubController) onUpdate(oldObj, newObj interface{}) {
 
 			if IsEnabledMCS(old) {
 				if IsEnabledMCS(f) {
-					err = c.enableMCS(f, restConfig)
+					err = c.enableMCS(f, clientset)
 					if err != nil {
 						c.logger.Error(err, "enable mcs")
 					}
@@ -499,7 +505,7 @@ func (c *HubController) onUpdate(oldObj, newObj interface{}) {
 				}
 			} else {
 				if IsEnabledMCS(f) {
-					err = c.updateMCS(f, restConfig)
+					err = c.updateMCS(f, clientset)
 					if err != nil {
 						c.logger.Error(err, "update mcs")
 					}
@@ -517,8 +523,29 @@ func (c *HubController) onUpdate(oldObj, newObj interface{}) {
 		} else {
 			if IsEnabledMCS(f) {
 				restConfig, err := client.NewRestConfigFromKubeconfig(kubeconfig)
+				if err != nil {
+					c.logger.Error(err, "NewRestConfigFromKubeconfig")
+					return
+				}
+				clientset, err := client.NewForConfig(restConfig)
+				if err != nil {
+					c.logger.Error(err, "NewForConfig")
+					err = c.UpdateHubConditions(f.Name, []metav1.Condition{
+						{
+							Type:    v1alpha2.ConnectedCondition,
+							Status:  metav1.ConditionFalse,
+							Reason:  "Disconnected",
+							Message: err.Error(),
+						},
+					})
+					if err != nil {
+						c.logger.Error(err, "failed to update status",
+							"hub", objref.KObj(f),
+						)
+					}
+				}
 				if err == nil {
-					err = c.enableMCS(f, restConfig)
+					err = c.enableMCS(f, clientset)
 					if err != nil {
 						c.logger.Error(err, "enable mcs")
 					}
@@ -532,44 +559,13 @@ func (c *HubController) onUpdate(oldObj, newObj interface{}) {
 	c.syncFunc()
 }
 
-func (c *HubController) checkMCSCRD(restConfig *rest.Config) error {
-	apiextClientset, err := apiextensions.NewForConfig(restConfig)
-	if err != nil {
-		return err
-	}
-	_, err = apiextClientset.
-		ApiextensionsV1().
-		CustomResourceDefinitions().
-		Get(c.ctx, "serviceexports.multicluster.x-k8s.io", metav1.GetOptions{})
-	if err != nil {
-		return err
-	}
-	_, err = apiextClientset.
-		ApiextensionsV1().
-		CustomResourceDefinitions().
-		Get(c.ctx, "serviceimports.multicluster.x-k8s.io", metav1.GetOptions{})
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func (c *HubController) enableMCS(f *v1alpha2.Hub, restConfig *rest.Config) error {
-	err := c.checkMCSCRD(restConfig)
-	if err != nil {
-		return fmt.Errorf("not have mcs crd in %q: %w", f.Name, err)
-	}
-
-	mcsClientset, err := mcsversioned.NewForConfig(restConfig)
-	if err != nil {
-		return err
-	}
+func (c *HubController) enableMCS(f *v1alpha2.Hub, clientset client.Interface) error {
 	clusterServiceExport := newClusterServiceExportCache(clusterServiceExportCacheConfig{
 		Logger:    c.logger.WithName(f.Name).WithName("service-export"),
-		Clientset: mcsClientset,
+		Clientset: clientset,
 		SyncFunc:  c.syncFunc,
 	})
-	err = clusterServiceExport.Start(c.ctx)
+	err := clusterServiceExport.Start(c.ctx)
 	if err != nil {
 		c.logger.Error(err, "failed start cluster service exports cache")
 	} else {
@@ -578,7 +574,7 @@ func (c *HubController) enableMCS(f *v1alpha2.Hub, restConfig *rest.Config) erro
 
 	clusterServiceImport := newClusterServiceImportCache(clusterServiceImportCacheConfig{
 		Logger:    c.logger.WithName(f.Name).WithName("service-import"),
-		Clientset: mcsClientset,
+		Clientset: clientset,
 		SyncFunc:  c.syncFunc,
 	})
 	err = clusterServiceImport.Start(c.ctx)
@@ -602,17 +598,13 @@ func (c *HubController) disableMCS(f *v1alpha2.Hub) error {
 	return nil
 }
 
-func (c *HubController) updateMCS(f *v1alpha2.Hub, restConfig *rest.Config) error {
-	mcsClientset, err := mcsversioned.NewForConfig(restConfig)
-	if err == nil {
-		return err
-	}
+func (c *HubController) updateMCS(f *v1alpha2.Hub, clientset client.Interface) error {
 	if c.cacheServiceExport[f.Name] != nil {
-		c.cacheServiceExport[f.Name].ResetClientset(mcsClientset)
+		c.cacheServiceExport[f.Name].ResetClientset(clientset)
 	}
 
 	if c.cacheServiceImport[f.Name] != nil {
-		c.cacheServiceImport[f.Name].ResetClientset(mcsClientset)
+		c.cacheServiceImport[f.Name].ResetClientset(clientset)
 	}
 	return nil
 }

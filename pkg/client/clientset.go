@@ -21,21 +21,24 @@ import (
 	"fmt"
 
 	"github.com/ferryproxy/api/apis/traffic/v1alpha2"
-	versioned "github.com/ferryproxy/client-go/generated/clientset/versioned"
+	ferryversioned "github.com/ferryproxy/client-go/generated/clientset/versioned"
 	"github.com/ferryproxy/ferry/pkg/utils/objref"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	mcsversioned "sigs.k8s.io/mcs-api/pkg/client/clientset/versioned"
 )
 
 type clientset struct {
 	kubeClientset  kubernetes.Interface
-	ferryClientset versioned.Interface
+	ferryClientset ferryversioned.Interface
+	mcsClientset   mcsversioned.Interface
 }
 
 type Interface interface {
 	Kubernetes() kubernetes.Interface
-	Ferry() versioned.Interface
+	Ferry() ferryversioned.Interface
+	MCS() mcsversioned.Interface
 }
 
 func NewForConfig(conf *rest.Config) (Interface, error) {
@@ -43,13 +46,18 @@ func NewForConfig(conf *rest.Config) (Interface, error) {
 	if err != nil {
 		return nil, err
 	}
-	ferryClientset, err := versioned.NewForConfig(conf)
+	ferryClientset, err := ferryversioned.NewForConfig(conf)
+	if err != nil {
+		return nil, err
+	}
+	mcsClientset, err := mcsversioned.NewForConfig(conf)
 	if err != nil {
 		return nil, err
 	}
 	return &clientset{
 		kubeClientset:  kubeClientset,
 		ferryClientset: ferryClientset,
+		mcsClientset:   mcsClientset,
 	}, nil
 }
 
@@ -57,8 +65,12 @@ func (c *clientset) Kubernetes() kubernetes.Interface {
 	return c.kubeClientset
 }
 
-func (c *clientset) Ferry() versioned.Interface {
+func (c *clientset) Ferry() ferryversioned.Interface {
 	return c.ferryClientset
+}
+
+func (c *clientset) MCS() mcsversioned.Interface {
+	return c.mcsClientset
 }
 
 func Apply(ctx context.Context, c Interface, obj objref.KMetadata) error {

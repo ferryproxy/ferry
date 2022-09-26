@@ -22,12 +22,11 @@ import (
 	"time"
 
 	"github.com/ferryproxy/api/apis/traffic/v1alpha2"
-	ferryversioned "github.com/ferryproxy/client-go/generated/clientset/versioned"
+	"github.com/ferryproxy/ferry/pkg/client"
 	healthclient "github.com/ferryproxy/ferry/pkg/services/health/client"
 	"github.com/ferryproxy/ferry/pkg/utils/objref"
 	"github.com/go-logr/logr"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	restclient "k8s.io/client-go/rest"
 )
 
 type HubInterface interface {
@@ -38,35 +37,29 @@ type HubInterface interface {
 
 type HealthControllerConfig struct {
 	Logger       logr.Logger
-	Config       *restclient.Config
+	Clientset    client.Interface
 	HubInterface HubInterface
 }
 
 type HealthController struct {
-	ctx            context.Context
-	ferryClientset *ferryversioned.Clientset
-	config         *restclient.Config
-	logger         logr.Logger
-	mut            sync.RWMutex
-	hubInterface   HubInterface
-	cacheRoutes    []*v1alpha2.Route
-	latestUpdate   time.Time
+	ctx          context.Context
+	clientset    client.Interface
+	logger       logr.Logger
+	mut          sync.RWMutex
+	hubInterface HubInterface
+	cacheRoutes  []*v1alpha2.Route
+	latestUpdate time.Time
 }
 
 func NewHealthController(conf *HealthControllerConfig) *HealthController {
 	return &HealthController{
-		config:       conf.Config,
+		clientset:    conf.Clientset,
 		hubInterface: conf.HubInterface,
 		logger:       conf.Logger,
 	}
 }
 
 func (m *HealthController) Start(ctx context.Context) error {
-	clientset, err := ferryversioned.NewForConfig(m.config)
-	if err != nil {
-		return err
-	}
-	m.ferryClientset = clientset
 	return nil
 }
 

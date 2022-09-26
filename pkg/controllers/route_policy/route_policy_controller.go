@@ -39,7 +39,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
-	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -50,7 +49,7 @@ type HubInterface interface {
 
 type RoutePolicyControllerConfig struct {
 	Logger       logr.Logger
-	Config       *restclient.Config
+	Clientset    client.Interface
 	HubInterface HubInterface
 	Namespace    string
 	SyncFunc     func()
@@ -60,7 +59,6 @@ type RoutePolicyController struct {
 	ctx                    context.Context
 	mut                    sync.RWMutex
 	mutStatus              sync.Mutex
-	config                 *restclient.Config
 	clientset              client.Interface
 	hubInterface           HubInterface
 	cache                  map[string]*v1alpha2.RoutePolicy
@@ -73,7 +71,7 @@ type RoutePolicyController struct {
 
 func NewRoutePolicyController(conf RoutePolicyControllerConfig) *RoutePolicyController {
 	return &RoutePolicyController{
-		config:            conf.Config,
+		clientset:         conf.Clientset,
 		namespace:         conf.Namespace,
 		logger:            conf.Logger,
 		hubInterface:      conf.HubInterface,
@@ -106,11 +104,6 @@ func (c *RoutePolicyController) Run(ctx context.Context) error {
 	c.logger.Info("routePolicy controller started")
 	defer c.logger.Info("routePolicy controller stopped")
 
-	clientset, err := client.NewForConfig(c.config)
-	if err != nil {
-		return err
-	}
-	c.clientset = clientset
 	c.ctx = ctx
 
 	list, err := c.clientset.
@@ -127,7 +120,7 @@ func (c *RoutePolicyController) Run(ctx context.Context) error {
 		c.cacheRoutePolicyRoutes = append(c.cacheRoutePolicyRoutes, item.DeepCopy())
 	}
 
-	informerFactory := externalversions.NewSharedInformerFactoryWithOptions(clientset.Ferry(), 0,
+	informerFactory := externalversions.NewSharedInformerFactoryWithOptions(c.clientset.Ferry(), 0,
 		externalversions.WithNamespace(c.namespace))
 	informer := informerFactory.
 		Traffic().

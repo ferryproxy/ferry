@@ -32,13 +32,12 @@ import (
 	"github.com/go-logr/logr"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 )
 
 type RouteControllerConfig struct {
 	Logger       logr.Logger
-	Config       *restclient.Config
+	Clientset    client.Interface
 	HubInterface HubInterface
 	Namespace    string
 	SyncFunc     func()
@@ -48,7 +47,6 @@ type RouteController struct {
 	ctx                    context.Context
 	mut                    sync.RWMutex
 	mutStatus              sync.Mutex
-	config                 *restclient.Config
 	clientset              client.Interface
 	hubInterface           HubInterface
 	cache                  map[string]*v1alpha2.Route
@@ -62,7 +60,7 @@ type RouteController struct {
 
 func NewRouteController(conf *RouteControllerConfig) *RouteController {
 	return &RouteController{
-		config:                 conf.Config,
+		clientset:              conf.Clientset,
 		namespace:              conf.Namespace,
 		hubInterface:           conf.HubInterface,
 		logger:                 conf.Logger,
@@ -90,13 +88,8 @@ func (c *RouteController) Run(ctx context.Context) error {
 	c.logger.Info("Route controller started")
 	defer c.logger.Info("Route controller stopped")
 
-	clientset, err := client.NewForConfig(c.config)
-	if err != nil {
-		return err
-	}
-	c.clientset = clientset
 	c.ctx = ctx
-	informerFactory := externalversions.NewSharedInformerFactoryWithOptions(clientset.Ferry(), 0,
+	informerFactory := externalversions.NewSharedInformerFactoryWithOptions(c.clientset.Ferry(), 0,
 		externalversions.WithNamespace(c.namespace))
 	informer := informerFactory.
 		Traffic().
