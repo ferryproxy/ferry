@@ -152,9 +152,27 @@ spec:
         - containerPort: 8080
           name: http
           protocol: TCP
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+            scheme: HTTP
+          initialDelaySeconds: 2
+          timeoutSeconds: 2
+          periodSeconds: 10
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+            scheme: HTTP
+          initialDelaySeconds: 2
+          timeoutSeconds: 2
+          periodSeconds: 10
+          failureThreshold: 3
         volumeMounts:
-        - name: hostkey
-          mountPath: /var/ferry/ssh/
+          - name: hostkey
+            mountPath: /var/ferry/ssh/
       restartPolicy: Always
       serviceAccount: ferry-tunnel
       serviceAccountName: ferry-tunnel
