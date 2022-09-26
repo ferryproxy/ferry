@@ -371,7 +371,7 @@ func (m *MappingController) sync() {
 			continue
 		}
 		for _, r := range caches {
-			err := client.Apply(ctx, cli, r)
+			err := client.Delete(ctx, cli, r)
 			if err != nil {
 				m.logger.Error(err, "Delete resource",
 					"hub", objref.KRef(consts.FerryNamespace, hubName),
