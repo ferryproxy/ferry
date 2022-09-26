@@ -223,14 +223,18 @@ function steps() {
   done
 }
 
-wait-hubs-ready "${CONTROL_PLANE}"
 wait-pods-ready "${CONTROL_PLANE}"
 wait-pods-ready "${CLUSTER_1}"
 wait-pods-ready "${CLUSTER_2}"
+wait-hubs-ready "${CONTROL_PLANE}"
 
 with-failed-hub "${CONTROL_PLANE}"
 
-show-cluster-info "${CONTROL_PLANE}"
+if [[ "${CONTROL_PLANE}" != "${CLUSTER_1}" ]] && [[ "${CONTROL_PLANE}" != "${CLUSTER_2}" ]] ; then
+  show-cluster-info "${CONTROL_PLANE}"
+fi
+show-cluster-info "${CLUSTER_1}"
+show-cluster-info "${CLUSTER_2}"
 
 show-hub "${CONTROL_PLANE}"
 
@@ -242,16 +246,19 @@ steps 10
 
 recreate-tunnel "${CLUSTER_1}"
 wait-pods-ready "${CLUSTER_1}"
+wait-hubs-ready "${CONTROL_PLANE}"
 fetch-tunnel-log "${CLUSTER_1}" &
 
 steps 2
 
 recreate-controller "${CONTROL_PLANE}"
 wait-pods-ready "${CONTROL_PLANE}"
+wait-hubs-ready "${CONTROL_PLANE}"
 fetch-controller-log "${CONTROL_PLANE}" &
 
 steps 2
 
 recreate-tunnel "${CLUSTER_2}"
 wait-pods-ready "${CLUSTER_2}"
+wait-hubs-ready "${CONTROL_PLANE}"
 fetch-tunnel-log "${CLUSTER_2}" &
