@@ -147,7 +147,7 @@ function wait-pods-ready() {
 
 function wait-hubs-ready() {
   local cluster=$1
-  kubectl --kubeconfig="${KUBECONFIG_DIR}/${cluster}.yaml" wait --for=condition=Ready hubs.traffic.ferryproxy.io --all -A
+  kubectl --kubeconfig="${KUBECONFIG_DIR}/${cluster}.yaml" wait --for=condition=Ready hubs.traffic.ferryproxy.io --all -A --timeout=120s
 }
 
 function wait-routes-ready() {

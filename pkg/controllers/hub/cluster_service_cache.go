@@ -18,6 +18,7 @@ package hub
 
 import (
 	"context"
+	"reflect"
 	"sort"
 	"sync"
 	"time"
@@ -179,7 +180,13 @@ func (c *clusterServiceCache) onUpdate(oldObj, newObj interface{}) {
 	c.mut.Lock()
 	defer c.mut.Unlock()
 
+	old := c.cache[objref.KObj(svc)]
+	if reflect.DeepEqual(svc.Spec, old.Spec) {
+		c.cache[objref.KObj(svc)] = svc
+		return
+	}
 	c.cache[objref.KObj(svc)] = svc
+
 	c.try.Try()
 }
 

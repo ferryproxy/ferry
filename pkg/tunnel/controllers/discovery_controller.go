@@ -18,6 +18,7 @@ package controllers
 
 import (
 	"context"
+	"reflect"
 	"sync"
 	"time"
 
@@ -135,6 +136,9 @@ func (s *DiscoveryController) UpdateIPs(ips []string) {
 		"old", s.ips,
 		"ips", ips,
 	)
+	if len(ips) == 0 || reflect.DeepEqual(s.ips, ips) {
+		return
+	}
 	s.ips = ips
 	s.sync()
 }
