@@ -268,32 +268,9 @@ func (c *HubController) onAdd(obj interface{}) {
 	defer c.mut.Unlock()
 
 	c.cacheHub[f.Name] = f
-
-	err := c.updateKubeconfig(f.Name)
+	clientset, _, err := c.tryConnectAndUpdateStatus(f.Name)
 	if err != nil {
-		c.logger.Error(err, "updateKubeconfig",
-			"hub", objref.KObj(f),
-		)
-	}
-
-	kubeconfig := c.cacheKubeconfig[f.Name]
-
-	if len(kubeconfig) == 0 {
-		c.logger.Info("failed get kubeconfig",
-			"hub", objref.KObj(f),
-		)
-		return
-	}
-
-	restConfig, err := client.NewRestConfigFromKubeconfig(kubeconfig)
-	if err != nil {
-		c.logger.Error(err, "client.NewRestConfigFromKubeconfig")
-		return
-	}
-
-	clientset, err := client.NewForConfig(restConfig)
-	if err != nil {
-		c.logger.Error(err, "NewForConfig")
+		c.logger.Error(err, "tryConnectAndUpdateStatus")
 		err = c.UpdateHubConditions(f.Name, []metav1.Condition{
 			{
 				Type:    v1alpha2.ConnectedCondition,
@@ -303,59 +280,26 @@ func (c *HubController) onAdd(obj interface{}) {
 			},
 		})
 		if err != nil {
-			c.logger.Error(err, "failed to update status",
-				"hub", objref.KObj(f),
-			)
+			c.logger.Error(err, "failed to update status")
 		}
 		return
-	}
-	c.cacheClientset[f.Name] = clientset
-	err = c.UpdateHubConditions(f.Name, []metav1.Condition{
-		{
-			Type:   v1alpha2.ConnectedCondition,
-			Status: metav1.ConditionTrue,
-			Reason: "Connected",
-		},
-	})
-	if err != nil {
-		c.logger.Error(err, "failed to update status",
-			"hub", objref.KObj(f),
-		)
+	} else {
+		err = c.UpdateHubConditions(f.Name, []metav1.Condition{
+			{
+				Type:   v1alpha2.ConnectedCondition,
+				Status: metav1.ConditionTrue,
+				Reason: "Connected",
+			},
+		})
+		if err != nil {
+			c.logger.Error(err, "failed to update status")
+		}
 	}
 
-	host := c.GetTunnelAddressInControlPlane(f.Name)
-	cli := portsclient.NewClient("http://" + host + "/ports")
-
-	c.cacheTunnelPorts[f.Name] = newTunnelPorts(tunnelPortsConfig{
-		Logger: c.logger.WithName(f.Name).WithName("tunnel-port"),
-		GetUnusedPort: func() (int32, error) {
-			return cli.Get(c.ctx)
-		},
-	})
-
-	clusterService := newClusterServiceCache(clusterServiceCacheConfig{
-		Clientset: clientset,
-		Logger:    c.logger.WithName(f.Name).WithName("service"),
-	})
-	c.cacheService[f.Name] = clusterService
-
-	err = clusterService.Start(c.ctx)
-	if err != nil {
-		c.logger.Error(err, "failed start cluster service cache")
-	}
-
-	err = c.updateAuthorized(f.Name)
-	if err != nil {
-		c.logger.Error(err, "updateAuthorized",
-			"hub", objref.KObj(f),
-		)
-	}
+	c.enableCache(f.Name, clientset)
 
 	if IsEnabledMCS(f) {
-		err = c.enableMCS(f, clientset)
-		if err != nil {
-			c.logger.Error(err, "enable mcs")
-		}
+		c.enableMCS(f, clientset)
 	}
 
 	c.syncFunc()
@@ -386,6 +330,39 @@ func (c *HubController) updateAuthorized(name string) error {
 	}
 	c.cacheAuthorized[name] = string(authorized)
 	return nil
+}
+
+func (c *HubController) tryConnectAndUpdateStatus(name string) (clientset client.Interface, updated bool, err error) {
+	old := c.cacheKubeconfig[name]
+	err = c.updateKubeconfig(name)
+	if err != nil {
+		return nil, false, err
+	}
+	kubeconfig := c.cacheKubeconfig[name]
+	if bytes.Equal(old, kubeconfig) {
+		clientset = c.cacheClientset[name]
+		if clientset != nil {
+			// No need update
+			return clientset, false, nil
+		}
+	}
+
+	restConfig, err := client.NewRestConfigFromKubeconfig(kubeconfig)
+	if err != nil {
+		return nil, false, err
+	}
+
+	clientset, err = client.NewForConfig(restConfig)
+	if err != nil {
+		return nil, false, err
+	}
+	c.cacheClientset[name] = clientset
+
+	err = c.updateAuthorized(name)
+	if err != nil {
+		return nil, false, err
+	}
+	return clientset, true, nil
 }
 
 func (c *HubController) updateKubeconfig(name string) error {
@@ -419,194 +396,143 @@ func (c *HubController) onUpdate(oldObj, newObj interface{}) {
 	c.mut.Lock()
 	defer c.mut.Unlock()
 
-	err := c.updateAuthorized(f.Name)
+	clientset, updated, err := c.tryConnectAndUpdateStatus(f.Name)
 	if err != nil {
-		c.logger.Error(err, "updateAuthorized",
-			"hub", objref.KObj(f),
-		)
-	}
-
-	oldKubeconfig := c.cacheKubeconfig[f.Name]
-	err = c.updateKubeconfig(f.Name)
-	if err != nil {
-		c.logger.Error(err, "updateKubeconfig",
-			"hub", objref.KObj(f),
-		)
-	}
-	kubeconfig := c.cacheKubeconfig[f.Name]
-
-	if !bytes.Equal(oldKubeconfig, kubeconfig) {
-		restConfig, err := client.NewRestConfigFromKubeconfig(kubeconfig)
+		c.logger.Error(err, "tryConnectAndUpdateStatus")
+		err = c.UpdateHubConditions(f.Name, []metav1.Condition{
+			{
+				Type:    v1alpha2.ConnectedCondition,
+				Status:  metav1.ConditionFalse,
+				Reason:  "Disconnected",
+				Message: err.Error(),
+			},
+		})
 		if err != nil {
-			c.logger.Error(err, "NewRestConfigFromKubeconfig")
-			return
+			c.logger.Error(err, "failed to update status")
 		}
-
-		clientset, err := client.NewForConfig(restConfig)
-		if err != nil {
-			c.logger.Error(err, "NewForConfig")
-			err = c.UpdateHubConditions(f.Name, []metav1.Condition{
-				{
-					Type:    v1alpha2.ConnectedCondition,
-					Status:  metav1.ConditionFalse,
-					Reason:  "Disconnected",
-					Message: err.Error(),
-				},
-			})
-			if err != nil {
-				c.logger.Error(err, "failed to update status",
-					"hub", objref.KObj(f),
-				)
-			}
-		} else {
-			c.cacheClientset[f.Name] = clientset
-			err := c.cacheService[f.Name].ResetClientset(clientset)
-			if err != nil {
-				c.logger.Error(err, "Reset clientset")
-				err = c.UpdateHubConditions(f.Name, []metav1.Condition{
-					{
-						Type:    v1alpha2.ConnectedCondition,
-						Status:  metav1.ConditionFalse,
-						Reason:  "Disconnected",
-						Message: err.Error(),
-					},
-				})
-				if err != nil {
-					c.logger.Error(err, "failed to update status",
-						"hub", objref.KObj(f),
-					)
-				}
-			} else {
-				err = c.UpdateHubConditions(f.Name, []metav1.Condition{
-					{
-						Type:   v1alpha2.ConnectedCondition,
-						Status: metav1.ConditionTrue,
-						Reason: "Connected",
-					},
-				})
-				if err != nil {
-					c.logger.Error(err, "failed to update status",
-						"hub", objref.KObj(f),
-					)
-				}
-			}
-
-			if IsEnabledMCS(old) {
-				if IsEnabledMCS(f) {
-					err = c.enableMCS(f, clientset)
-					if err != nil {
-						c.logger.Error(err, "enable mcs")
-					}
-				} else {
-					err = c.disableMCS(f)
-					if err != nil {
-						c.logger.Error(err, "disable mcs")
-					}
-				}
-			} else {
-				if IsEnabledMCS(f) {
-					err = c.updateMCS(f, clientset)
-					if err != nil {
-						c.logger.Error(err, "update mcs")
-					}
-				}
-			}
-		}
+		return
 	} else {
-		if IsEnabledMCS(old) {
-			if !IsEnabledMCS(f) {
-				err = c.disableMCS(f)
-				if err != nil {
-					c.logger.Error(err, "disable mcs")
-				}
-			}
-		} else {
-			if IsEnabledMCS(f) {
-				restConfig, err := client.NewRestConfigFromKubeconfig(kubeconfig)
-				if err != nil {
-					c.logger.Error(err, "NewRestConfigFromKubeconfig")
-					return
-				}
-				clientset, err := client.NewForConfig(restConfig)
-				if err != nil {
-					c.logger.Error(err, "NewForConfig")
-					err = c.UpdateHubConditions(f.Name, []metav1.Condition{
-						{
-							Type:    v1alpha2.ConnectedCondition,
-							Status:  metav1.ConditionFalse,
-							Reason:  "Disconnected",
-							Message: err.Error(),
-						},
-					})
-					if err != nil {
-						c.logger.Error(err, "failed to update status",
-							"hub", objref.KObj(f),
-						)
-					}
-				}
-				if err == nil {
-					err = c.enableMCS(f, clientset)
-					if err != nil {
-						c.logger.Error(err, "enable mcs")
-					}
-				}
-			}
+		err = c.UpdateHubConditions(f.Name, []metav1.Condition{
+			{
+				Type:   v1alpha2.ConnectedCondition,
+				Status: metav1.ConditionTrue,
+				Reason: "Connected",
+			},
+		})
+		if err != nil {
+			c.logger.Error(err, "failed to update status")
 		}
 	}
 
 	c.cacheHub[f.Name] = f
 
+	if updated {
+		c.enableCache(f.Name, clientset)
+	}
+
+	if IsEnabledMCS(old) {
+		if !IsEnabledMCS(f) {
+			c.disableMCS(f)
+		} else {
+			if updated {
+				c.enableMCS(f, clientset)
+			}
+		}
+	} else {
+		if IsEnabledMCS(f) {
+			c.enableMCS(f, clientset)
+		}
+	}
+
 	c.syncFunc()
 }
 
-func (c *HubController) enableMCS(f *v1alpha2.Hub, clientset client.Interface) error {
-	clusterServiceExport := newClusterServiceExportCache(clusterServiceExportCacheConfig{
-		Logger:    c.logger.WithName(f.Name).WithName("service-export"),
-		Clientset: clientset,
-		SyncFunc:  c.syncFunc,
-	})
-	err := clusterServiceExport.Start(c.ctx)
-	if err != nil {
-		c.logger.Error(err, "failed start cluster service exports cache")
-	} else {
-		c.cacheServiceExport[f.Name] = clusterServiceExport
+func (c *HubController) enableCache(hubName string, clientset client.Interface) {
+	if clientset == nil {
+		return
+	}
+	if c.cacheTunnelPorts[hubName] == nil {
+		host := c.GetTunnelAddressInControlPlane(hubName)
+		cli := portsclient.NewClient("http://" + host + "/ports")
+		c.cacheTunnelPorts[hubName] = newTunnelPorts(tunnelPortsConfig{
+			Logger: c.logger.WithName(hubName).WithName("tunnel-port"),
+			GetUnusedPort: func() (int32, error) {
+				return cli.Get(c.ctx)
+			},
+		})
 	}
 
-	clusterServiceImport := newClusterServiceImportCache(clusterServiceImportCacheConfig{
-		Logger:    c.logger.WithName(f.Name).WithName("service-import"),
-		Clientset: clientset,
-		SyncFunc:  c.syncFunc,
-	})
-	err = clusterServiceImport.Start(c.ctx)
-	if err != nil {
-		c.logger.Error(err, "failed start cluster service imports cache")
+	if c.cacheService[hubName] == nil {
+		clusterService := newClusterServiceCache(clusterServiceCacheConfig{
+			Clientset: clientset,
+			Logger:    c.logger.WithName(hubName).WithName("service"),
+		})
+		c.cacheService[hubName] = clusterService
+		err := clusterService.Start(c.ctx)
+		if err != nil {
+			c.logger.Error(err, "failed start cluster service cache")
+		}
 	} else {
-		c.cacheServiceImport[f.Name] = clusterServiceImport
+		err := c.cacheService[hubName].ResetClientset(clientset)
+		if err != nil {
+			c.logger.Error(err, "reset clientset")
+		}
 	}
-	return nil
 }
 
-func (c *HubController) disableMCS(f *v1alpha2.Hub) error {
+func (c *HubController) enableMCS(f *v1alpha2.Hub, clientset client.Interface) {
+	if clientset == nil {
+		return
+	}
+	if c.cacheServiceExport[f.Name] == nil {
+		clusterServiceExport := newClusterServiceExportCache(clusterServiceExportCacheConfig{
+			Logger:    c.logger.WithName(f.Name).WithName("service-export"),
+			Clientset: clientset,
+			SyncFunc:  c.syncFunc,
+		})
+		err := clusterServiceExport.Start(c.ctx)
+		if err != nil {
+			c.logger.Error(err, "failed start cluster service exports cache")
+		} else {
+			c.cacheServiceExport[f.Name] = clusterServiceExport
+		}
+	} else {
+		err := c.cacheServiceExport[f.Name].ResetClientset(clientset)
+		if err != nil {
+			c.logger.Error(err, "failed reset client")
+		}
+	}
+
+	if c.cacheServiceImport[f.Name] == nil {
+		clusterServiceImport := newClusterServiceImportCache(clusterServiceImportCacheConfig{
+			Logger:    c.logger.WithName(f.Name).WithName("service-import"),
+			Clientset: clientset,
+			SyncFunc:  c.syncFunc,
+		})
+		err := clusterServiceImport.Start(c.ctx)
+		if err != nil {
+			c.logger.Error(err, "failed start cluster service imports cache")
+		} else {
+			c.cacheServiceImport[f.Name] = clusterServiceImport
+		}
+	} else {
+		err := c.cacheServiceImport[f.Name].ResetClientset(clientset)
+		if err != nil {
+			c.logger.Error(err, "failed reset client")
+		}
+	}
+	return
+}
+
+func (c *HubController) disableMCS(f *v1alpha2.Hub) {
 	if c.cacheServiceExport[f.Name] != nil {
 		c.cacheServiceExport[f.Name].Close()
+		delete(c.cacheServiceExport, f.Name)
 	}
-	delete(c.cacheServiceExport, f.Name)
 	if c.cacheServiceImport[f.Name] != nil {
 		c.cacheServiceImport[f.Name].Close()
+		delete(c.cacheServiceImport, f.Name)
 	}
-	delete(c.cacheServiceImport, f.Name)
-	return nil
-}
-
-func (c *HubController) updateMCS(f *v1alpha2.Hub, clientset client.Interface) error {
-	if c.cacheServiceExport[f.Name] != nil {
-		c.cacheServiceExport[f.Name].ResetClientset(clientset)
-	}
-
-	if c.cacheServiceImport[f.Name] != nil {
-		c.cacheServiceImport[f.Name].ResetClientset(clientset)
-	}
-	return nil
 }
 
 func (c *HubController) ListMCS(namespace string) (map[string][]*v1alpha1.ServiceImport, map[string][]*v1alpha1.ServiceExport) {
