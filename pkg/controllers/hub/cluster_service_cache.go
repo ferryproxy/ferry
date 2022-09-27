@@ -39,7 +39,7 @@ type clusterServiceCache struct {
 
 	clientset client.Interface
 	cache     map[objref.ObjectRef]*corev1.Service
-	callback  map[string]func()
+	syncFunc  func()
 
 	logger logr.Logger
 	try    *trybuffer.TryBuffer
@@ -52,14 +52,15 @@ type clusterServiceCache struct {
 type clusterServiceCacheConfig struct {
 	Clientset client.Interface
 	Logger    logr.Logger
+	SyncFunc  func()
 }
 
 func newClusterServiceCache(conf clusterServiceCacheConfig) *clusterServiceCache {
 	c := &clusterServiceCache{
 		clientset: conf.Clientset,
 		logger:    conf.Logger,
-		callback:  map[string]func(){},
 		cache:     map[objref.ObjectRef]*corev1.Service{},
+		syncFunc:  conf.SyncFunc,
 	}
 	return c
 }
@@ -137,23 +138,7 @@ func (c *clusterServiceCache) List() []*corev1.Service {
 }
 
 func (c *clusterServiceCache) sync() {
-	c.mut.Lock()
-	defer c.mut.Unlock()
-	for _, cb := range c.callback {
-		cb()
-	}
-}
-
-func (c *clusterServiceCache) RegistryCallback(name string, fun func()) {
-	c.mut.Lock()
-	defer c.mut.Unlock()
-	c.callback[name] = fun
-}
-
-func (c *clusterServiceCache) UnregistryCallback(name string) {
-	c.mut.Lock()
-	defer c.mut.Unlock()
-	delete(c.callback, name)
+	c.syncFunc()
 }
 
 func (c *clusterServiceCache) onAdd(obj interface{}) {

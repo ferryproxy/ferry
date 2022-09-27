@@ -48,8 +48,6 @@ type HubInterface interface {
 	LoadPortPeer(importHubName string, cluster, namespace, name string, port, bindPort int32) error
 	GetPortPeer(importHubName string, cluster, namespace, name string, port int32) (int32, error)
 	DeletePortPeer(importHubName string, cluster, namespace, name string, port int32) (int32, error)
-	RegistryServiceCallback(exportHubName, importHubName string, cb func())
-	UnregistryServiceCallback(exportHubName, importHubName string)
 	HubReady(hubName string) bool
 }
 
@@ -139,9 +137,6 @@ func (m *MappingController) Start(ctx context.Context) error {
 	})
 
 	m.try = trybuffer.NewTryBuffer(m.sync, time.Second/10)
-
-	m.hubInterface.RegistryServiceCallback(m.exportHubName, m.importHubName, m.Sync)
-
 	return nil
 }
 
@@ -399,7 +394,6 @@ func (m *MappingController) Close() {
 		return
 	}
 	m.isClose = true
-	m.hubInterface.UnregistryServiceCallback(m.exportHubName, m.importHubName)
 	m.try.Close()
 
 	ctx := context.Background()

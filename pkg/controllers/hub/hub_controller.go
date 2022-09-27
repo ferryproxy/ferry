@@ -206,26 +206,6 @@ func (c *HubController) GetAuthorized(name string) string {
 	return c.cacheAuthorized[name]
 }
 
-func (c *HubController) RegistryServiceCallback(exportHubName, importHubName string, cb func()) {
-	c.mut.Lock()
-	defer c.mut.Unlock()
-	if c.cacheService[exportHubName] == nil {
-		c.logger.Info("failed to registry service callback")
-		return
-	}
-	c.cacheService[exportHubName].RegistryCallback(importHubName, cb)
-}
-
-func (c *HubController) UnregistryServiceCallback(exportHubName, importHubName string) {
-	c.mut.Lock()
-	defer c.mut.Unlock()
-	if c.cacheService[exportHubName] == nil {
-		c.logger.Info("failed to unregistry service callback")
-		return
-	}
-	c.cacheService[exportHubName].UnregistryCallback(importHubName)
-}
-
 func (c *HubController) LoadPortPeer(importHubName string, cluster, namespace, name string, port, bindPort int32) error {
 	c.mut.RLock()
 	defer c.mut.RUnlock()
@@ -466,6 +446,7 @@ func (c *HubController) enableCache(hubName string, clientset client.Interface) 
 		clusterService := newClusterServiceCache(clusterServiceCacheConfig{
 			Clientset: clientset,
 			Logger:    c.logger.WithName(hubName).WithName("service"),
+			SyncFunc:  c.syncFunc,
 		})
 		c.cacheService[hubName] = clusterService
 		err := clusterService.Start(c.ctx)
