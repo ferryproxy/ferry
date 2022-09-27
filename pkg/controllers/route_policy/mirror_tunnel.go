@@ -57,12 +57,24 @@ func buildMirrorTunnelRoute(hub *v1alpha2.Hub, importHubName string) *v1alpha2.R
 					Namespace: "ferry-tunnel-system",
 					Name:      "ferry-tunnel",
 				},
+				Ports: []v1alpha2.RouteSpecRulePort{
+					{
+						Name: "http",
+						Port: 8080,
+					},
+				},
 			},
 			Import: v1alpha2.RouteSpecRule{
 				HubName: importHubName,
 				Service: v1alpha2.RouteSpecRuleService{
 					Namespace: "ferry-tunnel-system",
 					Name:      hub.Name + "-ferry-tunnel",
+				},
+				Ports: []v1alpha2.RouteSpecRulePort{
+					{
+						Name: "http",
+						Port: 8080,
+					},
 				},
 			},
 		},

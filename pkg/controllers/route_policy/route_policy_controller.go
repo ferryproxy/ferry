@@ -365,6 +365,16 @@ func policiesToRoutes(hubInterface HubInterface, policies []*v1alpha2.RoutePolic
 
 					policy := match.Policy
 
+					var ports []v1alpha2.RouteSpecRulePort
+					for _, port := range svc.Spec.Ports {
+						if port.Protocol == "" || port.Protocol == corev1.ProtocolTCP {
+							ports = append(ports, v1alpha2.RouteSpecRulePort{
+								Name: port.Name,
+								Port: port.Port,
+							})
+						}
+					}
+
 					suffix := hash(fmt.Sprintf("%s|%s|%s|%s|%s|%s",
 						exportHubName, exportNamespace, exportName,
 						importHubName, importNamespace, importName))
@@ -390,6 +400,7 @@ func policiesToRoutes(hubInterface HubInterface, policies []*v1alpha2.RoutePolic
 									Name:      importName,
 									Namespace: importNamespace,
 								},
+								Ports: ports,
 							},
 							Export: v1alpha2.RouteSpecRule{
 								HubName: exportHubName,
@@ -397,6 +408,7 @@ func policiesToRoutes(hubInterface HubInterface, policies []*v1alpha2.RoutePolic
 									Name:      exportName,
 									Namespace: exportNamespace,
 								},
+								Ports: ports,
 							},
 						},
 					})

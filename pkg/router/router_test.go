@@ -39,23 +39,6 @@ func TestRouter(t *testing.T) {
 		{
 			name: "self",
 			args: fakeRouter{
-				Services: []*corev1.Service{
-					{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      "svc1",
-							Namespace: "test",
-						},
-						Spec: corev1.ServiceSpec{
-							Ports: []corev1.ServicePort{
-								{
-									Name:     "http",
-									Port:     80,
-									Protocol: corev1.ProtocolTCP,
-								},
-							},
-						},
-					},
-				},
 				Hubs: []*v1alpha2.Hub{
 					{
 						ObjectMeta: metav1.ObjectMeta{
@@ -82,12 +65,22 @@ func TestRouter(t *testing.T) {
 									Name:      "svc1-new",
 									Namespace: "test",
 								},
+								Ports: []v1alpha2.RouteSpecRulePort{
+									{
+										Port: 8080,
+									},
+								},
 							},
 							Export: v1alpha2.RouteSpecRule{
 								HubName: "self",
 								Service: v1alpha2.RouteSpecRuleService{
 									Name:      "svc1",
 									Namespace: "test",
+								},
+								Ports: []v1alpha2.RouteSpecRulePort{
+									{
+										Port: 80,
+									},
 								},
 							},
 						},
@@ -111,7 +104,7 @@ func TestRouter(t *testing.T) {
 							"export_service_namespace": "test",
 							"import_service_name":      "svc1-new",
 							"import_service_namespace": "test",
-							"ports":                    `[{"name":"http","protocol":"TCP","port":80,"targetPort":10001}]`,
+							"ports":                    `[{"protocol":"TCP","port":8080,"targetPort":10001}]`,
 						},
 					},
 					&corev1.ConfigMap{
@@ -143,23 +136,6 @@ func TestRouter(t *testing.T) {
 		{
 			name: "export reachable",
 			args: fakeRouter{
-				Services: []*corev1.Service{
-					{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      "svc1",
-							Namespace: "test",
-						},
-						Spec: corev1.ServiceSpec{
-							Ports: []corev1.ServicePort{
-								{
-									Name:     "http",
-									Port:     80,
-									Protocol: corev1.ProtocolTCP,
-								},
-							},
-						},
-					},
-				},
 				Hubs: []*v1alpha2.Hub{
 					{
 						ObjectMeta: metav1.ObjectMeta{
@@ -213,12 +189,22 @@ func TestRouter(t *testing.T) {
 									Name:      "svc1",
 									Namespace: "test",
 								},
+								Ports: []v1alpha2.RouteSpecRulePort{
+									{
+										Port: 80,
+									},
+								},
 							},
 							Export: v1alpha2.RouteSpecRule{
 								HubName: "export",
 								Service: v1alpha2.RouteSpecRuleService{
 									Name:      "svc1",
 									Namespace: "test",
+								},
+								Ports: []v1alpha2.RouteSpecRulePort{
+									{
+										Port: 80,
+									},
 								},
 							},
 						},
@@ -279,7 +265,7 @@ func TestRouter(t *testing.T) {
 							"export_service_namespace": "test",
 							"import_service_name":      "svc1",
 							"import_service_namespace": "test",
-							"ports":                    `[{"name":"http","protocol":"TCP","port":80,"targetPort":10001}]`,
+							"ports":                    `[{"protocol":"TCP","port":80,"targetPort":10001}]`,
 						},
 					},
 					&corev1.ConfigMap{
@@ -314,23 +300,6 @@ func TestRouter(t *testing.T) {
 		{
 			name: "import reachable",
 			args: fakeRouter{
-				Services: []*corev1.Service{
-					{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      "svc1",
-							Namespace: "test",
-						},
-						Spec: corev1.ServiceSpec{
-							Ports: []corev1.ServicePort{
-								{
-									Name:     "http",
-									Port:     80,
-									Protocol: corev1.ProtocolTCP,
-								},
-							},
-						},
-					},
-				},
 				Hubs: []*v1alpha2.Hub{
 					{
 						ObjectMeta: metav1.ObjectMeta{
@@ -384,12 +353,22 @@ func TestRouter(t *testing.T) {
 									Name:      "svc1",
 									Namespace: "test",
 								},
+								Ports: []v1alpha2.RouteSpecRulePort{
+									{
+										Port: 80,
+									},
+								},
 							},
 							Export: v1alpha2.RouteSpecRule{
 								HubName: "export",
 								Service: v1alpha2.RouteSpecRuleService{
 									Name:      "svc1",
 									Namespace: "test",
+								},
+								Ports: []v1alpha2.RouteSpecRulePort{
+									{
+										Port: 80,
+									},
 								},
 							},
 						},
@@ -447,7 +426,7 @@ func TestRouter(t *testing.T) {
 							"export_service_namespace": "test",
 							"import_service_name":      "svc1",
 							"import_service_namespace": "test",
-							"ports":                    `[{"name":"http","protocol":"TCP","port":80,"targetPort":10001}]`,
+							"ports":                    `[{"protocol":"TCP","port":80,"targetPort":10001}]`,
 						},
 					},
 				},
@@ -484,23 +463,6 @@ func TestRouter(t *testing.T) {
 		{
 			name: "proxy reachable",
 			args: fakeRouter{
-				Services: []*corev1.Service{
-					{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      "svc1",
-							Namespace: "test",
-						},
-						Spec: corev1.ServiceSpec{
-							Ports: []corev1.ServicePort{
-								{
-									Name:     "http",
-									Port:     80,
-									Protocol: corev1.ProtocolTCP,
-								},
-							},
-						},
-					},
-				},
 				Hubs: []*v1alpha2.Hub{
 					{
 						ObjectMeta: metav1.ObjectMeta{
@@ -557,12 +519,22 @@ func TestRouter(t *testing.T) {
 									Name:      "svc1",
 									Namespace: "test",
 								},
+								Ports: []v1alpha2.RouteSpecRulePort{
+									{
+										Port: 80,
+									},
+								},
 							},
 							Export: v1alpha2.RouteSpecRule{
 								HubName: "export",
 								Service: v1alpha2.RouteSpecRuleService{
 									Name:      "svc1",
 									Namespace: "test",
+								},
+								Ports: []v1alpha2.RouteSpecRulePort{
+									{
+										Port: 80,
+									},
 								},
 							},
 						},
@@ -611,7 +583,7 @@ func TestRouter(t *testing.T) {
 							"export_service_namespace": "test",
 							"import_service_name":      "svc1",
 							"import_service_namespace": "test",
-							"ports":                    `[{"name":"http","protocol":"TCP","port":80,"targetPort":10001}]`,
+							"ports":                    `[{"protocol":"TCP","port":80,"targetPort":10001}]`,
 						},
 					},
 					&corev1.ConfigMap{
@@ -720,9 +692,8 @@ func toJson(c interface{}) string {
 }
 
 type fakeRouter struct {
-	Services []*corev1.Service
-	Hubs     []*v1alpha2.Hub
-	Routes   []*v1alpha2.Route
+	Hubs   []*v1alpha2.Hub
+	Routes []*v1alpha2.Route
 }
 
 func (f *fakeRouter) BuildResource() (out map[string][]objref.KMetadata, err error) {
@@ -732,7 +703,6 @@ func (f *fakeRouter) BuildResource() (out map[string][]objref.KMetadata, err err
 	}
 
 	fake := &fakeHubInterface{
-		services:  f.Services,
 		hubs:      hubs,
 		port:      10000,
 		portCache: map[string]int{},
