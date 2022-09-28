@@ -251,11 +251,6 @@ func (c *RoutePolicyController) Sync(ctx context.Context) {
 	routes := BuildMirrorTunnelRoutes(hubs, consts.ControlPlaneName)
 	updated = append(updated, routes...)
 
-	// If the mapping rules are the same, no need to update
-	if reflect.DeepEqual(c.cacheRoutePolicyRoutes, updated) {
-		return
-	}
-
 	// Update the cache of mapping rules
 	deleted := diffobjs.ShouldDeleted(c.cacheRoutePolicyRoutes, updated)
 	defer func() {

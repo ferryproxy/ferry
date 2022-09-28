@@ -19,7 +19,6 @@ package mcs
 import (
 	"context"
 	"fmt"
-	"reflect"
 	"sort"
 	"sync"
 
@@ -89,11 +88,6 @@ func (m *MCSController) Sync(ctx context.Context) {
 	importMap, exportMap := m.hubInterface.ListMCS("")
 
 	updated := mcsToRoutePolicies(importMap, exportMap)
-
-	if reflect.DeepEqual(m.cacheRoutePolicies, updated) {
-		m.logger.Info("routePolicy not modified")
-		return
-	}
 
 	m.logger.Info("Update routePolicy with mcs",
 		"size", len(updated),

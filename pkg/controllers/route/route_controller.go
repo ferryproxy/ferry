@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"sort"
 	"sync"
 
 	"github.com/ferryproxy/api/apis/traffic/v1alpha2"
@@ -81,6 +82,9 @@ func (c *RouteController) list() []*v1alpha2.Route {
 		}
 		list = append(list, item)
 	}
+	sort.Slice(list, func(i, j int) bool {
+		return list[i].CreationTimestamp.Before(&list[j].CreationTimestamp)
+	})
 	return list
 }
 
@@ -273,15 +277,6 @@ func (c *RouteController) startMappingController(ctx context.Context, key cluste
 		return mc, nil
 	}
 
-	_, err := c.hubInterface.Clientset(key.Export)
-	if err != nil {
-		return nil, err
-	}
-	_, err = c.hubInterface.Clientset(key.Import)
-	if err != nil {
-		return nil, err
-	}
-
 	exportCluster := c.hubInterface.GetHub(key.Export)
 	if exportCluster == nil {
 		return nil, fmt.Errorf("not found cluster information %q", key.Export)
@@ -304,7 +299,7 @@ func (c *RouteController) startMappingController(ctx context.Context, key cluste
 	})
 	c.cacheMappingController[key] = mc
 
-	err = mc.Start(ctx)
+	err := mc.Start(ctx)
 	if err != nil {
 		return nil, err
 	}

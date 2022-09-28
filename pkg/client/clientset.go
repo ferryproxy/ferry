@@ -46,6 +46,10 @@ func NewForConfig(conf *rest.Config) (Interface, error) {
 	if err != nil {
 		return nil, err
 	}
+	_, err = kubeClientset.ServerVersion()
+	if err != nil {
+		return nil, err
+	}
 	ferryClientset, err := ferryversioned.NewForConfig(conf)
 	if err != nil {
 		return nil, err

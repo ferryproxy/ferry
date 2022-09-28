@@ -19,7 +19,6 @@ package route
 import (
 	"context"
 	"fmt"
-	"reflect"
 	"strings"
 	"sync"
 	"time"
@@ -147,9 +146,7 @@ func (m *MappingController) Sync() {
 func (m *MappingController) SetRoutes(routes []*v1alpha2.Route) {
 	m.mut.Lock()
 	defer m.mut.Unlock()
-	if reflect.DeepEqual(m.routes, routes) {
-		return
-	}
+
 	for _, route := range routes {
 		conds := []metav1.Condition{}
 		err := m.updatePort(route)
@@ -241,50 +238,29 @@ func (m *MappingController) sync() {
 	}
 	ctx := m.ctx
 
-	// TODO: check for failures sync
 	conds := []metav1.Condition{}
 
-	importHubReady := m.hubInterface.HubReady(m.importHubName)
-	if importHubReady {
-		conds = append(conds, metav1.Condition{
-			Type:   v1alpha2.ImportHubReadyCondition,
-			Status: metav1.ConditionTrue,
-			Reason: v1alpha2.ImportHubReadyCondition,
-		})
-	} else {
-		conds = append(conds, metav1.Condition{
-			Type:   v1alpha2.ImportHubReadyCondition,
-			Status: metav1.ConditionFalse,
-			Reason: "NotReady",
-		})
-	}
-
-	exportHubReady := m.hubInterface.HubReady(m.exportHubName)
-	if exportHubReady {
-		conds = append(conds, metav1.Condition{
-			Type:   v1alpha2.ExportHubReadyCondition,
-			Status: metav1.ConditionTrue,
-			Reason: v1alpha2.ExportHubReadyCondition,
-		})
-	} else {
-		conds = append(conds, metav1.Condition{
-			Type:   v1alpha2.ExportHubReadyCondition,
-			Status: metav1.ConditionFalse,
-			Reason: "NotReady",
-		})
-	}
-
 	defer func() {
-		for _, route := range m.routes {
-			err := m.routeInterface.UpdateRouteCondition(route.Name, conds)
-			if err != nil {
-				m.logger.Error(err, "failed to update status")
+		if len(conds) != 0 {
+			for _, route := range m.routes {
+				err := m.routeInterface.UpdateRouteCondition(route.Name, conds)
+				if err != nil {
+					m.logger.Error(err, "failed to update status")
+				}
 			}
 		}
 	}()
 
 	way, err := m.solution.CalculateWays(m.exportHubName, m.importHubName)
 	if err != nil {
+		conds = append(conds,
+			metav1.Condition{
+				Type:    v1alpha2.PathReachableCondition,
+				Status:  metav1.ConditionFalse,
+				Reason:  "Unreachable",
+				Message: err.Error(),
+			},
+		)
 		m.logger.Error(err, "calculate ways")
 		return
 	}
@@ -382,6 +358,36 @@ func (m *MappingController) sync() {
 			Reason: v1alpha2.RouteSyncedCondition,
 		},
 	)
+
+	importHubReady := m.hubInterface.HubReady(m.importHubName)
+	if importHubReady {
+		conds = append(conds, metav1.Condition{
+			Type:   v1alpha2.ImportHubReadyCondition,
+			Status: metav1.ConditionTrue,
+			Reason: v1alpha2.ImportHubReadyCondition,
+		})
+	} else {
+		conds = append(conds, metav1.Condition{
+			Type:   v1alpha2.ImportHubReadyCondition,
+			Status: metav1.ConditionFalse,
+			Reason: "NotReady",
+		})
+	}
+
+	exportHubReady := m.hubInterface.HubReady(m.exportHubName)
+	if exportHubReady {
+		conds = append(conds, metav1.Condition{
+			Type:   v1alpha2.ExportHubReadyCondition,
+			Status: metav1.ConditionTrue,
+			Reason: v1alpha2.ExportHubReadyCondition,
+		})
+	} else {
+		conds = append(conds, metav1.Condition{
+			Type:   v1alpha2.ExportHubReadyCondition,
+			Status: metav1.ConditionFalse,
+			Reason: "NotReady",
+		})
+	}
 
 	return
 }
