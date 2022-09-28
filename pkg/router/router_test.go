@@ -37,6 +37,110 @@ func TestRouter(t *testing.T) {
 		want map[string][]objref.KMetadata
 	}{
 		{
+			name: "self",
+			args: fakeRouter{
+				Services: []*corev1.Service{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "svc1",
+							Namespace: "test",
+						},
+						Spec: corev1.ServiceSpec{
+							Ports: []corev1.ServicePort{
+								{
+									Name:     "http",
+									Port:     80,
+									Protocol: corev1.ProtocolTCP,
+								},
+							},
+						},
+					},
+				},
+				Hubs: []*v1alpha2.Hub{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "self",
+						},
+						Spec: v1alpha2.HubSpec{
+							Gateway: v1alpha2.HubSpecGateway{
+								Reachable: true,
+								Address:   "10.0.0.1:8080",
+							},
+						},
+					},
+				},
+				Routes: []*v1alpha2.Route{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "svc1",
+							Namespace: "test",
+						},
+						Spec: v1alpha2.RouteSpec{
+							Import: v1alpha2.RouteSpecRule{
+								HubName: "self",
+								Service: v1alpha2.RouteSpecRuleService{
+									Name:      "svc1-new",
+									Namespace: "test",
+								},
+							},
+							Export: v1alpha2.RouteSpecRule{
+								HubName: "self",
+								Service: v1alpha2.RouteSpecRuleService{
+									Name:      "svc1",
+									Namespace: "test",
+								},
+							},
+						},
+					},
+				},
+			},
+
+			want: map[string][]objref.KMetadata{
+				"self": {
+					&corev1.ConfigMap{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "svc1-service",
+							Namespace: "ferry-tunnel-system",
+							Labels: map[string]string{
+								"tunnel.ferryproxy.io/config": "service",
+							},
+						},
+						Data: map[string]string{
+							"export_hub_name":          "self",
+							"export_service_name":      "svc1",
+							"export_service_namespace": "test",
+							"import_service_name":      "svc1-new",
+							"import_service_namespace": "test",
+							"ports":                    `[{"name":"http","protocol":"TCP","port":80,"targetPort":10001}]`,
+						},
+					},
+					&corev1.ConfigMap{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "svc1-tunnel-80-10001",
+							Namespace: "ferry-tunnel-system",
+							Labels: map[string]string{
+								"tunnel.ferryproxy.io/config": "rules",
+							},
+						},
+						Data: map[string]string{
+							consts.TunnelRulesKey: toJson(
+								[]Chain{
+									{
+										Bind: []string{
+											":10001",
+										},
+										Proxy: []string{
+											"svc1.test.svc:80",
+										},
+									},
+								},
+							),
+						},
+					},
+				},
+			},
+		},
+		{
 			name: "export reachable",
 			args: fakeRouter{
 				Services: []*corev1.Service{
