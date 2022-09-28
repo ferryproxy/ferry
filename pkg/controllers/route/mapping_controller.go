@@ -280,7 +280,7 @@ func (m *MappingController) sync() {
 	}
 	msg := ""
 	if len(way) == 2 {
-		msg = "<Direct>"
+		msg = "<direct>"
 	} else {
 		msg = strings.Join(way[1:len(way)-1], ",")
 	}
@@ -370,7 +370,7 @@ func (m *MappingController) sync() {
 		conds = append(conds, metav1.Condition{
 			Type:   v1alpha2.ImportHubReadyCondition,
 			Status: metav1.ConditionFalse,
-			Reason: "NotReady",
+			Reason: "ImportHubNotReady",
 		})
 	}
 
@@ -385,7 +385,7 @@ func (m *MappingController) sync() {
 		conds = append(conds, metav1.Condition{
 			Type:   v1alpha2.ExportHubReadyCondition,
 			Status: metav1.ConditionFalse,
-			Reason: "NotReady",
+			Reason: "ExportHubNotReady",
 		})
 	}
 

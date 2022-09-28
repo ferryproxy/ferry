@@ -124,24 +124,27 @@ func (c *RouteController) UpdateRouteCondition(name string, conditions []metav1.
 		c.conditionsManager.Set(name, condition)
 	}
 
-	if c.conditionsManager.IsTrue(name, v1alpha2.PortsAllocatedCondition) &&
-		c.conditionsManager.IsTrue(name, v1alpha2.RouteSyncedCondition) &&
-		c.conditionsManager.IsTrue(name, v1alpha2.ExportHubReadyCondition) &&
-		c.conditionsManager.IsTrue(name, v1alpha2.ImportHubReadyCondition) &&
-		c.conditionsManager.IsTrue(name, v1alpha2.PathReachableCondition) {
+	ready, reason := c.conditionsManager.Ready(name,
+		v1alpha2.PortsAllocatedCondition,
+		v1alpha2.RouteSyncedCondition,
+		v1alpha2.ExportHubReadyCondition,
+		v1alpha2.ImportHubReadyCondition,
+		v1alpha2.PathReachableCondition,
+	)
+	if ready {
 		c.conditionsManager.Set(name, metav1.Condition{
-			Type:   v1alpha2.RouteReady,
+			Type:   v1alpha2.HubReady,
 			Status: metav1.ConditionTrue,
-			Reason: v1alpha2.RouteReady,
+			Reason: v1alpha2.HubReady,
 		})
-		status.Phase = v1alpha2.RouteReady
+		status.Phase = v1alpha2.HubReady
 	} else {
 		c.conditionsManager.Set(name, metav1.Condition{
-			Type:   v1alpha2.RouteReady,
+			Type:   v1alpha2.HubReady,
 			Status: metav1.ConditionFalse,
 			Reason: "NotReady",
 		})
-		status.Phase = "NotReady"
+		status.Phase = reason
 	}
 
 	status.LastSynchronizationTimestamp = metav1.Now()
@@ -153,10 +156,10 @@ func (c *RouteController) UpdateRouteCondition(name string, conditions []metav1.
 		if c.conditionsManager.IsTrue(name, v1alpha2.PathReachableCondition) {
 			status.Way = cond.Message
 		} else {
-			status.Way = "<Unreachable>"
+			status.Way = "<unreachable>"
 		}
 	} else {
-		status.Way = "<Unknown>"
+		status.Way = "<unknown>"
 	}
 
 	data, err := json.Marshal(map[string]interface{}{

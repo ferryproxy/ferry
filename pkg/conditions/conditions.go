@@ -17,6 +17,7 @@ limitations under the License.
 package conditions
 
 import (
+	"strings"
 	"sync"
 
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -76,4 +77,37 @@ func (c *ConditionsManager) Delete(name string) {
 	c.mut.Lock()
 	defer c.mut.Unlock()
 	delete(c.cache, name)
+}
+
+func (c *ConditionsManager) Ready(name string, conditionTypes ...string) (bool, string) {
+	c.mut.RLock()
+	defer c.mut.RUnlock()
+	conds := c.cache[name]
+	if len(conds) == 0 {
+		return false, "<unknown>"
+	}
+
+	notReadyReasons := []string{}
+
+	for _, conditionType := range conditionTypes {
+		cond := meta.FindStatusCondition(conds, conditionType)
+		if cond == nil {
+			notReadyReasons = append(notReadyReasons, conditionType+"NotSet")
+			continue
+		}
+		if cond.Status == metav1.ConditionTrue {
+			continue
+		}
+		if cond.Status == metav1.ConditionFalse {
+			notReadyReasons = append(notReadyReasons, cond.Reason)
+			continue
+		}
+
+		notReadyReasons = append(notReadyReasons, cond.Reason+string(cond.Status))
+	}
+
+	if len(notReadyReasons) == 0 {
+		return true, ""
+	}
+	return false, strings.Join(notReadyReasons, ",")
 }

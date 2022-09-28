@@ -135,8 +135,11 @@ func (c *HubController) UpdateHubConditions(name string, conditions []metav1.Con
 		c.conditionsManager.Set(name, condition)
 	}
 
-	if c.conditionsManager.IsTrue(name, v1alpha2.ConnectedCondition) &&
-		c.conditionsManager.IsTrue(name, v1alpha2.TunnelHealthCondition) {
+	ready, reason := c.conditionsManager.Ready(name,
+		v1alpha2.ConnectedCondition,
+		v1alpha2.TunnelHealthCondition,
+	)
+	if ready {
 		c.conditionsManager.Set(name, metav1.Condition{
 			Type:   v1alpha2.HubReady,
 			Status: metav1.ConditionTrue,
@@ -149,8 +152,9 @@ func (c *HubController) UpdateHubConditions(name string, conditions []metav1.Con
 			Status: metav1.ConditionFalse,
 			Reason: "NotReady",
 		})
-		status.Phase = "NotReady"
+		status.Phase = reason
 	}
+
 	status.Conditions = c.conditionsManager.Get(name)
 	data, err := json.Marshal(map[string]interface{}{
 		"status": status,
