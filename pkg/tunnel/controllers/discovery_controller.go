@@ -215,14 +215,14 @@ func (s *DiscoveryController) sync() {
 		s.cacheDiscover = resources
 	}()
 	for _, r := range resources {
-		err := client.Apply(s.ctx, s.clientset, r)
+		err := client.Apply(s.ctx, s.logger, s.clientset, r)
 		if err != nil {
 			s.logger.Error(err, "failed to update")
 		}
 	}
 
 	for _, r := range deleted {
-		err := client.Delete(s.ctx, s.clientset, r)
+		err := client.Delete(s.ctx, s.logger, s.clientset, r)
 		if err != nil {
 			s.logger.Error(err, "failed to delete")
 		}

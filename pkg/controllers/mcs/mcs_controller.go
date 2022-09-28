@@ -100,14 +100,14 @@ func (m *MCSController) Sync(ctx context.Context) {
 	}()
 
 	for _, r := range updated {
-		err := client.Apply(ctx, m.clientset, r)
+		err := client.Apply(ctx, m.logger, m.clientset, r)
 		if err != nil {
 			m.logger.Error(err, "failed to update routePolicy")
 		}
 	}
 
 	for _, r := range deleted {
-		err := client.Delete(ctx, m.clientset, r)
+		err := client.Delete(ctx, m.logger, m.clientset, r)
 		if err != nil {
 			m.logger.Error(err, "failed to delete routePolicy")
 		}

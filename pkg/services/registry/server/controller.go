@@ -219,12 +219,12 @@ func (c *Controller) Create(rw http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			ctx := context.Background()
 			for _, src := range importHubResource {
-				client.Delete(ctx, c.Clientset, src)
+				client.Delete(ctx, c.Logger, c.Clientset, src)
 			}
 		}
 	}()
 	for _, src := range importHubResource {
-		err = client.Apply(r.Context(), c.Clientset, src)
+		err = client.Apply(r.Context(), c.Logger, c.Clientset, src)
 		if err != nil {
 			c.Logger.Error(err, "Apply")
 			http.Error(rw, err.Error(), http.StatusInternalServerError)
@@ -234,11 +234,11 @@ func (c *Controller) Create(rw http.ResponseWriter, r *http.Request) {
 
 	defer func() {
 		if err != nil {
-			client.Delete(r.Context(), c.Clientset, hub)
+			client.Delete(r.Context(), c.Logger, c.Clientset, hub)
 		}
 	}()
 
-	err = client.Apply(r.Context(), c.Clientset, hub)
+	err = client.Apply(r.Context(), c.Logger, c.Clientset, hub)
 	if err != nil {
 		c.Logger.Error(err, "Apply")
 		http.Error(rw, err.Error(), http.StatusInternalServerError)

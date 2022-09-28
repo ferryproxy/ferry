@@ -34,8 +34,8 @@ type hub struct {
 	*v1alpha2.Hub
 }
 
-func (r hub) Apply(ctx context.Context, clientset Interface) (err error) {
-	logger := logr.FromContextOrDiscard(ctx)
+func (r hub) Apply(ctx context.Context, logger logr.Logger, clientset Interface) (err error) {
+
 	ori, err := clientset.
 		Ferry().
 		TrafficV1alpha2().
@@ -84,8 +84,8 @@ func (r hub) Apply(ctx context.Context, clientset Interface) (err error) {
 	return nil
 }
 
-func (r hub) Delete(ctx context.Context, clientset Interface) (err error) {
-	logger := logr.FromContextOrDiscard(ctx)
+func (r hub) Delete(ctx context.Context, logger logr.Logger, clientset Interface) (err error) {
+
 	logger.Info("Deleting",
 		"hub", objref.KObj(r),
 	)
@@ -105,8 +105,8 @@ type routePolicy struct {
 	*v1alpha2.RoutePolicy
 }
 
-func (r routePolicy) Apply(ctx context.Context, clientset Interface) (err error) {
-	logger := logr.FromContextOrDiscard(ctx)
+func (r routePolicy) Apply(ctx context.Context, logger logr.Logger, clientset Interface) (err error) {
+
 	ori, err := clientset.
 		Ferry().
 		TrafficV1alpha2().
@@ -155,8 +155,8 @@ func (r routePolicy) Apply(ctx context.Context, clientset Interface) (err error)
 	return nil
 }
 
-func (r routePolicy) Delete(ctx context.Context, clientset Interface) (err error) {
-	logger := logr.FromContextOrDiscard(ctx)
+func (r routePolicy) Delete(ctx context.Context, logger logr.Logger, clientset Interface) (err error) {
+
 	logger.Info("Deleting",
 		"routePolicy", objref.KObj(r),
 	)
@@ -176,8 +176,8 @@ type route struct {
 	*v1alpha2.Route
 }
 
-func (r route) Apply(ctx context.Context, clientset Interface) (err error) {
-	logger := logr.FromContextOrDiscard(ctx)
+func (r route) Apply(ctx context.Context, logger logr.Logger, clientset Interface) (err error) {
+
 	ori, err := clientset.
 		Ferry().
 		TrafficV1alpha2().
@@ -226,8 +226,8 @@ func (r route) Apply(ctx context.Context, clientset Interface) (err error) {
 	return nil
 }
 
-func (r route) Delete(ctx context.Context, clientset Interface) (err error) {
-	logger := logr.FromContextOrDiscard(ctx)
+func (r route) Delete(ctx context.Context, logger logr.Logger, clientset Interface) (err error) {
+
 	logger.Info("Deleting",
 		"route", objref.KObj(r),
 	)
@@ -247,8 +247,8 @@ type service struct {
 	*corev1.Service
 }
 
-func (s service) Apply(ctx context.Context, clientset Interface) (err error) {
-	logger := logr.FromContextOrDiscard(ctx)
+func (s service) Apply(ctx context.Context, logger logr.Logger, clientset Interface) (err error) {
+
 	ori, err := clientset.
 		Kubernetes().
 		CoreV1().
@@ -303,8 +303,8 @@ func (s service) Apply(ctx context.Context, clientset Interface) (err error) {
 	return nil
 }
 
-func (s service) Delete(ctx context.Context, clientset Interface) (err error) {
-	logger := logr.FromContextOrDiscard(ctx)
+func (s service) Delete(ctx context.Context, logger logr.Logger, clientset Interface) (err error) {
+
 	logger.Info("Deleting",
 		"service", objref.KObj(s),
 	)
@@ -336,8 +336,8 @@ type endpoints struct {
 	*corev1.Endpoints
 }
 
-func (s endpoints) Apply(ctx context.Context, clientset Interface) (err error) {
-	logger := logr.FromContextOrDiscard(ctx)
+func (s endpoints) Apply(ctx context.Context, logger logr.Logger, clientset Interface) (err error) {
+
 	ori, err := clientset.
 		Kubernetes().
 		CoreV1().
@@ -392,8 +392,8 @@ func (s endpoints) Apply(ctx context.Context, clientset Interface) (err error) {
 	return nil
 }
 
-func (s endpoints) Delete(ctx context.Context, clientset Interface) (err error) {
-	logger := logr.FromContextOrDiscard(ctx)
+func (s endpoints) Delete(ctx context.Context, logger logr.Logger, clientset Interface) (err error) {
+
 	logger.Info("Deleting",
 		"endpoints", objref.KObj(s),
 	)
@@ -425,8 +425,7 @@ type configMap struct {
 	*corev1.ConfigMap
 }
 
-func (s configMap) Apply(ctx context.Context, clientset Interface) (err error) {
-	logger := logr.FromContextOrDiscard(ctx)
+func (s configMap) Apply(ctx context.Context, logger logr.Logger, clientset Interface) (err error) {
 
 	ori, err := clientset.
 		Kubernetes().
@@ -476,8 +475,8 @@ func (s configMap) Apply(ctx context.Context, clientset Interface) (err error) {
 	return nil
 }
 
-func (s configMap) Delete(ctx context.Context, clientset Interface) (err error) {
-	logger := logr.FromContextOrDiscard(ctx)
+func (s configMap) Delete(ctx context.Context, logger logr.Logger, clientset Interface) (err error) {
+
 	logger.Info("Deleting",
 		"configMap", objref.KObj(s),
 	)
@@ -498,8 +497,7 @@ type secret struct {
 	*corev1.Secret
 }
 
-func (s secret) Apply(ctx context.Context, clientset Interface) (err error) {
-	logger := logr.FromContextOrDiscard(ctx)
+func (s secret) Apply(ctx context.Context, logger logr.Logger, clientset Interface) (err error) {
 
 	ori, err := clientset.
 		Kubernetes().
@@ -550,8 +548,8 @@ func (s secret) Apply(ctx context.Context, clientset Interface) (err error) {
 	return nil
 }
 
-func (s secret) Delete(ctx context.Context, clientset Interface) (err error) {
-	logger := logr.FromContextOrDiscard(ctx)
+func (s secret) Delete(ctx context.Context, logger logr.Logger, clientset Interface) (err error) {
+
 	logger.Info("Deleting",
 		"secret", objref.KObj(s),
 	)

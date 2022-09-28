@@ -258,14 +258,14 @@ func (c *RoutePolicyController) Sync(ctx context.Context) {
 	}()
 
 	for _, r := range deleted {
-		err := client.Delete(ctx, c.clientset, r)
+		err := client.Delete(ctx, c.logger, c.clientset, r)
 		if err != nil {
 			c.logger.Error(err, "failed to delete mapping rule")
 		}
 	}
 
 	for _, r := range updated {
-		err := client.Apply(ctx, c.clientset, r)
+		err := client.Apply(ctx, c.logger, c.clientset, r)
 		if err != nil {
 			c.logger.Error(err, "failed to update mapping rule")
 		}

@@ -314,7 +314,7 @@ loop:
 			continue loop
 		}
 		for _, r := range updated {
-			err := client.Apply(ctx, cli, r)
+			err := client.Apply(ctx, m.logger, cli, r)
 			if err != nil {
 				m.logger.Error(err, "Apply resource",
 					"hub", objref.KRef(consts.FerryNamespace, hubName),
@@ -325,7 +325,7 @@ loop:
 		}
 
 		for _, r := range deleled {
-			err := client.Delete(ctx, cli, r)
+			err := client.Delete(ctx, m.logger, cli, r)
 			if err != nil {
 				m.logger.Error(err, "Delete resource",
 					"hub", objref.KRef(consts.FerryNamespace, hubName),
@@ -350,7 +350,7 @@ loop:
 			continue
 		}
 		for _, r := range caches {
-			err := client.Delete(ctx, cli, r)
+			err := client.Delete(ctx, m.logger, cli, r)
 			if err != nil {
 				m.logger.Error(err, "Delete resource",
 					"hub", objref.KRef(consts.FerryNamespace, hubName),
@@ -421,7 +421,7 @@ func (m *MappingController) Close() {
 			continue
 		}
 		for _, r := range caches {
-			err := client.Delete(ctx, cli, r)
+			err := client.Delete(ctx, m.logger, cli, r)
 			if err != nil {
 				m.logger.Error(err, "Delete resource",
 					"hub", objref.KRef(consts.FerryNamespace, hubName),
