@@ -104,7 +104,7 @@ func TestRouter(t *testing.T) {
 						},
 						Spec: v1alpha2.RouteSpec{
 							Import: v1alpha2.RouteSpecRule{
-								HubName: "export",
+								HubName: "import",
 								Service: v1alpha2.RouteSpecRuleService{
 									Name:      "svc1",
 									Namespace: "test",
@@ -275,7 +275,7 @@ func TestRouter(t *testing.T) {
 						},
 						Spec: v1alpha2.RouteSpec{
 							Import: v1alpha2.RouteSpecRule{
-								HubName: "export",
+								HubName: "import",
 								Service: v1alpha2.RouteSpecRuleService{
 									Name:      "svc1",
 									Namespace: "test",
@@ -448,7 +448,7 @@ func TestRouter(t *testing.T) {
 						},
 						Spec: v1alpha2.RouteSpec{
 							Import: v1alpha2.RouteSpecRule{
-								HubName: "export",
+								HubName: "import",
 								Service: v1alpha2.RouteSpecRuleService{
 									Name:      "svc1",
 									Namespace: "test",
@@ -634,22 +634,21 @@ func (f *fakeRouter) BuildResource() (out map[string][]objref.KMetadata, err err
 		portCache: map[string]int{},
 	}
 
-	exportHubName := "export"
-	importHubName := "import"
+	route := f.Routes[0]
 
 	solution := Solution{
 		getHubGateway: fake.GetHubGateway,
 	}
 
-	ways, err := solution.CalculateWays(exportHubName, importHubName)
+	ways, err := solution.CalculateWays(route.Spec.Export.HubName, route.Spec.Import.HubName)
 	if err != nil {
 		return nil, err
 	}
 
 	router := NewRouter(RouterConfig{
 		Labels:        map[string]string{},
-		ExportHubName: exportHubName,
-		ImportHubName: importHubName,
+		ExportHubName: route.Spec.Export.HubName,
+		ImportHubName: route.Spec.Import.HubName,
 		HubInterface:  fake,
 	})
 
