@@ -220,8 +220,21 @@ func mergeStrings(a, b []string) []string {
 }
 
 func (h *HubsChain) buildRaw(name string, origin, destination objref.ObjectRef, originPort, peerPort int32, ways []string) (hubsChains map[string][]*Chain, err error) {
-
 	hubsChains = map[string][]*Chain{}
+
+	if len(ways) == 1 {
+		hubName := ways[0]
+		hubChain, err := h.buildSelf(
+			name, origin, destination, originPort, peerPort,
+		)
+		if err != nil {
+			return nil, err
+		}
+		if hubChain != nil {
+			hubsChains[hubName] = append(hubsChains[hubName], hubChain)
+		}
+		return hubsChains, nil
+	}
 
 	for i := 0; i < len(ways)-1; i++ {
 		exportHubName := ways[i]
@@ -252,6 +265,23 @@ func (h *HubsChain) buildRaw(name string, origin, destination objref.ObjectRef, 
 	}
 
 	return hubsChains, nil
+}
+
+func (h *HubsChain) buildSelf(
+	name string, origin, destination objref.ObjectRef, originPort, peerPort int32,
+) (hubChain *Chain, err error) {
+	chain := &Chain{
+		Bind:  []string{},
+		Proxy: []string{},
+	}
+
+	destinationAddress := fmt.Sprintf(":%d", peerPort)
+	chain.Bind = append(chain.Bind, destinationAddress)
+
+	originSvc := fmt.Sprintf("%s.%s.svc:%d", origin.Name, origin.Namespace, originPort)
+	chain.Proxy = append(chain.Proxy, originSvc)
+
+	return chain, nil
 }
 
 func (h *HubsChain) buildPeer(
