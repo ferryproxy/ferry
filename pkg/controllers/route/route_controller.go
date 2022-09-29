@@ -313,12 +313,13 @@ func (c *RouteController) startMappingController(ctx context.Context, key cluste
 			WithName(key.Import).
 			WithValues("export", key.Export, "import", key.Import),
 	})
-	c.cacheMappingController[key] = mc
 
 	err := mc.Start(ctx)
 	if err != nil {
 		return nil, err
 	}
+
+	c.cacheMappingController[key] = mc
 	return mc, nil
 }
 
