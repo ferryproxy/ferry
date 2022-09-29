@@ -124,13 +124,7 @@ func (c *HubController) UpdateHubConditions(name string, conditions []metav1.Con
 		}
 	}()
 
-	ci := c.cacheHub[name]
-	if ci == nil {
-		retErr = fmt.Errorf("not found hub %s", name)
-		return
-	}
-
-	status := ci.Status.DeepCopy()
+	status := v1alpha2.HubStatus{}
 	status.LastSynchronizationTimestamp = metav1.Now()
 
 	for _, condition := range conditions {
@@ -168,8 +162,8 @@ func (c *HubController) UpdateHubConditions(name string, conditions []metav1.Con
 	_, err = c.clientset.
 		Ferry().
 		TrafficV1alpha2().
-		Hubs(ci.Namespace).
-		Patch(c.ctx, ci.Name, types.MergePatchType, data, metav1.PatchOptions{}, "status")
+		Hubs(consts.FerryNamespace).
+		Patch(c.ctx, name, types.MergePatchType, data, metav1.PatchOptions{}, "status")
 	if err != nil {
 		retErr = err
 		return

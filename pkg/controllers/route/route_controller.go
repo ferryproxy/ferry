@@ -157,8 +157,8 @@ func (c *RouteController) UpdateRouteCondition(name string, conditions []metav1.
 	}
 
 	status.LastSynchronizationTimestamp = metav1.Now()
-	status.Import = fmt.Sprintf("%s.%s/%s", fp.Spec.Import.Service.Name, fp.Spec.Import.Service.Namespace, fp.Spec.Import.HubName)
-	status.Export = fmt.Sprintf("%s.%s/%s", fp.Spec.Export.Service.Name, fp.Spec.Export.Service.Namespace, fp.Spec.Export.HubName)
+	status.Import = fmt.Sprintf("%s.%s", fp.Spec.Import.Service.Name, fp.Spec.Import.Service.Namespace)
+	status.Export = fmt.Sprintf("%s.%s", fp.Spec.Export.Service.Name, fp.Spec.Export.Service.Namespace)
 	status.Conditions = c.conditionsManager.Get(name)
 
 	if cond := c.conditionsManager.Find(name, v1alpha2.PathReachableCondition); cond != nil {

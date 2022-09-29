@@ -148,13 +148,7 @@ func (c *RoutePolicyController) UpdateRoutePolicyCondition(name string, routeCou
 		}
 	}()
 
-	fp := c.get(name)
-	if fp == nil {
-		retErr = fmt.Errorf("not found routePolicy %s", name)
-		return
-	}
-
-	status := fp.Status.DeepCopy()
+	status := v1alpha2.RoutePolicyStatus{}
 
 	if routeCount > 0 {
 		c.conditionsManager.Set(name, metav1.Condition{
@@ -186,8 +180,8 @@ func (c *RoutePolicyController) UpdateRoutePolicyCondition(name string, routeCou
 	_, err = c.clientset.
 		Ferry().
 		TrafficV1alpha2().
-		RoutePolicies(fp.Namespace).
-		Patch(c.ctx, fp.Name, types.MergePatchType, data, metav1.PatchOptions{}, "status")
+		RoutePolicies(consts.FerryNamespace).
+		Patch(c.ctx, name, types.MergePatchType, data, metav1.PatchOptions{}, "status")
 	if err != nil {
 		retErr = err
 		return

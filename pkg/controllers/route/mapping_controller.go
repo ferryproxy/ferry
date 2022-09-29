@@ -273,19 +273,13 @@ func (m *MappingController) sync() {
 		m.logger.Error(err, "build resource")
 		return
 	}
-	msg := ""
-	if len(way) == 2 {
-		msg = "<direct>"
-	} else {
-		msg = strings.Join(way[1:len(way)-1], ",")
-	}
 
 	conds = append(conds,
 		metav1.Condition{
 			Type:    v1alpha2.PathReachableCondition,
 			Status:  metav1.ConditionTrue,
 			Reason:  v1alpha2.PathReachableCondition,
-			Message: msg,
+			Message: strings.Join(way, ","),
 		},
 	)
 
