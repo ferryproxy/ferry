@@ -19,7 +19,6 @@ package mcs
 import (
 	"context"
 	"fmt"
-	"reflect"
 	"sort"
 	"sync"
 
@@ -31,7 +30,6 @@ import (
 	"github.com/go-logr/logr"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	restclient "k8s.io/client-go/rest"
 	"sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 )
 
@@ -41,7 +39,7 @@ type HubInterface interface {
 
 type MCSControllerConfig struct {
 	Logger       logr.Logger
-	Config       *restclient.Config
+	Clientset    client.Interface
 	HubInterface HubInterface
 	Namespace    string
 }
@@ -49,7 +47,6 @@ type MCSControllerConfig struct {
 type MCSController struct {
 	ctx                context.Context
 	clientset          client.Interface
-	config             *restclient.Config
 	logger             logr.Logger
 	namespace          string
 	mut                sync.RWMutex
@@ -59,7 +56,7 @@ type MCSController struct {
 
 func NewMCSController(conf *MCSControllerConfig) *MCSController {
 	return &MCSController{
-		config:       conf.Config,
+		clientset:    conf.Clientset,
 		namespace:    conf.Namespace,
 		hubInterface: conf.HubInterface,
 		logger:       conf.Logger,
@@ -67,12 +64,6 @@ func NewMCSController(conf *MCSControllerConfig) *MCSController {
 }
 
 func (m *MCSController) Start(ctx context.Context) error {
-	clientset, err := client.NewForConfig(m.config)
-	if err != nil {
-		return err
-	}
-	m.clientset = clientset
-
 	list, err := m.clientset.
 		Ferry().
 		TrafficV1alpha2().
@@ -98,11 +89,6 @@ func (m *MCSController) Sync(ctx context.Context) {
 
 	updated := mcsToRoutePolicies(importMap, exportMap)
 
-	if reflect.DeepEqual(m.cacheRoutePolicies, updated) {
-		m.logger.Info("routePolicy not modified")
-		return
-	}
-
 	m.logger.Info("Update routePolicy with mcs",
 		"size", len(updated),
 	)
@@ -114,14 +100,14 @@ func (m *MCSController) Sync(ctx context.Context) {
 	}()
 
 	for _, r := range updated {
-		err := client.Apply(ctx, m.clientset, r)
+		err := client.Apply(ctx, m.logger, m.clientset, r)
 		if err != nil {
 			m.logger.Error(err, "failed to update routePolicy")
 		}
 	}
 
 	for _, r := range deleted {
-		err := client.Delete(ctx, m.clientset, r)
+		err := client.Delete(ctx, m.logger, m.clientset, r)
 		if err != nil {
 			m.logger.Error(err, "failed to delete routePolicy")
 		}

@@ -19,7 +19,6 @@ package route
 import (
 	"context"
 	"fmt"
-	"reflect"
 	"strings"
 	"sync"
 	"time"
@@ -45,16 +44,15 @@ type HubInterface interface {
 	GetHubGateway(hubName string, forHub string) v1alpha2.HubSpecGateway
 	GetAuthorized(name string) string
 	Clientset(hubName string) (client.Interface, error)
+	ResetClientset(hubName string)
 	LoadPortPeer(importHubName string, cluster, namespace, name string, port, bindPort int32) error
 	GetPortPeer(importHubName string, cluster, namespace, name string, port int32) (int32, error)
 	DeletePortPeer(importHubName string, cluster, namespace, name string, port int32) (int32, error)
-	RegistryServiceCallback(exportHubName, importHubName string, cb func())
-	UnregistryServiceCallback(exportHubName, importHubName string)
 	HubReady(hubName string) bool
 }
 
 type RouteInterface interface {
-	UpdateRouteCondition(name string, conditions []metav1.Condition) error
+	UpdateRouteCondition(name string, conditions []metav1.Condition)
 }
 
 type MappingControllerConfig struct {
@@ -139,9 +137,6 @@ func (m *MappingController) Start(ctx context.Context) error {
 	})
 
 	m.try = trybuffer.NewTryBuffer(m.sync, time.Second/10)
-
-	m.hubInterface.RegistryServiceCallback(m.exportHubName, m.importHubName, m.Sync)
-
 	return nil
 }
 
@@ -152,9 +147,7 @@ func (m *MappingController) Sync() {
 func (m *MappingController) SetRoutes(routes []*v1alpha2.Route) {
 	m.mut.Lock()
 	defer m.mut.Unlock()
-	if reflect.DeepEqual(m.routes, routes) {
-		return
-	}
+
 	for _, route := range routes {
 		conds := []metav1.Condition{}
 		err := m.updatePort(route)
@@ -172,10 +165,7 @@ func (m *MappingController) SetRoutes(routes []*v1alpha2.Route) {
 				Reason: v1alpha2.PortsAllocatedCondition,
 			})
 		}
-		err = m.routeInterface.UpdateRouteCondition(route.Name, conds)
-		if err != nil {
-			m.logger.Error(err, "failed to update status")
-		}
+		m.routeInterface.UpdateRouteCondition(route.Name, conds)
 	}
 	deleted := diffobjs.ShouldDeleted(m.routes, routes)
 	for _, route := range deleted {
@@ -246,50 +236,26 @@ func (m *MappingController) sync() {
 	}
 	ctx := m.ctx
 
-	// TODO: check for failures sync
 	conds := []metav1.Condition{}
 
-	importHubReady := m.hubInterface.HubReady(m.importHubName)
-	if importHubReady {
-		conds = append(conds, metav1.Condition{
-			Type:   v1alpha2.ImportHubReadyCondition,
-			Status: metav1.ConditionTrue,
-			Reason: v1alpha2.ImportHubReadyCondition,
-		})
-	} else {
-		conds = append(conds, metav1.Condition{
-			Type:   v1alpha2.ImportHubReadyCondition,
-			Status: metav1.ConditionFalse,
-			Reason: "NotReady",
-		})
-	}
-
-	exportHubReady := m.hubInterface.HubReady(m.exportHubName)
-	if exportHubReady {
-		conds = append(conds, metav1.Condition{
-			Type:   v1alpha2.ExportHubReadyCondition,
-			Status: metav1.ConditionTrue,
-			Reason: v1alpha2.ExportHubReadyCondition,
-		})
-	} else {
-		conds = append(conds, metav1.Condition{
-			Type:   v1alpha2.ExportHubReadyCondition,
-			Status: metav1.ConditionFalse,
-			Reason: "NotReady",
-		})
-	}
-
 	defer func() {
-		for _, route := range m.routes {
-			err := m.routeInterface.UpdateRouteCondition(route.Name, conds)
-			if err != nil {
-				m.logger.Error(err, "failed to update status")
+		if len(conds) != 0 {
+			for _, route := range m.routes {
+				m.routeInterface.UpdateRouteCondition(route.Name, conds)
 			}
 		}
 	}()
 
 	way, err := m.solution.CalculateWays(m.exportHubName, m.importHubName)
 	if err != nil {
+		conds = append(conds,
+			metav1.Condition{
+				Type:    v1alpha2.PathReachableCondition,
+				Status:  metav1.ConditionFalse,
+				Reason:  "Unreachable",
+				Message: err.Error(),
+			},
+		)
 		m.logger.Error(err, "calculate ways")
 		return
 	}
@@ -307,19 +273,13 @@ func (m *MappingController) sync() {
 		m.logger.Error(err, "build resource")
 		return
 	}
-	msg := ""
-	if len(way) == 2 {
-		msg = "<Direct>"
-	} else {
-		msg = strings.Join(way[1:len(way)-1], ",")
-	}
 
 	conds = append(conds,
 		metav1.Condition{
 			Type:    v1alpha2.PathReachableCondition,
 			Status:  metav1.ConditionTrue,
 			Reason:  v1alpha2.PathReachableCondition,
-			Message: msg,
+			Message: strings.Join(way, ","),
 		},
 	)
 
@@ -329,7 +289,9 @@ func (m *MappingController) sync() {
 		m.cacheResources = resources
 	}()
 
+loop:
 	for hubName, updated := range resources {
+		m.logger.Info("Update resources", "hub", hubName, "size", len(updated))
 		cacheResource := m.cacheResources[hubName]
 		deleled := diffobjs.ShouldDeleted(cacheResource, updated)
 		cli, err := m.hubInterface.Clientset(hubName)
@@ -337,23 +299,27 @@ func (m *MappingController) sync() {
 			m.logger.Error(err, "Clientset",
 				"hub", objref.KRef(consts.FerryNamespace, hubName),
 			)
-			continue
+			continue loop
 		}
 		for _, r := range updated {
-			err := client.Apply(ctx, cli, r)
+			err := client.Apply(ctx, m.logger, cli, r)
 			if err != nil {
 				m.logger.Error(err, "Apply resource",
 					"hub", objref.KRef(consts.FerryNamespace, hubName),
 				)
+				m.hubInterface.ResetClientset(hubName)
+				continue loop
 			}
 		}
 
 		for _, r := range deleled {
-			err := client.Delete(ctx, cli, r)
+			err := client.Delete(ctx, m.logger, cli, r)
 			if err != nil {
 				m.logger.Error(err, "Delete resource",
 					"hub", objref.KRef(consts.FerryNamespace, hubName),
 				)
+				m.hubInterface.ResetClientset(hubName)
+				continue loop
 			}
 		}
 	}
@@ -363,6 +329,7 @@ func (m *MappingController) sync() {
 		if ok && len(v) != 0 {
 			continue
 		}
+		m.logger.Info("Clean resources", "hub", hubName, "size", len(caches))
 		cli, err := m.hubInterface.Clientset(hubName)
 		if err != nil {
 			m.logger.Error(err, "Clientset",
@@ -371,7 +338,7 @@ func (m *MappingController) sync() {
 			continue
 		}
 		for _, r := range caches {
-			err := client.Delete(ctx, cli, r)
+			err := client.Delete(ctx, m.logger, cli, r)
 			if err != nil {
 				m.logger.Error(err, "Delete resource",
 					"hub", objref.KRef(consts.FerryNamespace, hubName),
@@ -388,6 +355,36 @@ func (m *MappingController) sync() {
 		},
 	)
 
+	importHubReady := m.hubInterface.HubReady(m.importHubName)
+	if importHubReady {
+		conds = append(conds, metav1.Condition{
+			Type:   v1alpha2.ImportHubReadyCondition,
+			Status: metav1.ConditionTrue,
+			Reason: v1alpha2.ImportHubReadyCondition,
+		})
+	} else {
+		conds = append(conds, metav1.Condition{
+			Type:   v1alpha2.ImportHubReadyCondition,
+			Status: metav1.ConditionFalse,
+			Reason: "ImportHubNotReady",
+		})
+	}
+
+	exportHubReady := m.hubInterface.HubReady(m.exportHubName)
+	if exportHubReady {
+		conds = append(conds, metav1.Condition{
+			Type:   v1alpha2.ExportHubReadyCondition,
+			Status: metav1.ConditionTrue,
+			Reason: v1alpha2.ExportHubReadyCondition,
+		})
+	} else {
+		conds = append(conds, metav1.Condition{
+			Type:   v1alpha2.ExportHubReadyCondition,
+			Status: metav1.ConditionFalse,
+			Reason: "ExportHubNotReady",
+		})
+	}
+
 	return
 }
 
@@ -399,7 +396,6 @@ func (m *MappingController) Close() {
 		return
 	}
 	m.isClose = true
-	m.hubInterface.UnregistryServiceCallback(m.exportHubName, m.importHubName)
 	m.try.Close()
 
 	ctx := context.Background()
@@ -413,7 +409,7 @@ func (m *MappingController) Close() {
 			continue
 		}
 		for _, r := range caches {
-			err := client.Delete(ctx, cli, r)
+			err := client.Delete(ctx, m.logger, cli, r)
 			if err != nil {
 				m.logger.Error(err, "Delete resource",
 					"hub", objref.KRef(consts.FerryNamespace, hubName),

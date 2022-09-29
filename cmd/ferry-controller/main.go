@@ -20,6 +20,7 @@ import (
 	"context"
 	"os"
 
+	"github.com/ferryproxy/ferry/pkg/client"
 	"github.com/ferryproxy/ferry/pkg/consts"
 	"github.com/ferryproxy/ferry/pkg/controllers"
 	"github.com/ferryproxy/ferry/pkg/utils/env"
@@ -49,9 +50,15 @@ func main() {
 		os.Exit(1)
 	}
 
+	clientset, err := client.NewForConfig(restConfig)
+	if err != nil {
+		log.Error(err, "failed to create kubernetes clientset")
+		os.Exit(1)
+	}
+
 	control := controllers.NewController(&controllers.ControllerConfig{
 		Logger:    log.WithName("controller"),
-		Config:    restConfig,
+		Clientset: clientset,
 		Namespace: namespace,
 	})
 

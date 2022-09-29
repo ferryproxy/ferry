@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"sort"
 	"sync"
 
 	"github.com/ferryproxy/api/apis/traffic/v1alpha2"
@@ -32,13 +33,12 @@ import (
 	"github.com/go-logr/logr"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 )
 
 type RouteControllerConfig struct {
 	Logger       logr.Logger
-	Config       *restclient.Config
+	Clientset    client.Interface
 	HubInterface HubInterface
 	Namespace    string
 	SyncFunc     func()
@@ -48,7 +48,6 @@ type RouteController struct {
 	ctx                    context.Context
 	mut                    sync.RWMutex
 	mutStatus              sync.Mutex
-	config                 *restclient.Config
 	clientset              client.Interface
 	hubInterface           HubInterface
 	cache                  map[string]*v1alpha2.Route
@@ -62,7 +61,7 @@ type RouteController struct {
 
 func NewRouteController(conf *RouteControllerConfig) *RouteController {
 	return &RouteController{
-		config:                 conf.Config,
+		clientset:              conf.Clientset,
 		namespace:              conf.Namespace,
 		hubInterface:           conf.HubInterface,
 		logger:                 conf.Logger,
@@ -83,6 +82,9 @@ func (c *RouteController) list() []*v1alpha2.Route {
 		}
 		list = append(list, item)
 	}
+	sort.Slice(list, func(i, j int) bool {
+		return list[i].CreationTimestamp.Before(&list[j].CreationTimestamp)
+	})
 	return list
 }
 
@@ -90,13 +92,8 @@ func (c *RouteController) Run(ctx context.Context) error {
 	c.logger.Info("Route controller started")
 	defer c.logger.Info("Route controller stopped")
 
-	clientset, err := client.NewForConfig(c.config)
-	if err != nil {
-		return err
-	}
-	c.clientset = clientset
 	c.ctx = ctx
-	informerFactory := externalversions.NewSharedInformerFactoryWithOptions(clientset.Ferry(), 0,
+	informerFactory := externalversions.NewSharedInformerFactoryWithOptions(c.clientset.Ferry(), 0,
 		externalversions.WithNamespace(c.namespace))
 	informer := informerFactory.
 		Traffic().
@@ -113,12 +110,21 @@ func (c *RouteController) Run(ctx context.Context) error {
 	return nil
 }
 
-func (c *RouteController) UpdateRouteCondition(name string, conditions []metav1.Condition) error {
+func (c *RouteController) UpdateRouteCondition(name string, conditions []metav1.Condition) {
 	c.mutStatus.Lock()
 	defer c.mutStatus.Unlock()
+
+	var retErr error
+	defer func() {
+		if retErr != nil {
+			c.logger.Error(retErr, "failed to update status")
+		}
+	}()
+
 	fp := c.cache[name]
 	if fp == nil {
-		return fmt.Errorf("not found Route %s", name)
+		retErr = fmt.Errorf("not found route %s", name)
+		return
 	}
 
 	status := fp.Status.DeepCopy()
@@ -127,53 +133,60 @@ func (c *RouteController) UpdateRouteCondition(name string, conditions []metav1.
 		c.conditionsManager.Set(name, condition)
 	}
 
-	if c.conditionsManager.IsTrue(name, v1alpha2.PortsAllocatedCondition) &&
-		c.conditionsManager.IsTrue(name, v1alpha2.RouteSyncedCondition) &&
-		c.conditionsManager.IsTrue(name, v1alpha2.ExportHubReadyCondition) &&
-		c.conditionsManager.IsTrue(name, v1alpha2.ImportHubReadyCondition) &&
-		c.conditionsManager.IsTrue(name, v1alpha2.PathReachableCondition) {
+	ready, reason := c.conditionsManager.Ready(name,
+		v1alpha2.PortsAllocatedCondition,
+		v1alpha2.RouteSyncedCondition,
+		v1alpha2.ExportHubReadyCondition,
+		v1alpha2.ImportHubReadyCondition,
+		v1alpha2.PathReachableCondition,
+	)
+	if ready {
 		c.conditionsManager.Set(name, metav1.Condition{
-			Type:   v1alpha2.RouteReady,
+			Type:   v1alpha2.HubReady,
 			Status: metav1.ConditionTrue,
-			Reason: v1alpha2.RouteReady,
+			Reason: v1alpha2.HubReady,
 		})
-		status.Phase = v1alpha2.RouteReady
+		status.Phase = v1alpha2.HubReady
 	} else {
 		c.conditionsManager.Set(name, metav1.Condition{
-			Type:   v1alpha2.RouteReady,
+			Type:   v1alpha2.HubReady,
 			Status: metav1.ConditionFalse,
 			Reason: "NotReady",
 		})
-		status.Phase = "NotReady"
+		status.Phase = reason
 	}
 
 	status.LastSynchronizationTimestamp = metav1.Now()
-	status.Import = fmt.Sprintf("%s.%s/%s", fp.Spec.Import.Service.Name, fp.Spec.Import.Service.Namespace, fp.Spec.Import.HubName)
-	status.Export = fmt.Sprintf("%s.%s/%s", fp.Spec.Export.Service.Name, fp.Spec.Export.Service.Namespace, fp.Spec.Export.HubName)
+	status.Import = fmt.Sprintf("%s.%s", fp.Spec.Import.Service.Name, fp.Spec.Import.Service.Namespace)
+	status.Export = fmt.Sprintf("%s.%s", fp.Spec.Export.Service.Name, fp.Spec.Export.Service.Namespace)
 	status.Conditions = c.conditionsManager.Get(name)
 
 	if cond := c.conditionsManager.Find(name, v1alpha2.PathReachableCondition); cond != nil {
 		if c.conditionsManager.IsTrue(name, v1alpha2.PathReachableCondition) {
 			status.Way = cond.Message
 		} else {
-			status.Way = "<Unreachable>"
+			status.Way = "<unreachable>"
 		}
 	} else {
-		status.Way = "<Unknown>"
+		status.Way = "<unknown>"
 	}
 
 	data, err := json.Marshal(map[string]interface{}{
 		"status": status,
 	})
 	if err != nil {
-		return err
+		retErr = err
+		return
 	}
 	_, err = c.clientset.
 		Ferry().
 		TrafficV1alpha2().
 		Routes(fp.Namespace).
 		Patch(c.ctx, fp.Name, types.MergePatchType, data, metav1.PatchOptions{}, "status")
-	return err
+	if err != nil {
+		retErr = err
+		return
+	}
 }
 
 func (c *RouteController) onAdd(obj interface{}) {
@@ -280,15 +293,6 @@ func (c *RouteController) startMappingController(ctx context.Context, key cluste
 		return mc, nil
 	}
 
-	_, err := c.hubInterface.Clientset(key.Export)
-	if err != nil {
-		return nil, err
-	}
-	_, err = c.hubInterface.Clientset(key.Import)
-	if err != nil {
-		return nil, err
-	}
-
 	exportCluster := c.hubInterface.GetHub(key.Export)
 	if exportCluster == nil {
 		return nil, fmt.Errorf("not found cluster information %q", key.Export)
@@ -309,12 +313,13 @@ func (c *RouteController) startMappingController(ctx context.Context, key cluste
 			WithName(key.Import).
 			WithValues("export", key.Export, "import", key.Import),
 	})
-	c.cacheMappingController[key] = mc
 
-	err = mc.Start(ctx)
+	err := mc.Start(ctx)
 	if err != nil {
 		return nil, err
 	}
+
+	c.cacheMappingController[key] = mc
 	return mc, nil
 }
 

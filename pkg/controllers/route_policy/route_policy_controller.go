@@ -39,7 +39,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
-	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -50,7 +49,7 @@ type HubInterface interface {
 
 type RoutePolicyControllerConfig struct {
 	Logger       logr.Logger
-	Config       *restclient.Config
+	Clientset    client.Interface
 	HubInterface HubInterface
 	Namespace    string
 	SyncFunc     func()
@@ -60,7 +59,6 @@ type RoutePolicyController struct {
 	ctx                    context.Context
 	mut                    sync.RWMutex
 	mutStatus              sync.Mutex
-	config                 *restclient.Config
 	clientset              client.Interface
 	hubInterface           HubInterface
 	cache                  map[string]*v1alpha2.RoutePolicy
@@ -73,7 +71,7 @@ type RoutePolicyController struct {
 
 func NewRoutePolicyController(conf RoutePolicyControllerConfig) *RoutePolicyController {
 	return &RoutePolicyController{
-		config:            conf.Config,
+		clientset:         conf.Clientset,
 		namespace:         conf.Namespace,
 		logger:            conf.Logger,
 		hubInterface:      conf.HubInterface,
@@ -106,11 +104,6 @@ func (c *RoutePolicyController) Run(ctx context.Context) error {
 	c.logger.Info("routePolicy controller started")
 	defer c.logger.Info("routePolicy controller stopped")
 
-	clientset, err := client.NewForConfig(c.config)
-	if err != nil {
-		return err
-	}
-	c.clientset = clientset
 	c.ctx = ctx
 
 	list, err := c.clientset.
@@ -127,7 +120,7 @@ func (c *RoutePolicyController) Run(ctx context.Context) error {
 		c.cacheRoutePolicyRoutes = append(c.cacheRoutePolicyRoutes, item.DeepCopy())
 	}
 
-	informerFactory := externalversions.NewSharedInformerFactoryWithOptions(clientset.Ferry(), 0,
+	informerFactory := externalversions.NewSharedInformerFactoryWithOptions(c.clientset.Ferry(), 0,
 		externalversions.WithNamespace(c.namespace))
 	informer := informerFactory.
 		Traffic().
@@ -144,15 +137,18 @@ func (c *RoutePolicyController) Run(ctx context.Context) error {
 	return nil
 }
 
-func (c *RoutePolicyController) UpdateRoutePolicyCondition(name string, routeCount int) error {
+func (c *RoutePolicyController) UpdateRoutePolicyCondition(name string, routeCount int) {
 	c.mutStatus.Lock()
 	defer c.mutStatus.Unlock()
-	fp := c.get(name)
-	if fp == nil {
-		return fmt.Errorf("not found routePolicy %s", name)
-	}
 
-	status := fp.Status.DeepCopy()
+	var retErr error
+	defer func() {
+		if retErr != nil {
+			c.logger.Error(retErr, "failed to update status")
+		}
+	}()
+
+	status := v1alpha2.RoutePolicyStatus{}
 
 	if routeCount > 0 {
 		c.conditionsManager.Set(name, metav1.Condition{
@@ -178,14 +174,18 @@ func (c *RoutePolicyController) UpdateRoutePolicyCondition(name string, routeCou
 		"status": status,
 	})
 	if err != nil {
-		return err
+		retErr = err
+		return
 	}
 	_, err = c.clientset.
 		Ferry().
 		TrafficV1alpha2().
-		RoutePolicies(fp.Namespace).
-		Patch(c.ctx, fp.Name, types.MergePatchType, data, metav1.PatchOptions{}, "status")
-	return err
+		RoutePolicies(consts.FerryNamespace).
+		Patch(c.ctx, name, types.MergePatchType, data, metav1.PatchOptions{}, "status")
+	if err != nil {
+		retErr = err
+		return
+	}
 }
 
 func (c *RoutePolicyController) onAdd(obj interface{}) {
@@ -202,12 +202,7 @@ func (c *RoutePolicyController) onAdd(obj interface{}) {
 
 	c.syncFunc()
 
-	err := c.UpdateRoutePolicyCondition(f.Name, 0)
-	if err != nil {
-		c.logger.Error(err, "failed to update status",
-			"routePolicy", objref.KObj(f),
-		)
-	}
+	c.UpdateRoutePolicyCondition(f.Name, 0)
 }
 
 func (c *RoutePolicyController) onUpdate(oldObj, newObj interface{}) {
@@ -258,11 +253,6 @@ func (c *RoutePolicyController) Sync(ctx context.Context) {
 	routes := BuildMirrorTunnelRoutes(hubs, consts.ControlPlaneName)
 	updated = append(updated, routes...)
 
-	// If the mapping rules are the same, no need to update
-	if reflect.DeepEqual(c.cacheRoutePolicyRoutes, updated) {
-		return
-	}
-
 	// Update the cache of mapping rules
 	deleted := diffobjs.ShouldDeleted(c.cacheRoutePolicyRoutes, updated)
 	defer func() {
@@ -270,14 +260,14 @@ func (c *RoutePolicyController) Sync(ctx context.Context) {
 	}()
 
 	for _, r := range deleted {
-		err := client.Delete(ctx, c.clientset, r)
+		err := client.Delete(ctx, c.logger, c.clientset, r)
 		if err != nil {
 			c.logger.Error(err, "failed to delete mapping rule")
 		}
 	}
 
 	for _, r := range updated {
-		err := client.Apply(ctx, c.clientset, r)
+		err := client.Apply(ctx, c.logger, c.clientset, r)
 		if err != nil {
 			c.logger.Error(err, "failed to update mapping rule")
 		}
@@ -291,12 +281,7 @@ func (c *RoutePolicyController) Sync(ctx context.Context) {
 				count++
 			}
 		}
-		err := c.UpdateRoutePolicyCondition(policy.Name, count)
-		if err != nil {
-			c.logger.Error(err, "failed to update status",
-				"routePolicy", objref.KObj(policy),
-			)
-		}
+		c.UpdateRoutePolicyCondition(policy.Name, count)
 	}
 }
 

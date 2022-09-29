@@ -21,32 +21,31 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ferryproxy/ferry/pkg/client"
 	"github.com/ferryproxy/ferry/pkg/controllers/hub"
-	"github.com/ferryproxy/ferry/pkg/controllers/hub/health"
 	"github.com/ferryproxy/ferry/pkg/controllers/mcs"
 	"github.com/ferryproxy/ferry/pkg/controllers/route"
 	"github.com/ferryproxy/ferry/pkg/controllers/route_policy"
 	"github.com/ferryproxy/ferry/pkg/utils/trybuffer"
 	"github.com/go-logr/logr"
-	restclient "k8s.io/client-go/rest"
+	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 type Controller struct {
 	mut                   sync.Mutex
 	ctx                   context.Context
 	logger                logr.Logger
-	config                *restclient.Config
+	clientset             client.Interface
 	namespace             string
 	hubController         *hub.HubController
 	routeController       *route.RouteController
 	routePolicyController *route_policy.RoutePolicyController
 	mcsController         *mcs.MCSController
-	healthController      *health.HealthController
 	try                   *trybuffer.TryBuffer
 }
 
 type ControllerConfig struct {
-	Config    *restclient.Config
+	Clientset client.Interface
 	Logger    logr.Logger
 	Namespace string
 }
@@ -54,7 +53,7 @@ type ControllerConfig struct {
 func NewController(conf *ControllerConfig) *Controller {
 	return &Controller{
 		logger:    conf.Logger,
-		config:    conf.Config,
+		clientset: conf.Clientset,
 		namespace: conf.Namespace,
 	}
 }
@@ -62,10 +61,10 @@ func NewController(conf *ControllerConfig) *Controller {
 func (c *Controller) Run(ctx context.Context) error {
 	ctx, cancel := context.WithCancel(ctx)
 	c.ctx = ctx
-	c.try = trybuffer.NewTryBuffer(c.sync, time.Second/10)
+	c.try = trybuffer.NewTryBuffer(c.sync, time.Second)
 
 	hubController := hub.NewHubController(hub.HubControllerConfig{
-		Config:    c.config,
+		Clientset: c.clientset,
 		Namespace: c.namespace,
 		Logger:    c.logger.WithName("hub"),
 		SyncFunc:  c.try.Try,
@@ -73,7 +72,7 @@ func (c *Controller) Run(ctx context.Context) error {
 	c.hubController = hubController
 
 	routeController := route.NewRouteController(&route.RouteControllerConfig{
-		Config:       c.config,
+		Clientset:    c.clientset,
 		Namespace:    c.namespace,
 		HubInterface: hubController,
 		Logger:       c.logger.WithName("route"),
@@ -82,7 +81,7 @@ func (c *Controller) Run(ctx context.Context) error {
 	c.routeController = routeController
 
 	routePolicyController := route_policy.NewRoutePolicyController(route_policy.RoutePolicyControllerConfig{
-		Config:       c.config,
+		Clientset:    c.clientset,
 		Namespace:    c.namespace,
 		HubInterface: hubController,
 		Logger:       c.logger.WithName("route-policy"),
@@ -99,24 +98,13 @@ func (c *Controller) Run(ctx context.Context) error {
 	}()
 
 	mcsController := mcs.NewMCSController(&mcs.MCSControllerConfig{
-		Config:       c.config,
+		Clientset:    c.clientset,
 		Namespace:    c.namespace,
 		HubInterface: hubController,
 		Logger:       c.logger.WithName("mcs"),
 	})
 	c.mcsController = mcsController
 	err := mcsController.Start(ctx)
-	if err != nil {
-		c.logger.Error(err, "Start MCSController")
-	}
-
-	healthController := health.NewHealthController(&health.HealthControllerConfig{
-		Config:       c.config,
-		HubInterface: hubController,
-		Logger:       c.logger.WithName("health"),
-	})
-	c.healthController = healthController
-	err = healthController.Start(ctx)
 	if err != nil {
 		c.logger.Error(err, "Start MCSController")
 	}
@@ -145,15 +133,9 @@ func (c *Controller) Run(ctx context.Context) error {
 		c.try.Try()
 	}
 
-	for {
-		select {
-		case <-c.ctx.Done():
-			c.try.Close()
-			return c.ctx.Err()
-		case <-time.After(time.Minute):
-			c.try.Try()
-		}
-	}
+	wait.Until(c.sync, time.Minute, c.ctx.Done())
+	c.try.Close()
+	return c.ctx.Err()
 }
 
 func (c *Controller) sync() {
@@ -162,11 +144,11 @@ func (c *Controller) sync() {
 
 	ctx := c.ctx
 
+	c.hubController.Sync(ctx)
+
 	c.mcsController.Sync(ctx)
 
 	c.routePolicyController.Sync(ctx)
 
 	c.routeController.Sync(ctx)
-
-	c.healthController.Sync(ctx)
 }

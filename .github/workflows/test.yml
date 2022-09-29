@@ -142,6 +142,16 @@ jobs:
           TARGET_1: web-1
           TARGET_2: web-0
 
+      - name: Test chaotic control-plane and cluster-1
+        run: ./test/test/test-in-both-chaotic.sh
+        env:
+          ROUTE_NAME: ferry-test
+          CONTROL_PLANE: control-plane
+          CLUSTER_1: cluster-1
+          CLUSTER_2: control-plane
+          TARGET_1: web-1
+          TARGET_2: web-0
+
   test-3-cluster-cases:
     continue-on-error: true
     strategy:

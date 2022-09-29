@@ -34,8 +34,8 @@ type hub struct {
 	*v1alpha2.Hub
 }
 
-func (r hub) Apply(ctx context.Context, clientset Interface) (err error) {
-	logger := logr.FromContextOrDiscard(ctx)
+func (r hub) Apply(ctx context.Context, logger logr.Logger, clientset Interface) (err error) {
+
 	ori, err := clientset.
 		Ferry().
 		TrafficV1alpha2().
@@ -45,7 +45,7 @@ func (r hub) Apply(ctx context.Context, clientset Interface) (err error) {
 		if !errors.IsNotFound(err) {
 			return fmt.Errorf("get hub %s: %w", objref.KObj(r), err)
 		}
-		logger.Info("Creating hub",
+		logger.Info("Creating",
 			"hub", objref.KObj(r),
 		)
 		_, err = clientset.
@@ -60,9 +60,16 @@ func (r hub) Apply(ctx context.Context, clientset Interface) (err error) {
 		}
 	} else {
 		if reflect.DeepEqual(ori.Spec, r.Spec) {
+			logger.Info("No update",
+				"hub", objref.KObj(r),
+			)
 			return nil
 		}
 
+		logger.Info("Updating",
+			"hub", objref.KObj(r),
+		)
+		ori.Spec = r.Spec
 		_, err = clientset.
 			Ferry().
 			TrafficV1alpha2().
@@ -77,9 +84,9 @@ func (r hub) Apply(ctx context.Context, clientset Interface) (err error) {
 	return nil
 }
 
-func (r hub) Delete(ctx context.Context, clientset Interface) (err error) {
-	logger := logr.FromContextOrDiscard(ctx)
-	logger.Info("Deleting hub",
+func (r hub) Delete(ctx context.Context, logger logr.Logger, clientset Interface) (err error) {
+
+	logger.Info("Deleting",
 		"hub", objref.KObj(r),
 	)
 
@@ -98,8 +105,8 @@ type routePolicy struct {
 	*v1alpha2.RoutePolicy
 }
 
-func (r routePolicy) Apply(ctx context.Context, clientset Interface) (err error) {
-	logger := logr.FromContextOrDiscard(ctx)
+func (r routePolicy) Apply(ctx context.Context, logger logr.Logger, clientset Interface) (err error) {
+
 	ori, err := clientset.
 		Ferry().
 		TrafficV1alpha2().
@@ -109,7 +116,7 @@ func (r routePolicy) Apply(ctx context.Context, clientset Interface) (err error)
 		if !errors.IsNotFound(err) {
 			return fmt.Errorf("get RoutePolicies %s: %w", objref.KObj(r), err)
 		}
-		logger.Info("Creating routePolicy",
+		logger.Info("Creating",
 			"routePolicy", objref.KObj(r),
 		)
 		_, err = clientset.
@@ -124,9 +131,16 @@ func (r routePolicy) Apply(ctx context.Context, clientset Interface) (err error)
 		}
 	} else {
 		if reflect.DeepEqual(ori.Spec, r.Spec) {
+			logger.Info("No update",
+				"routePolicy", objref.KObj(r),
+			)
 			return nil
 		}
 
+		logger.Info("Updating",
+			"routePolicy", objref.KObj(r),
+		)
+		ori.Spec = r.Spec
 		_, err = clientset.
 			Ferry().
 			TrafficV1alpha2().
@@ -141,9 +155,9 @@ func (r routePolicy) Apply(ctx context.Context, clientset Interface) (err error)
 	return nil
 }
 
-func (r routePolicy) Delete(ctx context.Context, clientset Interface) (err error) {
-	logger := logr.FromContextOrDiscard(ctx)
-	logger.Info("Deleting RoutePolicies",
+func (r routePolicy) Delete(ctx context.Context, logger logr.Logger, clientset Interface) (err error) {
+
+	logger.Info("Deleting",
 		"routePolicy", objref.KObj(r),
 	)
 
@@ -162,8 +176,8 @@ type route struct {
 	*v1alpha2.Route
 }
 
-func (r route) Apply(ctx context.Context, clientset Interface) (err error) {
-	logger := logr.FromContextOrDiscard(ctx)
+func (r route) Apply(ctx context.Context, logger logr.Logger, clientset Interface) (err error) {
+
 	ori, err := clientset.
 		Ferry().
 		TrafficV1alpha2().
@@ -173,7 +187,7 @@ func (r route) Apply(ctx context.Context, clientset Interface) (err error) {
 		if !errors.IsNotFound(err) {
 			return fmt.Errorf("get route %s: %w", objref.KObj(r), err)
 		}
-		logger.Info("Creating route",
+		logger.Info("Creating",
 			"route", objref.KObj(r),
 		)
 		_, err = clientset.
@@ -188,9 +202,16 @@ func (r route) Apply(ctx context.Context, clientset Interface) (err error) {
 		}
 	} else {
 		if reflect.DeepEqual(ori.Spec, r.Spec) {
+			logger.Info("No update",
+				"route", objref.KObj(r),
+			)
 			return nil
 		}
 
+		logger.Info("Updating",
+			"route", objref.KObj(r),
+		)
+		ori.Spec = r.Spec
 		_, err = clientset.
 			Ferry().
 			TrafficV1alpha2().
@@ -205,9 +226,9 @@ func (r route) Apply(ctx context.Context, clientset Interface) (err error) {
 	return nil
 }
 
-func (r route) Delete(ctx context.Context, clientset Interface) (err error) {
-	logger := logr.FromContextOrDiscard(ctx)
-	logger.Info("Deleting route",
+func (r route) Delete(ctx context.Context, logger logr.Logger, clientset Interface) (err error) {
+
+	logger.Info("Deleting",
 		"route", objref.KObj(r),
 	)
 
@@ -226,8 +247,8 @@ type service struct {
 	*corev1.Service
 }
 
-func (s service) Apply(ctx context.Context, clientset Interface) (err error) {
-	logger := logr.FromContextOrDiscard(ctx)
+func (s service) Apply(ctx context.Context, logger logr.Logger, clientset Interface) (err error) {
+
 	ori, err := clientset.
 		Kubernetes().
 		CoreV1().
@@ -237,7 +258,7 @@ func (s service) Apply(ctx context.Context, clientset Interface) (err error) {
 		if !errors.IsNotFound(err) {
 			return fmt.Errorf("get service %s: %w", objref.KObj(s), err)
 		}
-		logger.Info("Creating service",
+		logger.Info("Creating",
 			"service", objref.KObj(s),
 		)
 		_, err = clientset.
@@ -252,12 +273,21 @@ func (s service) Apply(ctx context.Context, clientset Interface) (err error) {
 		}
 	} else {
 		if ori.Labels[consts.LabelGeneratedKey] == "" {
+			logger.Info("Refuse update",
+				"service", objref.KObj(s),
+			)
 			return fmt.Errorf("service %s is not managed by ferry", objref.KObj(s))
 		}
 		if reflect.DeepEqual(ori.Spec.Ports, s.Spec.Ports) {
+			logger.Info("No update",
+				"service", objref.KObj(s),
+			)
 			return nil
 		}
 
+		logger.Info("Updating",
+			"service", objref.KObj(s),
+		)
 		ori.Spec.Ports = s.Spec.Ports
 		_, err = clientset.
 			Kubernetes().
@@ -273,9 +303,9 @@ func (s service) Apply(ctx context.Context, clientset Interface) (err error) {
 	return nil
 }
 
-func (s service) Delete(ctx context.Context, clientset Interface) (err error) {
-	logger := logr.FromContextOrDiscard(ctx)
-	logger.Info("Deleting service",
+func (s service) Delete(ctx context.Context, logger logr.Logger, clientset Interface) (err error) {
+
+	logger.Info("Deleting",
 		"service", objref.KObj(s),
 	)
 
@@ -306,8 +336,8 @@ type endpoints struct {
 	*corev1.Endpoints
 }
 
-func (s endpoints) Apply(ctx context.Context, clientset Interface) (err error) {
-	logger := logr.FromContextOrDiscard(ctx)
+func (s endpoints) Apply(ctx context.Context, logger logr.Logger, clientset Interface) (err error) {
+
 	ori, err := clientset.
 		Kubernetes().
 		CoreV1().
@@ -317,7 +347,7 @@ func (s endpoints) Apply(ctx context.Context, clientset Interface) (err error) {
 		if !errors.IsNotFound(err) {
 			return fmt.Errorf("get endpoints %s: %w", objref.KObj(s), err)
 		}
-		logger.Info("Creating endpoints",
+		logger.Info("Creating",
 			"endpoints", objref.KObj(s),
 		)
 		_, err = clientset.
@@ -332,11 +362,21 @@ func (s endpoints) Apply(ctx context.Context, clientset Interface) (err error) {
 		}
 	} else {
 		if ori.Labels[consts.LabelGeneratedKey] == "" {
+			logger.Info("Refuse update",
+				"endpoints", objref.KObj(s),
+			)
 			return fmt.Errorf("endpoints %s is not managed by ferry", objref.KObj(s))
 		}
 		if reflect.DeepEqual(ori.Subsets, s.Subsets) {
+			logger.Info("No update",
+				"endpoints", objref.KObj(s),
+			)
 			return nil
 		}
+
+		logger.Info("Updating",
+			"endpoints", objref.KObj(s),
+		)
 		ori.Subsets = s.Subsets
 		_, err = clientset.
 			Kubernetes().
@@ -352,9 +392,9 @@ func (s endpoints) Apply(ctx context.Context, clientset Interface) (err error) {
 	return nil
 }
 
-func (s endpoints) Delete(ctx context.Context, clientset Interface) (err error) {
-	logger := logr.FromContextOrDiscard(ctx)
-	logger.Info("Deleting endpoints",
+func (s endpoints) Delete(ctx context.Context, logger logr.Logger, clientset Interface) (err error) {
+
+	logger.Info("Deleting",
 		"endpoints", objref.KObj(s),
 	)
 
@@ -385,8 +425,7 @@ type configMap struct {
 	*corev1.ConfigMap
 }
 
-func (s configMap) Apply(ctx context.Context, clientset Interface) (err error) {
-	logger := logr.FromContextOrDiscard(ctx)
+func (s configMap) Apply(ctx context.Context, logger logr.Logger, clientset Interface) (err error) {
 
 	ori, err := clientset.
 		Kubernetes().
@@ -397,7 +436,7 @@ func (s configMap) Apply(ctx context.Context, clientset Interface) (err error) {
 		if !errors.IsNotFound(err) {
 			return fmt.Errorf("get configMap %s: %w", objref.KObj(s), err)
 		}
-		logger.Info("Creating configMap",
+		logger.Info("Creating",
 			"configMap", objref.KObj(s),
 		)
 		_, err = clientset.
@@ -412,10 +451,13 @@ func (s configMap) Apply(ctx context.Context, clientset Interface) (err error) {
 		}
 	} else {
 		if reflect.DeepEqual(ori.Data, s.Data) {
+			logger.Info("No update",
+				"endpoints", objref.KObj(s),
+			)
 			return nil
 		}
 
-		logger.Info("Update configMap",
+		logger.Info("Updating",
 			"configMap", objref.KObj(s),
 		)
 		ori.Data = s.Data
@@ -433,9 +475,9 @@ func (s configMap) Apply(ctx context.Context, clientset Interface) (err error) {
 	return nil
 }
 
-func (s configMap) Delete(ctx context.Context, clientset Interface) (err error) {
-	logger := logr.FromContextOrDiscard(ctx)
-	logger.Info("Deleting configMap",
+func (s configMap) Delete(ctx context.Context, logger logr.Logger, clientset Interface) (err error) {
+
+	logger.Info("Deleting",
 		"configMap", objref.KObj(s),
 	)
 
@@ -455,8 +497,7 @@ type secret struct {
 	*corev1.Secret
 }
 
-func (s secret) Apply(ctx context.Context, clientset Interface) (err error) {
-	logger := logr.FromContextOrDiscard(ctx)
+func (s secret) Apply(ctx context.Context, logger logr.Logger, clientset Interface) (err error) {
 
 	ori, err := clientset.
 		Kubernetes().
@@ -467,7 +508,7 @@ func (s secret) Apply(ctx context.Context, clientset Interface) (err error) {
 		if !errors.IsNotFound(err) {
 			return fmt.Errorf("get secret %s: %w", objref.KObj(s), err)
 		}
-		logger.Info("Creating secret",
+		logger.Info("Creating",
 			"secret", objref.KObj(s),
 		)
 		_, err = clientset.
@@ -482,10 +523,13 @@ func (s secret) Apply(ctx context.Context, clientset Interface) (err error) {
 		}
 	} else {
 		if reflect.DeepEqual(ori.Data, s.Data) {
+			logger.Info("No update",
+				"secret", objref.KObj(s),
+			)
 			return nil
 		}
 
-		logger.Info("Update secret",
+		logger.Info("Updating",
 			"secret", objref.KObj(s),
 		)
 
@@ -504,9 +548,9 @@ func (s secret) Apply(ctx context.Context, clientset Interface) (err error) {
 	return nil
 }
 
-func (s secret) Delete(ctx context.Context, clientset Interface) (err error) {
-	logger := logr.FromContextOrDiscard(ctx)
-	logger.Info("Deleting secret",
+func (s secret) Delete(ctx context.Context, logger logr.Logger, clientset Interface) (err error) {
+
+	logger.Info("Deleting",
 		"secret", objref.KObj(s),
 	)
 

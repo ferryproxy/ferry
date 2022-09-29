@@ -32,6 +32,7 @@ KUBECONFIG="${KUBECONFIG_DIR}/control-plane.yaml"
 echo "KUBECONFIG=${KUBECONFIG}"
 echo ferryctl control-plane init --control-plane-reachable=false
 ferryctl control-plane init --control-plane-reachable=false
+kubectl --kubeconfig="${KUBECONFIG}" wait --for=condition=Ready pods,hubs.traffic.ferryproxy.io --all -A
 echo "::endgroup::"
 
 echo "::group::Data plane cluster-1 initialization"
@@ -39,6 +40,7 @@ KUBECONFIG="${KUBECONFIG_DIR}/cluster-1.yaml"
 echo "KUBECONFIG=${KUBECONFIG}"
 echo ferryctl data-plane init
 ferryctl data-plane init
+kubectl --kubeconfig="${KUBECONFIG}" wait --for=condition=Ready pods --all -A
 echo "::endgroup::"
 
 echo "::group::Data plane cluster-2 initialization"
@@ -46,6 +48,7 @@ KUBECONFIG="${KUBECONFIG_DIR}/cluster-2.yaml"
 echo "KUBECONFIG=${KUBECONFIG}"
 echo ferryctl data-plane init
 ferryctl data-plane init
+kubectl --kubeconfig="${KUBECONFIG}" wait --for=condition=Ready pods --all -A
 echo "::endgroup::"
 
 echo "::group::Data plane cluster-1 join"

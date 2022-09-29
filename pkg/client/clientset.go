@@ -21,21 +21,25 @@ import (
 	"fmt"
 
 	"github.com/ferryproxy/api/apis/traffic/v1alpha2"
-	versioned "github.com/ferryproxy/client-go/generated/clientset/versioned"
+	ferryversioned "github.com/ferryproxy/client-go/generated/clientset/versioned"
 	"github.com/ferryproxy/ferry/pkg/utils/objref"
+	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	mcsversioned "sigs.k8s.io/mcs-api/pkg/client/clientset/versioned"
 )
 
 type clientset struct {
 	kubeClientset  kubernetes.Interface
-	ferryClientset versioned.Interface
+	ferryClientset ferryversioned.Interface
+	mcsClientset   mcsversioned.Interface
 }
 
 type Interface interface {
 	Kubernetes() kubernetes.Interface
-	Ferry() versioned.Interface
+	Ferry() ferryversioned.Interface
+	MCS() mcsversioned.Interface
 }
 
 func NewForConfig(conf *rest.Config) (Interface, error) {
@@ -43,13 +47,22 @@ func NewForConfig(conf *rest.Config) (Interface, error) {
 	if err != nil {
 		return nil, err
 	}
-	ferryClientset, err := versioned.NewForConfig(conf)
+	_, err = kubeClientset.ServerVersion()
+	if err != nil {
+		return nil, err
+	}
+	ferryClientset, err := ferryversioned.NewForConfig(conf)
+	if err != nil {
+		return nil, err
+	}
+	mcsClientset, err := mcsversioned.NewForConfig(conf)
 	if err != nil {
 		return nil, err
 	}
 	return &clientset{
 		kubeClientset:  kubeClientset,
 		ferryClientset: ferryClientset,
+		mcsClientset:   mcsClientset,
 	}, nil
 }
 
@@ -57,47 +70,51 @@ func (c *clientset) Kubernetes() kubernetes.Interface {
 	return c.kubeClientset
 }
 
-func (c *clientset) Ferry() versioned.Interface {
+func (c *clientset) Ferry() ferryversioned.Interface {
 	return c.ferryClientset
 }
 
-func Apply(ctx context.Context, c Interface, obj objref.KMetadata) error {
+func (c *clientset) MCS() mcsversioned.Interface {
+	return c.mcsClientset
+}
+
+func Apply(ctx context.Context, logger logr.Logger, c Interface, obj objref.KMetadata) error {
 	switch o := obj.(type) {
 	case *corev1.ConfigMap:
-		return configMap{o}.Apply(ctx, c)
+		return configMap{o}.Apply(ctx, logger, c)
 	case *corev1.Secret:
-		return secret{o}.Apply(ctx, c)
+		return secret{o}.Apply(ctx, logger, c)
 	case *corev1.Service:
-		return service{o}.Apply(ctx, c)
+		return service{o}.Apply(ctx, logger, c)
 	case *corev1.Endpoints:
-		return endpoints{o}.Apply(ctx, c)
+		return endpoints{o}.Apply(ctx, logger, c)
 	case *v1alpha2.Hub:
-		return hub{o}.Apply(ctx, c)
+		return hub{o}.Apply(ctx, logger, c)
 	case *v1alpha2.RoutePolicy:
-		return routePolicy{o}.Apply(ctx, c)
+		return routePolicy{o}.Apply(ctx, logger, c)
 	case *v1alpha2.Route:
-		return route{o}.Apply(ctx, c)
+		return route{o}.Apply(ctx, logger, c)
 	default:
 		return fmt.Errorf("unsupport type")
 	}
 }
 
-func Delete(ctx context.Context, c Interface, obj objref.KMetadata) error {
+func Delete(ctx context.Context, logger logr.Logger, c Interface, obj objref.KMetadata) error {
 	switch o := obj.(type) {
 	case *corev1.ConfigMap:
-		return configMap{o}.Delete(ctx, c)
+		return configMap{o}.Delete(ctx, logger, c)
 	case *corev1.Secret:
-		return secret{o}.Delete(ctx, c)
+		return secret{o}.Delete(ctx, logger, c)
 	case *corev1.Service:
-		return service{o}.Delete(ctx, c)
+		return service{o}.Delete(ctx, logger, c)
 	case *corev1.Endpoints:
-		return endpoints{o}.Delete(ctx, c)
+		return endpoints{o}.Delete(ctx, logger, c)
 	case *v1alpha2.Hub:
-		return hub{o}.Delete(ctx, c)
+		return hub{o}.Delete(ctx, logger, c)
 	case *v1alpha2.RoutePolicy:
-		return routePolicy{o}.Delete(ctx, c)
+		return routePolicy{o}.Delete(ctx, logger, c)
 	case *v1alpha2.Route:
-		return route{o}.Delete(ctx, c)
+		return route{o}.Delete(ctx, logger, c)
 	default:
 		return fmt.Errorf("unsupport type")
 	}
