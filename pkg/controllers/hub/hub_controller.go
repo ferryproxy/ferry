@@ -23,7 +23,6 @@ import (
 	"fmt"
 	"sort"
 	"sync"
-	"time"
 
 	"github.com/ferryproxy/api/apis/traffic/v1alpha2"
 	externalversions "github.com/ferryproxy/client-go/generated/informers/externalversions"
@@ -36,7 +35,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 	"sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 )
@@ -65,7 +63,6 @@ type HubController struct {
 	syncFunc           func()
 	namespace          string
 	conditionsManager  *conditions.ConditionsManager
-	connectingHubs     map[string]time.Time
 }
 
 func NewHubController(conf HubControllerConfig) *HubController {
@@ -82,7 +79,6 @@ func NewHubController(conf HubControllerConfig) *HubController {
 		cacheTunnelPorts:   map[string]*tunnelPorts{},
 		cacheAuthorized:    map[string]string{},
 		cacheKubeconfig:    map[string][]byte{},
-		connectingHubs:     map[string]time.Time{},
 		conditionsManager:  conditions.NewConditionsManager(),
 	}
 }
@@ -104,8 +100,6 @@ func (c *HubController) Run(ctx context.Context) error {
 		UpdateFunc: c.onUpdate,
 		DeleteFunc: c.onDelete,
 	})
-
-	go wait.Until(c.reconnect, 10*time.Second, ctx.Done())
 
 	informer.Run(ctx.Done())
 	return nil
@@ -170,14 +164,75 @@ func (c *HubController) UpdateHubConditions(name string, conditions []metav1.Con
 	return err
 }
 
-func (c *HubController) Clientset(hubName string) (client.Interface, error) {
-	c.mut.RLock()
-	defer c.mut.RUnlock()
-	clientset, ok := c.cacheClientset[hubName]
-	if !ok {
-		return nil, fmt.Errorf("hub %q is disconnected", hubName)
+func (c *HubController) ResetClientset(hubName string) {
+	c.mut.Lock()
+	defer c.mut.Unlock()
+	delete(c.cacheClientset, hubName)
+}
+
+func (c *HubController) updateClientset(hubName string) (client.Interface, error) {
+	hub := c.cacheHub[hubName]
+	if hub == nil {
+		return nil, fmt.Errorf("not found hub %q", hubName)
 	}
+
+	clientset, updated, err := c.tryConnectAndUpdateStatus(hubName)
+	if err != nil {
+		c.logger.Error(err, "tryConnectAndUpdateStatus")
+		err = c.UpdateHubConditions(hubName, []metav1.Condition{
+			{
+				Type:    v1alpha2.ConnectedCondition,
+				Status:  metav1.ConditionFalse,
+				Reason:  "Disconnected",
+				Message: err.Error(),
+			},
+		})
+		if err != nil {
+			c.logger.Error(err, "failed to update status")
+		}
+		return nil, err
+	}
+	err = c.UpdateHubConditions(hubName, []metav1.Condition{
+		{
+			Type:   v1alpha2.ConnectedCondition,
+			Status: metav1.ConditionTrue,
+			Reason: "Connected",
+		},
+	})
+	if err != nil {
+		c.logger.Error(err, "failed to update status")
+	}
+
+	if updated {
+		c.enableCache(hubName, clientset)
+	}
+
+	if IsEnabledMCS(hub) {
+		c.enableMCS(hub, clientset)
+	} else {
+		c.disableMCS(hub)
+	}
+
+	c.syncFunc()
 	return clientset, nil
+}
+
+func (c *HubController) UpdateClientset(hubName string) (client.Interface, error) {
+	c.mut.Lock()
+	defer c.mut.Unlock()
+
+	return c.updateClientset(hubName)
+}
+
+func (c *HubController) Clientset(hubName string) (client.Interface, error) {
+	c.mut.Lock()
+	defer c.mut.Unlock()
+
+	clientset, ok := c.cacheClientset[hubName]
+	if ok && clientset != nil {
+		return clientset, nil
+	}
+	return c.updateClientset(hubName)
 }
 
 func (c *HubController) GetService(hubName string, namespace, name string) (*corev1.Service, bool) {
@@ -255,48 +310,16 @@ func (c *HubController) onAdd(obj interface{}) {
 	)
 
 	c.mut.Lock()
-	defer c.mut.Unlock()
-
 	c.cacheHub[f.Name] = f
 	c.enablePorts(f.Name)
+	c.mut.Unlock()
 
-	clientset, _, err := c.tryConnectAndUpdateStatus(f.Name)
+	_, err := c.Clientset(f.Name)
 	if err != nil {
-		c.logger.Error(err, "tryConnectAndUpdateStatus")
-		err = c.UpdateHubConditions(f.Name, []metav1.Condition{
-			{
-				Type:    v1alpha2.ConnectedCondition,
-				Status:  metav1.ConditionFalse,
-				Reason:  "Disconnected",
-				Message: err.Error(),
-			},
-		})
-		if err != nil {
-			c.logger.Error(err, "failed to update status")
-		}
-		c.connectingHubs[f.Name] = time.Now()
-		return
-	} else {
-		err = c.UpdateHubConditions(f.Name, []metav1.Condition{
-			{
-				Type:   v1alpha2.ConnectedCondition,
-				Status: metav1.ConditionTrue,
-				Reason: "Connected",
-			},
-		})
-		if err != nil {
-			c.logger.Error(err, "failed to update status")
-		}
-		delete(c.connectingHubs, f.Name)
+		c.logger.Error(err, "Clientset",
+			"hub", objref.KRef(consts.FerryNamespace, f.Name),
+		)
 	}
-
-	c.enableCache(f.Name, clientset)
-
-	if IsEnabledMCS(f) {
-		c.enableMCS(f, clientset)
-	}
-
-	c.syncFunc()
 }
 
 func IsEnabledMCS(f *v1alpha2.Hub) bool {
@@ -380,7 +403,6 @@ func (c *HubController) updateKubeconfig(name string) error {
 }
 
 func (c *HubController) onUpdate(oldObj, newObj interface{}) {
-	old := oldObj.(*v1alpha2.Hub)
 	f := newObj.(*v1alpha2.Hub)
 	f = f.DeepCopy()
 	c.logger.Info("onUpdate",
@@ -388,59 +410,15 @@ func (c *HubController) onUpdate(oldObj, newObj interface{}) {
 	)
 
 	c.mut.Lock()
-	defer c.mut.Unlock()
-
 	c.cacheHub[f.Name] = f
+	c.mut.Unlock()
 
-	clientset, updated, err := c.tryConnectAndUpdateStatus(f.Name)
+	_, err := c.UpdateClientset(f.Name)
 	if err != nil {
-		c.logger.Error(err, "tryConnectAndUpdateStatus")
-		err = c.UpdateHubConditions(f.Name, []metav1.Condition{
-			{
-				Type:    v1alpha2.ConnectedCondition,
-				Status:  metav1.ConditionFalse,
-				Reason:  "Disconnected",
-				Message: err.Error(),
-			},
-		})
-		if err != nil {
-			c.logger.Error(err, "failed to update status")
-		}
-		c.connectingHubs[f.Name] = time.Now()
-		return
-	} else {
-		err = c.UpdateHubConditions(f.Name, []metav1.Condition{
-			{
-				Type:   v1alpha2.ConnectedCondition,
-				Status: metav1.ConditionTrue,
-				Reason: "Connected",
-			},
-		})
-		if err != nil {
-			c.logger.Error(err, "failed to update status")
-		}
-		delete(c.connectingHubs, f.Name)
+		c.logger.Error(err, "UpdateClientset",
+			"hub", objref.KRef(consts.FerryNamespace, f.Name),
+		)
 	}
-
-	if updated {
-		c.enableCache(f.Name, clientset)
-	}
-
-	if IsEnabledMCS(old) {
-		if !IsEnabledMCS(f) {
-			c.disableMCS(f)
-		} else {
-			if updated {
-				c.enableMCS(f, clientset)
-			}
-		}
-	} else {
-		if IsEnabledMCS(f) {
-			c.enableMCS(f, clientset)
-		}
-	}
-
-	c.syncFunc()
 }
 
 func (c *HubController) enablePorts(hubName string) {
@@ -617,59 +595,4 @@ func (c *HubController) GetHubGateway(hubName string, forHub string) v1alpha2.Hu
 		return hub.Spec.Gateway
 	}
 	return v1alpha2.HubSpecGateway{}
-}
-
-func (c *HubController) reconnect() {
-	c.mut.Lock()
-	defer c.mut.Unlock()
-
-	reconnected := false
-	for hubName := range c.connectingHubs {
-		hub := c.cacheHub[hubName]
-		if hub == nil {
-			continue
-		}
-		if time.Since(c.connectingHubs[hubName]) < 1*time.Second {
-			continue
-		}
-		clientset, _, err := c.tryConnectAndUpdateStatus(hubName)
-		if err != nil {
-			c.logger.Error(err, "tryConnectAndUpdateStatus")
-			err = c.UpdateHubConditions(hubName, []metav1.Condition{
-				{
-					Type:    v1alpha2.ConnectedCondition,
-					Status:  metav1.ConditionFalse,
-					Reason:  "Disconnected",
-					Message: err.Error(),
-				},
-			})
-			if err != nil {
-				c.logger.Error(err, "failed to update status")
-			}
-			c.connectingHubs[hubName] = time.Now()
-			continue
-		} else {
-			err = c.UpdateHubConditions(hubName, []metav1.Condition{
-				{
-					Type:   v1alpha2.ConnectedCondition,
-					Status: metav1.ConditionTrue,
-					Reason: "Connected",
-				},
-			})
-			if err != nil {
-				c.logger.Error(err, "failed to update status")
-			}
-			delete(c.connectingHubs, hubName)
-			c.enableCache(hubName, clientset)
-
-			if IsEnabledMCS(hub) {
-				c.enableMCS(hub, clientset)
-			}
-			reconnected = true
-			c.logger.Info("connect to hub", "hub", hubName)
-		}
-	}
-	if reconnected {
-		c.syncFunc()
-	}
 }

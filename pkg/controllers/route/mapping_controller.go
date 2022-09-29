@@ -44,6 +44,7 @@ type HubInterface interface {
 	GetHubGateway(hubName string, forHub string) v1alpha2.HubSpecGateway
 	GetAuthorized(name string) string
 	Clientset(hubName string) (client.Interface, error)
+	ResetClientset(hubName string)
 	LoadPortPeer(importHubName string, cluster, namespace, name string, port, bindPort int32) error
 	GetPortPeer(importHubName string, cluster, namespace, name string, port int32) (int32, error)
 	DeletePortPeer(importHubName string, cluster, namespace, name string, port int32) (int32, error)
@@ -300,7 +301,9 @@ func (m *MappingController) sync() {
 		m.cacheResources = resources
 	}()
 
+loop:
 	for hubName, updated := range resources {
+		m.logger.Info("Update resources", "hub", hubName, "size", len(updated))
 		cacheResource := m.cacheResources[hubName]
 		deleled := diffobjs.ShouldDeleted(cacheResource, updated)
 		cli, err := m.hubInterface.Clientset(hubName)
@@ -308,7 +311,7 @@ func (m *MappingController) sync() {
 			m.logger.Error(err, "Clientset",
 				"hub", objref.KRef(consts.FerryNamespace, hubName),
 			)
-			continue
+			continue loop
 		}
 		for _, r := range updated {
 			err := client.Apply(ctx, cli, r)
@@ -316,6 +319,8 @@ func (m *MappingController) sync() {
 				m.logger.Error(err, "Apply resource",
 					"hub", objref.KRef(consts.FerryNamespace, hubName),
 				)
+				m.hubInterface.ResetClientset(hubName)
+				continue loop
 			}
 		}
 
@@ -325,6 +330,8 @@ func (m *MappingController) sync() {
 				m.logger.Error(err, "Delete resource",
 					"hub", objref.KRef(consts.FerryNamespace, hubName),
 				)
+				m.hubInterface.ResetClientset(hubName)
+				continue loop
 			}
 		}
 	}
@@ -334,6 +341,7 @@ func (m *MappingController) sync() {
 		if ok && len(v) != 0 {
 			continue
 		}
+		m.logger.Info("Clean resources", "hub", hubName, "size", len(caches))
 		cli, err := m.hubInterface.Clientset(hubName)
 		if err != nil {
 			m.logger.Error(err, "Clientset",
