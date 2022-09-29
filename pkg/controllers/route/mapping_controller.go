@@ -52,7 +52,7 @@ type HubInterface interface {
 }
 
 type RouteInterface interface {
-	UpdateRouteCondition(name string, conditions []metav1.Condition) error
+	UpdateRouteCondition(name string, conditions []metav1.Condition)
 }
 
 type MappingControllerConfig struct {
@@ -165,10 +165,7 @@ func (m *MappingController) SetRoutes(routes []*v1alpha2.Route) {
 				Reason: v1alpha2.PortsAllocatedCondition,
 			})
 		}
-		err = m.routeInterface.UpdateRouteCondition(route.Name, conds)
-		if err != nil {
-			m.logger.Error(err, "failed to update status")
-		}
+		m.routeInterface.UpdateRouteCondition(route.Name, conds)
 	}
 	deleted := diffobjs.ShouldDeleted(m.routes, routes)
 	for _, route := range deleted {
@@ -244,10 +241,7 @@ func (m *MappingController) sync() {
 	defer func() {
 		if len(conds) != 0 {
 			for _, route := range m.routes {
-				err := m.routeInterface.UpdateRouteCondition(route.Name, conds)
-				if err != nil {
-					m.logger.Error(err, "failed to update status")
-				}
+				m.routeInterface.UpdateRouteCondition(route.Name, conds)
 			}
 		}
 	}()

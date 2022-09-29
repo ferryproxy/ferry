@@ -137,12 +137,21 @@ func (c *RoutePolicyController) Run(ctx context.Context) error {
 	return nil
 }
 
-func (c *RoutePolicyController) UpdateRoutePolicyCondition(name string, routeCount int) error {
+func (c *RoutePolicyController) UpdateRoutePolicyCondition(name string, routeCount int) {
 	c.mutStatus.Lock()
 	defer c.mutStatus.Unlock()
+
+	var retErr error
+	defer func() {
+		if retErr != nil {
+			c.logger.Error(retErr, "failed to update status")
+		}
+	}()
+
 	fp := c.get(name)
 	if fp == nil {
-		return fmt.Errorf("not found routePolicy %s", name)
+		retErr = fmt.Errorf("not found routePolicy %s", name)
+		return
 	}
 
 	status := fp.Status.DeepCopy()
@@ -171,14 +180,18 @@ func (c *RoutePolicyController) UpdateRoutePolicyCondition(name string, routeCou
 		"status": status,
 	})
 	if err != nil {
-		return err
+		retErr = err
+		return
 	}
 	_, err = c.clientset.
 		Ferry().
 		TrafficV1alpha2().
 		RoutePolicies(fp.Namespace).
 		Patch(c.ctx, fp.Name, types.MergePatchType, data, metav1.PatchOptions{}, "status")
-	return err
+	if err != nil {
+		retErr = err
+		return
+	}
 }
 
 func (c *RoutePolicyController) onAdd(obj interface{}) {
@@ -195,12 +208,7 @@ func (c *RoutePolicyController) onAdd(obj interface{}) {
 
 	c.syncFunc()
 
-	err := c.UpdateRoutePolicyCondition(f.Name, 0)
-	if err != nil {
-		c.logger.Error(err, "failed to update status",
-			"routePolicy", objref.KObj(f),
-		)
-	}
+	c.UpdateRoutePolicyCondition(f.Name, 0)
 }
 
 func (c *RoutePolicyController) onUpdate(oldObj, newObj interface{}) {
@@ -279,12 +287,7 @@ func (c *RoutePolicyController) Sync(ctx context.Context) {
 				count++
 			}
 		}
-		err := c.UpdateRoutePolicyCondition(policy.Name, count)
-		if err != nil {
-			c.logger.Error(err, "failed to update status",
-				"routePolicy", objref.KObj(policy),
-			)
-		}
+		c.UpdateRoutePolicyCondition(policy.Name, count)
 	}
 }
 

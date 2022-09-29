@@ -32,7 +32,7 @@ import (
 type HubInterface interface {
 	ListHubs() []*v1alpha2.Hub
 	GetTunnelAddressInControlPlane(hubName string) string
-	UpdateHubConditions(name string, conditions []metav1.Condition) error
+	UpdateHubConditions(name string, conditions []metav1.Condition)
 }
 
 type HealthControllerConfig struct {
@@ -85,7 +85,7 @@ func (m *HealthController) check(ctx context.Context, hubs []*v1alpha2.Hub) {
 			m.logger.Error(err, "health",
 				"hub", objref.KObj(hub),
 			)
-			err = m.hubInterface.UpdateHubConditions(hub.Name, []metav1.Condition{
+			m.hubInterface.UpdateHubConditions(hub.Name, []metav1.Condition{
 				{
 					Type:    v1alpha2.TunnelHealthCondition,
 					Status:  metav1.ConditionFalse,
@@ -94,18 +94,13 @@ func (m *HealthController) check(ctx context.Context, hubs []*v1alpha2.Hub) {
 				},
 			})
 		} else {
-			err = m.hubInterface.UpdateHubConditions(hub.Name, []metav1.Condition{
+			m.hubInterface.UpdateHubConditions(hub.Name, []metav1.Condition{
 				{
 					Type:   v1alpha2.TunnelHealthCondition,
 					Status: metav1.ConditionTrue,
 					Reason: "Health",
 				},
 			})
-		}
-		if err != nil {
-			m.logger.Error(err, "Failed update hub status",
-				"hub", objref.KObj(hub),
-			)
 		}
 	}
 }

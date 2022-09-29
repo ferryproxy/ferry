@@ -110,12 +110,21 @@ func (c *RouteController) Run(ctx context.Context) error {
 	return nil
 }
 
-func (c *RouteController) UpdateRouteCondition(name string, conditions []metav1.Condition) error {
+func (c *RouteController) UpdateRouteCondition(name string, conditions []metav1.Condition) {
 	c.mutStatus.Lock()
 	defer c.mutStatus.Unlock()
+
+	var retErr error
+	defer func() {
+		if retErr != nil {
+			c.logger.Error(retErr, "failed to update status")
+		}
+	}()
+
 	fp := c.cache[name]
 	if fp == nil {
-		return fmt.Errorf("not found Route %s", name)
+		retErr = fmt.Errorf("not found route %s", name)
+		return
 	}
 
 	status := fp.Status.DeepCopy()
@@ -166,14 +175,18 @@ func (c *RouteController) UpdateRouteCondition(name string, conditions []metav1.
 		"status": status,
 	})
 	if err != nil {
-		return err
+		retErr = err
+		return
 	}
 	_, err = c.clientset.
 		Ferry().
 		TrafficV1alpha2().
 		Routes(fp.Namespace).
 		Patch(c.ctx, fp.Name, types.MergePatchType, data, metav1.PatchOptions{}, "status")
-	return err
+	if err != nil {
+		retErr = err
+		return
+	}
 }
 
 func (c *RouteController) onAdd(obj interface{}) {

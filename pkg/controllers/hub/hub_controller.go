@@ -113,13 +113,21 @@ func (c *HubController) GetTunnelAddressInControlPlane(hubName string) string {
 	return host
 }
 
-func (c *HubController) UpdateHubConditions(name string, conditions []metav1.Condition) error {
+func (c *HubController) UpdateHubConditions(name string, conditions []metav1.Condition) {
 	c.mutStatus.Lock()
 	defer c.mutStatus.Unlock()
 
+	var retErr error
+	defer func() {
+		if retErr != nil {
+			c.logger.Error(retErr, "failed to update status")
+		}
+	}()
+
 	ci := c.cacheHub[name]
 	if ci == nil {
-		return fmt.Errorf("not found hub %s", name)
+		retErr = fmt.Errorf("not found hub %s", name)
+		return
 	}
 
 	status := ci.Status.DeepCopy()
@@ -154,14 +162,18 @@ func (c *HubController) UpdateHubConditions(name string, conditions []metav1.Con
 		"status": status,
 	})
 	if err != nil {
-		return err
+		retErr = err
+		return
 	}
 	_, err = c.clientset.
 		Ferry().
 		TrafficV1alpha2().
 		Hubs(ci.Namespace).
 		Patch(c.ctx, ci.Name, types.MergePatchType, data, metav1.PatchOptions{}, "status")
-	return err
+	if err != nil {
+		retErr = err
+		return
+	}
 }
 
 func (c *HubController) ResetClientset(hubName string) {
@@ -179,7 +191,7 @@ func (c *HubController) updateClientset(hubName string) (client.Interface, error
 	clientset, updated, err := c.tryConnectAndUpdateStatus(hubName)
 	if err != nil {
 		c.logger.Error(err, "tryConnectAndUpdateStatus")
-		err = c.UpdateHubConditions(hubName, []metav1.Condition{
+		c.UpdateHubConditions(hubName, []metav1.Condition{
 			{
 				Type:    v1alpha2.ConnectedCondition,
 				Status:  metav1.ConditionFalse,
@@ -187,21 +199,15 @@ func (c *HubController) updateClientset(hubName string) (client.Interface, error
 				Message: err.Error(),
 			},
 		})
-		if err != nil {
-			c.logger.Error(err, "failed to update status")
-		}
 		return nil, err
 	}
-	err = c.UpdateHubConditions(hubName, []metav1.Condition{
+	c.UpdateHubConditions(hubName, []metav1.Condition{
 		{
 			Type:   v1alpha2.ConnectedCondition,
 			Status: metav1.ConditionTrue,
 			Reason: "Connected",
 		},
 	})
-	if err != nil {
-		c.logger.Error(err, "failed to update status")
-	}
 
 	if updated {
 		c.enableCache(hubName, clientset)
