@@ -23,12 +23,12 @@ import (
 
 	"github.com/ferryproxy/ferry/pkg/client"
 	"github.com/ferryproxy/ferry/pkg/controllers/hub"
-	"github.com/ferryproxy/ferry/pkg/controllers/hub/health"
 	"github.com/ferryproxy/ferry/pkg/controllers/mcs"
 	"github.com/ferryproxy/ferry/pkg/controllers/route"
 	"github.com/ferryproxy/ferry/pkg/controllers/route_policy"
 	"github.com/ferryproxy/ferry/pkg/utils/trybuffer"
 	"github.com/go-logr/logr"
+	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 type Controller struct {
@@ -41,7 +41,6 @@ type Controller struct {
 	routeController       *route.RouteController
 	routePolicyController *route_policy.RoutePolicyController
 	mcsController         *mcs.MCSController
-	healthController      *health.HealthController
 	try                   *trybuffer.TryBuffer
 }
 
@@ -110,17 +109,6 @@ func (c *Controller) Run(ctx context.Context) error {
 		c.logger.Error(err, "Start MCSController")
 	}
 
-	healthController := health.NewHealthController(&health.HealthControllerConfig{
-		Clientset:    c.clientset,
-		HubInterface: hubController,
-		Logger:       c.logger.WithName("health"),
-	})
-	c.healthController = healthController
-	err = healthController.Start(ctx)
-	if err != nil {
-		c.logger.Error(err, "Start MCSController")
-	}
-
 	go func() {
 		err := routeController.Run(c.ctx)
 		if err != nil {
@@ -145,15 +133,9 @@ func (c *Controller) Run(ctx context.Context) error {
 		c.try.Try()
 	}
 
-	for {
-		select {
-		case <-c.ctx.Done():
-			c.try.Close()
-			return c.ctx.Err()
-		case <-time.After(time.Minute):
-			c.try.Try()
-		}
-	}
+	wait.Until(c.sync, time.Minute, c.ctx.Done())
+	c.try.Close()
+	return c.ctx.Err()
 }
 
 func (c *Controller) sync() {
@@ -162,11 +144,11 @@ func (c *Controller) sync() {
 
 	ctx := c.ctx
 
+	c.hubController.Sync(ctx)
+
 	c.mcsController.Sync(ctx)
 
 	c.routePolicyController.Sync(ctx)
 
 	c.routeController.Sync(ctx)
-
-	c.healthController.Sync(ctx)
 }

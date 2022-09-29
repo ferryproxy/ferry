@@ -23,12 +23,14 @@ import (
 	"fmt"
 	"sort"
 	"sync"
+	"time"
 
 	"github.com/ferryproxy/api/apis/traffic/v1alpha2"
 	externalversions "github.com/ferryproxy/client-go/generated/informers/externalversions"
 	"github.com/ferryproxy/ferry/pkg/client"
 	"github.com/ferryproxy/ferry/pkg/conditions"
 	"github.com/ferryproxy/ferry/pkg/consts"
+	healthclient "github.com/ferryproxy/ferry/pkg/services/health/client"
 	portsclient "github.com/ferryproxy/ferry/pkg/services/ports/client"
 	"github.com/ferryproxy/ferry/pkg/utils/objref"
 	"github.com/go-logr/logr"
@@ -320,6 +322,8 @@ func (c *HubController) onAdd(obj interface{}) {
 			"hub", objref.KRef(consts.FerryNamespace, f.Name),
 		)
 	}
+
+	c.checkHealth(f.Name)
 }
 
 func IsEnabledMCS(f *v1alpha2.Hub) bool {
@@ -418,6 +422,35 @@ func (c *HubController) onUpdate(oldObj, newObj interface{}) {
 		c.logger.Error(err, "UpdateClientset",
 			"hub", objref.KRef(consts.FerryNamespace, f.Name),
 		)
+	}
+
+	c.checkHealth(f.Name)
+}
+
+func (c *HubController) checkHealth(hubName string) {
+	host := c.GetTunnelAddressInControlPlane(hubName)
+	route := healthclient.NewClient("http://" + host)
+	err := route.Get(c.ctx)
+	if err != nil {
+		c.logger.Error(err, "health",
+			"hub", objref.KRef(consts.FerryNamespace, hubName),
+		)
+		c.UpdateHubConditions(hubName, []metav1.Condition{
+			{
+				Type:    v1alpha2.TunnelHealthCondition,
+				Status:  metav1.ConditionFalse,
+				Reason:  "Unhealth",
+				Message: err.Error(),
+			},
+		})
+	} else {
+		c.UpdateHubConditions(hubName, []metav1.Condition{
+			{
+				Type:   v1alpha2.TunnelHealthCondition,
+				Status: metav1.ConditionTrue,
+				Reason: "Health",
+			},
+		})
 	}
 }
 
@@ -595,4 +628,21 @@ func (c *HubController) GetHubGateway(hubName string, forHub string) v1alpha2.Hu
 		return hub.Spec.Gateway
 	}
 	return v1alpha2.HubSpecGateway{}
+}
+
+func (c *HubController) Sync(ctx context.Context) {
+	hubs := c.ListHubs()
+	for _, hub := range hubs {
+		connectedCondition := c.conditionsManager.Find(hub.Name, v1alpha2.ConnectedCondition)
+		if connectedCondition == nil || (connectedCondition.Status == metav1.ConditionFalse &&
+			time.Since(connectedCondition.LastTransitionTime.Time) > 10*time.Second) {
+			c.checkHealth(hub.Name)
+		}
+
+		tunnelHealthCondition := c.conditionsManager.Find(hub.Name, v1alpha2.TunnelHealthCondition)
+		if tunnelHealthCondition == nil || (tunnelHealthCondition.Status == metav1.ConditionFalse &&
+			time.Since(tunnelHealthCondition.LastTransitionTime.Time) > 10*time.Second) {
+			c.ResetClientset(hub.Name)
+		}
+	}
 }
