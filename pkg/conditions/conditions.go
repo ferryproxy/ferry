@@ -19,6 +19,7 @@ package conditions
 import (
 	"strings"
 	"sync"
+	"time"
 
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -38,13 +39,31 @@ func NewConditionsManager() *ConditionsManager {
 func (c *ConditionsManager) Set(name string, newCondition metav1.Condition) {
 	c.mut.Lock()
 	defer c.mut.Unlock()
-	cond := c.cache[name]
+	conds := c.cache[name]
+	newConds := []metav1.Condition{}
+	for _, c := range conds {
+		newConds = append(newConds, c)
+	}
+	meta.SetStatusCondition(&newConds, newCondition)
+	c.cache[name] = newConds
+}
+
+func (c *ConditionsManager) SetWithDuration(name string, newCondition metav1.Condition, dur time.Duration) bool {
+	c.mut.Lock()
+	defer c.mut.Unlock()
+	conds := c.cache[name]
+	cond := meta.FindStatusCondition(conds, newCondition.Type)
+	if cond != nil && cond.Status == newCondition.Status && time.Since(cond.LastTransitionTime.Time) < dur {
+		return false
+	}
+
 	newCond := []metav1.Condition{}
-	for _, c := range cond {
+	for _, c := range conds {
 		newCond = append(newCond, c)
 	}
 	meta.SetStatusCondition(&newCond, newCondition)
 	c.cache[name] = newCond
+	return true
 }
 
 func (c *ConditionsManager) Get(name string) []metav1.Condition {
