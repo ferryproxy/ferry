@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/ferryproxy/api/apis/traffic/v1alpha2"
+	trafficv1alpha2 "github.com/ferryproxy/api/apis/traffic/v1alpha2"
 	"github.com/ferryproxy/ferry/pkg/consts"
 	"github.com/ferryproxy/ferry/pkg/utils/objref"
 	"github.com/google/go-cmp/cmp"
@@ -56,36 +56,36 @@ func TestRouter(t *testing.T) {
 						},
 					},
 				},
-				Hubs: []*v1alpha2.Hub{
+				Hubs: []*trafficv1alpha2.Hub{
 					{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "self",
 						},
-						Spec: v1alpha2.HubSpec{
-							Gateway: v1alpha2.HubSpecGateway{
+						Spec: trafficv1alpha2.HubSpec{
+							Gateway: trafficv1alpha2.HubSpecGateway{
 								Reachable: true,
 								Address:   "10.0.0.1:8080",
 							},
 						},
 					},
 				},
-				Routes: []*v1alpha2.Route{
+				Routes: []*trafficv1alpha2.Route{
 					{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      "svc1",
 							Namespace: "test",
 						},
-						Spec: v1alpha2.RouteSpec{
-							Import: v1alpha2.RouteSpecRule{
+						Spec: trafficv1alpha2.RouteSpec{
+							Import: trafficv1alpha2.RouteSpecRule{
 								HubName: "self",
-								Service: v1alpha2.RouteSpecRuleService{
+								Service: trafficv1alpha2.RouteSpecRuleService{
 									Name:      "svc1-new",
 									Namespace: "test",
 								},
 							},
-							Export: v1alpha2.RouteSpecRule{
+							Export: trafficv1alpha2.RouteSpecRule{
 								HubName: "self",
-								Service: v1alpha2.RouteSpecRuleService{
+								Service: trafficv1alpha2.RouteSpecRuleService{
 									Name:      "svc1",
 									Namespace: "test",
 								},
@@ -160,16 +160,16 @@ func TestRouter(t *testing.T) {
 						},
 					},
 				},
-				Hubs: []*v1alpha2.Hub{
+				Hubs: []*trafficv1alpha2.Hub{
 					{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "export",
 						},
-						Spec: v1alpha2.HubSpec{
-							Gateway: v1alpha2.HubSpecGateway{
+						Spec: trafficv1alpha2.HubSpec{
+							Gateway: trafficv1alpha2.HubSpecGateway{
 								Reachable: true,
 								Address:   "10.0.0.1:8080",
-								ReceptionProxy: []v1alpha2.HubSpecGatewayProxy{
+								ReceptionProxy: []trafficv1alpha2.HubSpecGatewayProxy{
 									{
 										Proxy: "socks5://reception2",
 									},
@@ -177,7 +177,7 @@ func TestRouter(t *testing.T) {
 										Proxy: "socks5://reception1",
 									},
 								},
-								NavigationProxy: []v1alpha2.HubSpecGatewayProxy{
+								NavigationProxy: []trafficv1alpha2.HubSpecGatewayProxy{
 									{
 										Proxy: "socks5://navigation2",
 									},
@@ -192,31 +192,31 @@ func TestRouter(t *testing.T) {
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "import",
 						},
-						Spec: v1alpha2.HubSpec{
-							Gateway: v1alpha2.HubSpecGateway{
+						Spec: trafficv1alpha2.HubSpec{
+							Gateway: trafficv1alpha2.HubSpecGateway{
 								Reachable: false,
 								Address:   "10.0.0.2:8080",
 							},
 						},
 					},
 				},
-				Routes: []*v1alpha2.Route{
+				Routes: []*trafficv1alpha2.Route{
 					{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      "svc1",
 							Namespace: "test",
 						},
-						Spec: v1alpha2.RouteSpec{
-							Import: v1alpha2.RouteSpecRule{
+						Spec: trafficv1alpha2.RouteSpec{
+							Import: trafficv1alpha2.RouteSpecRule{
 								HubName: "import",
-								Service: v1alpha2.RouteSpecRuleService{
+								Service: trafficv1alpha2.RouteSpecRuleService{
 									Name:      "svc1",
 									Namespace: "test",
 								},
 							},
-							Export: v1alpha2.RouteSpecRule{
+							Export: trafficv1alpha2.RouteSpecRule{
 								HubName: "export",
-								Service: v1alpha2.RouteSpecRuleService{
+								Service: trafficv1alpha2.RouteSpecRuleService{
 									Name:      "svc1",
 									Namespace: "test",
 								},
@@ -331,13 +331,13 @@ func TestRouter(t *testing.T) {
 						},
 					},
 				},
-				Hubs: []*v1alpha2.Hub{
+				Hubs: []*trafficv1alpha2.Hub{
 					{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "export",
 						},
-						Spec: v1alpha2.HubSpec{
-							Gateway: v1alpha2.HubSpecGateway{
+						Spec: trafficv1alpha2.HubSpec{
+							Gateway: trafficv1alpha2.HubSpecGateway{
 								Reachable: false,
 								Address:   "10.0.0.1:8080",
 							},
@@ -347,11 +347,11 @@ func TestRouter(t *testing.T) {
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "import",
 						},
-						Spec: v1alpha2.HubSpec{
-							Gateway: v1alpha2.HubSpecGateway{
+						Spec: trafficv1alpha2.HubSpec{
+							Gateway: trafficv1alpha2.HubSpecGateway{
 								Reachable: true,
 								Address:   "10.0.0.2:8080",
-								ReceptionProxy: []v1alpha2.HubSpecGatewayProxy{
+								ReceptionProxy: []trafficv1alpha2.HubSpecGatewayProxy{
 									{
 										Proxy: "socks5://reception2",
 									},
@@ -359,7 +359,7 @@ func TestRouter(t *testing.T) {
 										Proxy: "socks5://reception1",
 									},
 								},
-								NavigationProxy: []v1alpha2.HubSpecGatewayProxy{
+								NavigationProxy: []trafficv1alpha2.HubSpecGatewayProxy{
 									{
 										Proxy: "socks5://navigation2",
 									},
@@ -371,23 +371,23 @@ func TestRouter(t *testing.T) {
 						},
 					},
 				},
-				Routes: []*v1alpha2.Route{
+				Routes: []*trafficv1alpha2.Route{
 					{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      "svc1",
 							Namespace: "test",
 						},
-						Spec: v1alpha2.RouteSpec{
-							Import: v1alpha2.RouteSpecRule{
+						Spec: trafficv1alpha2.RouteSpec{
+							Import: trafficv1alpha2.RouteSpecRule{
 								HubName: "import",
-								Service: v1alpha2.RouteSpecRuleService{
+								Service: trafficv1alpha2.RouteSpecRuleService{
 									Name:      "svc1",
 									Namespace: "test",
 								},
 							},
-							Export: v1alpha2.RouteSpecRule{
+							Export: trafficv1alpha2.RouteSpecRule{
 								HubName: "export",
-								Service: v1alpha2.RouteSpecRuleService{
+								Service: trafficv1alpha2.RouteSpecRuleService{
 									Name:      "svc1",
 									Namespace: "test",
 								},
@@ -501,16 +501,16 @@ func TestRouter(t *testing.T) {
 						},
 					},
 				},
-				Hubs: []*v1alpha2.Hub{
+				Hubs: []*trafficv1alpha2.Hub{
 					{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "export",
 						},
-						Spec: v1alpha2.HubSpec{
-							Gateway: v1alpha2.HubSpecGateway{
+						Spec: trafficv1alpha2.HubSpec{
+							Gateway: trafficv1alpha2.HubSpecGateway{
 								Reachable: false,
 								Address:   "10.0.0.1:8080",
-								NavigationWay: []v1alpha2.HubSpecGatewayWay{
+								NavigationWay: []trafficv1alpha2.HubSpecGatewayWay{
 									{
 										HubName: "import",
 									},
@@ -525,8 +525,8 @@ func TestRouter(t *testing.T) {
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "import",
 						},
-						Spec: v1alpha2.HubSpec{
-							Gateway: v1alpha2.HubSpecGateway{
+						Spec: trafficv1alpha2.HubSpec{
+							Gateway: trafficv1alpha2.HubSpecGateway{
 								Reachable: false,
 								Address:   "10.0.0.2:8080",
 							},
@@ -536,31 +536,31 @@ func TestRouter(t *testing.T) {
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "proxy",
 						},
-						Spec: v1alpha2.HubSpec{
-							Gateway: v1alpha2.HubSpecGateway{
+						Spec: trafficv1alpha2.HubSpec{
+							Gateway: trafficv1alpha2.HubSpecGateway{
 								Reachable: true,
 								Address:   "10.0.0.3:8080",
 							},
 						},
 					},
 				},
-				Routes: []*v1alpha2.Route{
+				Routes: []*trafficv1alpha2.Route{
 					{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      "svc1",
 							Namespace: "test",
 						},
-						Spec: v1alpha2.RouteSpec{
-							Import: v1alpha2.RouteSpecRule{
+						Spec: trafficv1alpha2.RouteSpec{
+							Import: trafficv1alpha2.RouteSpecRule{
 								HubName: "import",
-								Service: v1alpha2.RouteSpecRuleService{
+								Service: trafficv1alpha2.RouteSpecRuleService{
 									Name:      "svc1",
 									Namespace: "test",
 								},
 							},
-							Export: v1alpha2.RouteSpecRule{
+							Export: trafficv1alpha2.RouteSpecRule{
 								HubName: "export",
-								Service: v1alpha2.RouteSpecRuleService{
+								Service: trafficv1alpha2.RouteSpecRuleService{
 									Name:      "svc1",
 									Namespace: "test",
 								},
@@ -721,12 +721,12 @@ func toJson(c interface{}) string {
 
 type fakeRouter struct {
 	Services []*corev1.Service
-	Hubs     []*v1alpha2.Hub
-	Routes   []*v1alpha2.Route
+	Hubs     []*trafficv1alpha2.Hub
+	Routes   []*trafficv1alpha2.Route
 }
 
 func (f *fakeRouter) BuildResource() (out map[string][]objref.KMetadata, err error) {
-	hubs := map[string]*v1alpha2.Hub{}
+	hubs := map[string]*trafficv1alpha2.Hub{}
 	for _, hub := range f.Hubs {
 		hubs[hub.Name] = hub
 	}
@@ -761,7 +761,7 @@ func (f *fakeRouter) BuildResource() (out map[string][]objref.KMetadata, err err
 
 type fakeHubInterface struct {
 	services  []*corev1.Service
-	hubs      map[string]*v1alpha2.Hub
+	hubs      map[string]*trafficv1alpha2.Hub
 	portCache map[string]int
 	port      int
 }
@@ -770,11 +770,11 @@ func (f *fakeHubInterface) ListServices(name string) []*corev1.Service {
 	return f.services
 }
 
-func (f *fakeHubInterface) GetHub(name string) *v1alpha2.Hub {
+func (f *fakeHubInterface) GetHub(name string) *trafficv1alpha2.Hub {
 	return f.hubs[name]
 }
 
-func (f *fakeHubInterface) GetHubGateway(hubName string, forHub string) v1alpha2.HubSpecGateway {
+func (f *fakeHubInterface) GetHubGateway(hubName string, forHub string) trafficv1alpha2.HubSpecGateway {
 	hub := f.hubs[hubName]
 	if hub != nil {
 		if hub.Spec.Override != nil {
@@ -785,7 +785,7 @@ func (f *fakeHubInterface) GetHubGateway(hubName string, forHub string) v1alpha2
 		}
 		return hub.Spec.Gateway
 	}
-	return v1alpha2.HubSpecGateway{}
+	return trafficv1alpha2.HubSpecGateway{}
 }
 
 func (f fakeHubInterface) GetAuthorized(name string) string {

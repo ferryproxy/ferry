@@ -20,7 +20,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/ferryproxy/api/apis/traffic/v1alpha2"
+	trafficv1alpha2 "github.com/ferryproxy/api/apis/traffic/v1alpha2"
 	"github.com/google/go-cmp/cmp"
 )
 
@@ -28,7 +28,7 @@ func TestSolution_Solution(t *testing.T) {
 
 	tests := []struct {
 		name    string
-		hubs    map[string]*v1alpha2.Hub
+		hubs    map[string]*trafficv1alpha2.Hub
 		want    []string
 		wantErr bool
 	}{
@@ -38,17 +38,17 @@ func TestSolution_Solution(t *testing.T) {
 		// 0b0
 		{
 			name: "2 hubs 0b0",
-			hubs: map[string]*v1alpha2.Hub{
+			hubs: map[string]*trafficv1alpha2.Hub{
 				"export": {
-					Spec: v1alpha2.HubSpec{
-						Gateway: v1alpha2.HubSpecGateway{
+					Spec: trafficv1alpha2.HubSpec{
+						Gateway: trafficv1alpha2.HubSpecGateway{
 							Reachable: true,
 							Address:   "export:8080",
 						},
 					},
 				},
 				"import": {
-					Spec: v1alpha2.HubSpec{},
+					Spec: trafficv1alpha2.HubSpec{},
 				},
 			},
 			want: []string{
@@ -59,13 +59,13 @@ func TestSolution_Solution(t *testing.T) {
 		// 0b1
 		{
 			name: "2 hubs 0b1",
-			hubs: map[string]*v1alpha2.Hub{
+			hubs: map[string]*trafficv1alpha2.Hub{
 				"export": {
-					Spec: v1alpha2.HubSpec{},
+					Spec: trafficv1alpha2.HubSpec{},
 				},
 				"import": {
-					Spec: v1alpha2.HubSpec{
-						Gateway: v1alpha2.HubSpecGateway{
+					Spec: trafficv1alpha2.HubSpec{
+						Gateway: trafficv1alpha2.HubSpecGateway{
 							Reachable: true,
 							Address:   "import:8080",
 						},
@@ -82,12 +82,12 @@ func TestSolution_Solution(t *testing.T) {
 		// 0b000
 		{
 			name: "4 hubs 0b000 export reception",
-			hubs: map[string]*v1alpha2.Hub{
+			hubs: map[string]*trafficv1alpha2.Hub{
 				"export": {
-					Spec: v1alpha2.HubSpec{
-						Gateway: v1alpha2.HubSpecGateway{
+					Spec: trafficv1alpha2.HubSpec{
+						Gateway: trafficv1alpha2.HubSpecGateway{
 							Reachable: true,
-							ReceptionWay: []v1alpha2.HubSpecGatewayWay{
+							ReceptionWay: []trafficv1alpha2.HubSpecGatewayWay{
 								{
 									HubName: "repeater-import",
 								},
@@ -96,7 +96,7 @@ func TestSolution_Solution(t *testing.T) {
 								},
 							},
 						},
-						Override: map[string]v1alpha2.HubSpecGateway{
+						Override: map[string]trafficv1alpha2.HubSpecGateway{
 							"repeater-export": {
 								Reachable: true,
 								Address:   "export:8080",
@@ -105,8 +105,8 @@ func TestSolution_Solution(t *testing.T) {
 					},
 				},
 				"repeater-export": {
-					Spec: v1alpha2.HubSpec{
-						Override: map[string]v1alpha2.HubSpecGateway{
+					Spec: trafficv1alpha2.HubSpec{
+						Override: map[string]trafficv1alpha2.HubSpecGateway{
 							"repeater-import": {
 								Reachable: true,
 								Address:   "repeater-export:8080",
@@ -115,8 +115,8 @@ func TestSolution_Solution(t *testing.T) {
 					},
 				},
 				"repeater-import": {
-					Spec: v1alpha2.HubSpec{
-						Override: map[string]v1alpha2.HubSpecGateway{
+					Spec: trafficv1alpha2.HubSpec{
+						Override: map[string]trafficv1alpha2.HubSpecGateway{
 							"import": {
 								Reachable: true,
 								Address:   "repeater-import:8080",
@@ -125,7 +125,7 @@ func TestSolution_Solution(t *testing.T) {
 					},
 				},
 				"import": {
-					Spec: v1alpha2.HubSpec{},
+					Spec: trafficv1alpha2.HubSpec{},
 				},
 			},
 			want: []string{
@@ -137,13 +137,13 @@ func TestSolution_Solution(t *testing.T) {
 		},
 		{
 			name: "4 hubs 0b000 import navigation",
-			hubs: map[string]*v1alpha2.Hub{
+			hubs: map[string]*trafficv1alpha2.Hub{
 				"export": {
-					Spec: v1alpha2.HubSpec{
-						Gateway: v1alpha2.HubSpecGateway{
+					Spec: trafficv1alpha2.HubSpec{
+						Gateway: trafficv1alpha2.HubSpecGateway{
 							Reachable: true,
 						},
-						Override: map[string]v1alpha2.HubSpecGateway{
+						Override: map[string]trafficv1alpha2.HubSpecGateway{
 							"repeater-export": {
 								Reachable: true,
 								Address:   "export:8080",
@@ -152,8 +152,8 @@ func TestSolution_Solution(t *testing.T) {
 					},
 				},
 				"repeater-export": {
-					Spec: v1alpha2.HubSpec{
-						Override: map[string]v1alpha2.HubSpecGateway{
+					Spec: trafficv1alpha2.HubSpec{
+						Override: map[string]trafficv1alpha2.HubSpecGateway{
 							"repeater-import": {
 								Reachable: true,
 								Address:   "repeater-export:8080",
@@ -162,8 +162,8 @@ func TestSolution_Solution(t *testing.T) {
 					},
 				},
 				"repeater-import": {
-					Spec: v1alpha2.HubSpec{
-						Override: map[string]v1alpha2.HubSpecGateway{
+					Spec: trafficv1alpha2.HubSpec{
+						Override: map[string]trafficv1alpha2.HubSpecGateway{
 							"import": {
 								Reachable: true,
 								Address:   "repeater-import:8080",
@@ -172,9 +172,9 @@ func TestSolution_Solution(t *testing.T) {
 					},
 				},
 				"import": {
-					Spec: v1alpha2.HubSpec{
-						Gateway: v1alpha2.HubSpecGateway{
-							NavigationWay: []v1alpha2.HubSpecGatewayWay{
+					Spec: trafficv1alpha2.HubSpec{
+						Gateway: trafficv1alpha2.HubSpecGateway{
+							NavigationWay: []trafficv1alpha2.HubSpecGatewayWay{
 								{
 									HubName: "repeater-export",
 								},
@@ -195,18 +195,18 @@ func TestSolution_Solution(t *testing.T) {
 		},
 		{
 			name: "4 hubs 0b000 import and export",
-			hubs: map[string]*v1alpha2.Hub{
+			hubs: map[string]*trafficv1alpha2.Hub{
 				"export": {
-					Spec: v1alpha2.HubSpec{
-						Gateway: v1alpha2.HubSpecGateway{
+					Spec: trafficv1alpha2.HubSpec{
+						Gateway: trafficv1alpha2.HubSpecGateway{
 							Reachable: true,
-							ReceptionWay: []v1alpha2.HubSpecGatewayWay{
+							ReceptionWay: []trafficv1alpha2.HubSpecGatewayWay{
 								{
 									HubName: "repeater-export",
 								},
 							},
 						},
-						Override: map[string]v1alpha2.HubSpecGateway{
+						Override: map[string]trafficv1alpha2.HubSpecGateway{
 							"repeater-export": {
 								Reachable: true,
 								Address:   "export:8080",
@@ -215,8 +215,8 @@ func TestSolution_Solution(t *testing.T) {
 					},
 				},
 				"repeater-export": {
-					Spec: v1alpha2.HubSpec{
-						Override: map[string]v1alpha2.HubSpecGateway{
+					Spec: trafficv1alpha2.HubSpec{
+						Override: map[string]trafficv1alpha2.HubSpecGateway{
 							"repeater-import": {
 								Reachable: true,
 								Address:   "repeater-export:8080",
@@ -225,8 +225,8 @@ func TestSolution_Solution(t *testing.T) {
 					},
 				},
 				"repeater-import": {
-					Spec: v1alpha2.HubSpec{
-						Override: map[string]v1alpha2.HubSpecGateway{
+					Spec: trafficv1alpha2.HubSpec{
+						Override: map[string]trafficv1alpha2.HubSpecGateway{
 							"import": {
 								Reachable: true,
 								Address:   "repeater-import:8080",
@@ -235,9 +235,9 @@ func TestSolution_Solution(t *testing.T) {
 					},
 				},
 				"import": {
-					Spec: v1alpha2.HubSpec{
-						Gateway: v1alpha2.HubSpecGateway{
-							NavigationWay: []v1alpha2.HubSpecGatewayWay{
+					Spec: trafficv1alpha2.HubSpec{
+						Gateway: trafficv1alpha2.HubSpecGateway{
+							NavigationWay: []trafficv1alpha2.HubSpecGatewayWay{
 								{
 									HubName: "repeater-import",
 								},
@@ -257,13 +257,13 @@ func TestSolution_Solution(t *testing.T) {
 		// 0b111
 		{
 			name: "4 hubs 0b111 import reception",
-			hubs: map[string]*v1alpha2.Hub{
+			hubs: map[string]*trafficv1alpha2.Hub{
 				"export": {
-					Spec: v1alpha2.HubSpec{},
+					Spec: trafficv1alpha2.HubSpec{},
 				},
 				"repeater-export": {
-					Spec: v1alpha2.HubSpec{
-						Override: map[string]v1alpha2.HubSpecGateway{
+					Spec: trafficv1alpha2.HubSpec{
+						Override: map[string]trafficv1alpha2.HubSpecGateway{
 							"export": {
 								Reachable: true,
 								Address:   "repeater-export:8080",
@@ -272,8 +272,8 @@ func TestSolution_Solution(t *testing.T) {
 					},
 				},
 				"repeater-import": {
-					Spec: v1alpha2.HubSpec{
-						Override: map[string]v1alpha2.HubSpecGateway{
+					Spec: trafficv1alpha2.HubSpec{
+						Override: map[string]trafficv1alpha2.HubSpecGateway{
 							"repeater-export": {
 								Reachable: true,
 								Address:   "repeater-import:8080",
@@ -282,10 +282,10 @@ func TestSolution_Solution(t *testing.T) {
 					},
 				},
 				"import": {
-					Spec: v1alpha2.HubSpec{
-						Gateway: v1alpha2.HubSpecGateway{
+					Spec: trafficv1alpha2.HubSpec{
+						Gateway: trafficv1alpha2.HubSpecGateway{
 							Reachable: true,
-							ReceptionWay: []v1alpha2.HubSpecGatewayWay{
+							ReceptionWay: []trafficv1alpha2.HubSpecGatewayWay{
 								{
 									HubName: "repeater-export",
 								},
@@ -294,7 +294,7 @@ func TestSolution_Solution(t *testing.T) {
 								},
 							},
 						},
-						Override: map[string]v1alpha2.HubSpecGateway{
+						Override: map[string]trafficv1alpha2.HubSpecGateway{
 							"repeater-import": {
 								Reachable: true,
 								Address:   "import:8080",
@@ -312,11 +312,11 @@ func TestSolution_Solution(t *testing.T) {
 		},
 		{
 			name: "4 hubs 0b111 export navigation",
-			hubs: map[string]*v1alpha2.Hub{
+			hubs: map[string]*trafficv1alpha2.Hub{
 				"export": {
-					Spec: v1alpha2.HubSpec{
-						Gateway: v1alpha2.HubSpecGateway{
-							NavigationWay: []v1alpha2.HubSpecGatewayWay{
+					Spec: trafficv1alpha2.HubSpec{
+						Gateway: trafficv1alpha2.HubSpecGateway{
+							NavigationWay: []trafficv1alpha2.HubSpecGatewayWay{
 								{
 									HubName: "repeater-import",
 								},
@@ -328,8 +328,8 @@ func TestSolution_Solution(t *testing.T) {
 					},
 				},
 				"repeater-export": {
-					Spec: v1alpha2.HubSpec{
-						Override: map[string]v1alpha2.HubSpecGateway{
+					Spec: trafficv1alpha2.HubSpec{
+						Override: map[string]trafficv1alpha2.HubSpecGateway{
 							"export": {
 								Reachable: true,
 								Address:   "repeater-export:8080",
@@ -338,8 +338,8 @@ func TestSolution_Solution(t *testing.T) {
 					},
 				},
 				"repeater-import": {
-					Spec: v1alpha2.HubSpec{
-						Override: map[string]v1alpha2.HubSpecGateway{
+					Spec: trafficv1alpha2.HubSpec{
+						Override: map[string]trafficv1alpha2.HubSpecGateway{
 							"repeater-export": {
 								Reachable: true,
 								Address:   "repeater-import:8080",
@@ -348,11 +348,11 @@ func TestSolution_Solution(t *testing.T) {
 					},
 				},
 				"import": {
-					Spec: v1alpha2.HubSpec{
-						Gateway: v1alpha2.HubSpecGateway{
+					Spec: trafficv1alpha2.HubSpec{
+						Gateway: trafficv1alpha2.HubSpecGateway{
 							Reachable: true,
 						},
-						Override: map[string]v1alpha2.HubSpecGateway{
+						Override: map[string]trafficv1alpha2.HubSpecGateway{
 							"repeater-import": {
 								Reachable: true,
 								Address:   "import:8080",
@@ -370,11 +370,11 @@ func TestSolution_Solution(t *testing.T) {
 		},
 		{
 			name: "4 hubs 0b111 import and export",
-			hubs: map[string]*v1alpha2.Hub{
+			hubs: map[string]*trafficv1alpha2.Hub{
 				"export": {
-					Spec: v1alpha2.HubSpec{
-						Gateway: v1alpha2.HubSpecGateway{
-							NavigationWay: []v1alpha2.HubSpecGatewayWay{
+					Spec: trafficv1alpha2.HubSpec{
+						Gateway: trafficv1alpha2.HubSpecGateway{
+							NavigationWay: []trafficv1alpha2.HubSpecGatewayWay{
 								{
 									HubName: "repeater-export",
 								},
@@ -383,8 +383,8 @@ func TestSolution_Solution(t *testing.T) {
 					},
 				},
 				"repeater-export": {
-					Spec: v1alpha2.HubSpec{
-						Override: map[string]v1alpha2.HubSpecGateway{
+					Spec: trafficv1alpha2.HubSpec{
+						Override: map[string]trafficv1alpha2.HubSpecGateway{
 							"export": {
 								Reachable: true,
 								Address:   "repeater-export:8080",
@@ -393,8 +393,8 @@ func TestSolution_Solution(t *testing.T) {
 					},
 				},
 				"repeater-import": {
-					Spec: v1alpha2.HubSpec{
-						Override: map[string]v1alpha2.HubSpecGateway{
+					Spec: trafficv1alpha2.HubSpec{
+						Override: map[string]trafficv1alpha2.HubSpecGateway{
 							"repeater-export": {
 								Reachable: true,
 								Address:   "repeater-import:8080",
@@ -403,16 +403,16 @@ func TestSolution_Solution(t *testing.T) {
 					},
 				},
 				"import": {
-					Spec: v1alpha2.HubSpec{
-						Gateway: v1alpha2.HubSpecGateway{
+					Spec: trafficv1alpha2.HubSpec{
+						Gateway: trafficv1alpha2.HubSpecGateway{
 							Reachable: true,
-							ReceptionWay: []v1alpha2.HubSpecGatewayWay{
+							ReceptionWay: []trafficv1alpha2.HubSpecGatewayWay{
 								{
 									HubName: "repeater-import",
 								},
 							},
 						},
-						Override: map[string]v1alpha2.HubSpecGateway{
+						Override: map[string]trafficv1alpha2.HubSpecGateway{
 							"repeater-import": {
 								Reachable: true,
 								Address:   "import:8080",
@@ -432,11 +432,11 @@ func TestSolution_Solution(t *testing.T) {
 		// 0b100
 		{
 			name: "4 hubs 0b100 export navigation",
-			hubs: map[string]*v1alpha2.Hub{
+			hubs: map[string]*trafficv1alpha2.Hub{
 				"export": {
-					Spec: v1alpha2.HubSpec{
-						Gateway: v1alpha2.HubSpecGateway{
-							NavigationWay: []v1alpha2.HubSpecGatewayWay{
+					Spec: trafficv1alpha2.HubSpec{
+						Gateway: trafficv1alpha2.HubSpecGateway{
+							NavigationWay: []trafficv1alpha2.HubSpecGatewayWay{
 								{
 									HubName: "repeater-import",
 								},
@@ -448,8 +448,8 @@ func TestSolution_Solution(t *testing.T) {
 					},
 				},
 				"repeater-export": {
-					Spec: v1alpha2.HubSpec{
-						Override: map[string]v1alpha2.HubSpecGateway{
+					Spec: trafficv1alpha2.HubSpec{
+						Override: map[string]trafficv1alpha2.HubSpecGateway{
 							"export": {
 								Reachable: true,
 								Address:   "repeater-export:8080",
@@ -462,8 +462,8 @@ func TestSolution_Solution(t *testing.T) {
 					},
 				},
 				"repeater-import": {
-					Spec: v1alpha2.HubSpec{
-						Override: map[string]v1alpha2.HubSpecGateway{
+					Spec: trafficv1alpha2.HubSpec{
+						Override: map[string]trafficv1alpha2.HubSpecGateway{
 							"import": {
 								Reachable: true,
 								Address:   "repeater-import:8080",
@@ -472,7 +472,7 @@ func TestSolution_Solution(t *testing.T) {
 					},
 				},
 				"import": {
-					Spec: v1alpha2.HubSpec{},
+					Spec: trafficv1alpha2.HubSpec{},
 				},
 			},
 			want: []string{
@@ -484,13 +484,13 @@ func TestSolution_Solution(t *testing.T) {
 		},
 		{
 			name: "4 hubs 0b100 import navigation",
-			hubs: map[string]*v1alpha2.Hub{
+			hubs: map[string]*trafficv1alpha2.Hub{
 				"export": {
-					Spec: v1alpha2.HubSpec{},
+					Spec: trafficv1alpha2.HubSpec{},
 				},
 				"repeater-export": {
-					Spec: v1alpha2.HubSpec{
-						Override: map[string]v1alpha2.HubSpecGateway{
+					Spec: trafficv1alpha2.HubSpec{
+						Override: map[string]trafficv1alpha2.HubSpecGateway{
 							"export": {
 								Reachable: true,
 								Address:   "repeater-export:8080",
@@ -503,8 +503,8 @@ func TestSolution_Solution(t *testing.T) {
 					},
 				},
 				"repeater-import": {
-					Spec: v1alpha2.HubSpec{
-						Override: map[string]v1alpha2.HubSpecGateway{
+					Spec: trafficv1alpha2.HubSpec{
+						Override: map[string]trafficv1alpha2.HubSpecGateway{
 							"import": {
 								Reachable: true,
 								Address:   "repeater-import:8080",
@@ -513,9 +513,9 @@ func TestSolution_Solution(t *testing.T) {
 					},
 				},
 				"import": {
-					Spec: v1alpha2.HubSpec{
-						Gateway: v1alpha2.HubSpecGateway{
-							NavigationWay: []v1alpha2.HubSpecGatewayWay{
+					Spec: trafficv1alpha2.HubSpec{
+						Gateway: trafficv1alpha2.HubSpecGateway{
+							NavigationWay: []trafficv1alpha2.HubSpecGatewayWay{
 								{
 									HubName: "repeater-export",
 								},
@@ -536,11 +536,11 @@ func TestSolution_Solution(t *testing.T) {
 		},
 		{
 			name: "4 hubs 0b100 import and export",
-			hubs: map[string]*v1alpha2.Hub{
+			hubs: map[string]*trafficv1alpha2.Hub{
 				"export": {
-					Spec: v1alpha2.HubSpec{
-						Gateway: v1alpha2.HubSpecGateway{
-							NavigationWay: []v1alpha2.HubSpecGatewayWay{
+					Spec: trafficv1alpha2.HubSpec{
+						Gateway: trafficv1alpha2.HubSpecGateway{
+							NavigationWay: []trafficv1alpha2.HubSpecGatewayWay{
 								{
 									HubName: "repeater-export",
 								},
@@ -549,8 +549,8 @@ func TestSolution_Solution(t *testing.T) {
 					},
 				},
 				"repeater-export": {
-					Spec: v1alpha2.HubSpec{
-						Override: map[string]v1alpha2.HubSpecGateway{
+					Spec: trafficv1alpha2.HubSpec{
+						Override: map[string]trafficv1alpha2.HubSpecGateway{
 							"export": {
 								Reachable: true,
 								Address:   "repeater-export:8080",
@@ -563,8 +563,8 @@ func TestSolution_Solution(t *testing.T) {
 					},
 				},
 				"repeater-import": {
-					Spec: v1alpha2.HubSpec{
-						Override: map[string]v1alpha2.HubSpecGateway{
+					Spec: trafficv1alpha2.HubSpec{
+						Override: map[string]trafficv1alpha2.HubSpecGateway{
 							"import": {
 								Reachable: true,
 								Address:   "repeater-import:8080",
@@ -573,9 +573,9 @@ func TestSolution_Solution(t *testing.T) {
 					},
 				},
 				"import": {
-					Spec: v1alpha2.HubSpec{
-						Gateway: v1alpha2.HubSpecGateway{
-							NavigationWay: []v1alpha2.HubSpecGatewayWay{
+					Spec: trafficv1alpha2.HubSpec{
+						Gateway: trafficv1alpha2.HubSpecGateway{
+							NavigationWay: []trafficv1alpha2.HubSpecGatewayWay{
 								{
 									HubName: "repeater-import",
 								},

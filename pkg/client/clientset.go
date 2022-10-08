@@ -20,7 +20,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/ferryproxy/api/apis/traffic/v1alpha2"
+	trafficv1alpha2 "github.com/ferryproxy/api/apis/traffic/v1alpha2"
 	ferryversioned "github.com/ferryproxy/client-go/generated/clientset/versioned"
 	"github.com/ferryproxy/ferry/pkg/utils/objref"
 	"github.com/go-logr/logr"
@@ -88,11 +88,11 @@ func Apply(ctx context.Context, logger logr.Logger, c Interface, obj objref.KMet
 		return service{o}.Apply(ctx, logger, c)
 	case *corev1.Endpoints:
 		return endpoints{o}.Apply(ctx, logger, c)
-	case *v1alpha2.Hub:
+	case *trafficv1alpha2.Hub:
 		return hub{o}.Apply(ctx, logger, c)
-	case *v1alpha2.RoutePolicy:
+	case *trafficv1alpha2.RoutePolicy:
 		return routePolicy{o}.Apply(ctx, logger, c)
-	case *v1alpha2.Route:
+	case *trafficv1alpha2.Route:
 		return route{o}.Apply(ctx, logger, c)
 	default:
 		return fmt.Errorf("unsupport type")
@@ -109,11 +109,11 @@ func Delete(ctx context.Context, logger logr.Logger, c Interface, obj objref.KMe
 		return service{o}.Delete(ctx, logger, c)
 	case *corev1.Endpoints:
 		return endpoints{o}.Delete(ctx, logger, c)
-	case *v1alpha2.Hub:
+	case *trafficv1alpha2.Hub:
 		return hub{o}.Delete(ctx, logger, c)
-	case *v1alpha2.RoutePolicy:
+	case *trafficv1alpha2.RoutePolicy:
 		return routePolicy{o}.Delete(ctx, logger, c)
-	case *v1alpha2.Route:
+	case *trafficv1alpha2.Route:
 		return route{o}.Delete(ctx, logger, c)
 	default:
 		return fmt.Errorf("unsupport type")

@@ -19,26 +19,26 @@ package mcs
 import (
 	"testing"
 
-	"github.com/ferryproxy/api/apis/traffic/v1alpha2"
+	trafficv1alpha2 "github.com/ferryproxy/api/apis/traffic/v1alpha2"
 	"github.com/google/go-cmp/cmp"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
+	mcsv1alpha1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 )
 
 func Test_mcsToRoutePolicies(t *testing.T) {
 	type args struct {
-		importMap map[string][]*v1alpha1.ServiceImport
-		exportMap map[string][]*v1alpha1.ServiceExport
+		importMap map[string][]*mcsv1alpha1.ServiceImport
+		exportMap map[string][]*mcsv1alpha1.ServiceExport
 	}
 	tests := []struct {
 		name string
 		args args
-		want []*v1alpha2.RoutePolicy
+		want []*trafficv1alpha2.RoutePolicy
 	}{
 		{
 			name: "1 to 1",
 			args: args{
-				exportMap: map[string][]*v1alpha1.ServiceExport{
+				exportMap: map[string][]*mcsv1alpha1.ServiceExport{
 					"cluster-0": {
 						{
 							ObjectMeta: metav1.ObjectMeta{
@@ -48,7 +48,7 @@ func Test_mcsToRoutePolicies(t *testing.T) {
 						},
 					},
 				},
-				importMap: map[string][]*v1alpha1.ServiceImport{
+				importMap: map[string][]*mcsv1alpha1.ServiceImport{
 					"cluster-1": {
 						{
 							ObjectMeta: metav1.ObjectMeta{
@@ -59,24 +59,24 @@ func Test_mcsToRoutePolicies(t *testing.T) {
 					},
 				},
 			},
-			want: []*v1alpha2.RoutePolicy{
+			want: []*trafficv1alpha2.RoutePolicy{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "mcs-default-svc-1",
 						Namespace: "ferry-system",
 						Labels:    labelsForRoutePolicy,
 					},
-					Spec: v1alpha2.RoutePolicySpec{
-						Exports: []v1alpha2.RoutePolicySpecRule{
+					Spec: trafficv1alpha2.RoutePolicySpec{
+						Exports: []trafficv1alpha2.RoutePolicySpecRule{
 							{
 								HubName: "cluster-0",
-								Service: v1alpha2.RoutePolicySpecRuleService{Namespace: "default", Name: "svc-1"},
+								Service: trafficv1alpha2.RoutePolicySpecRuleService{Namespace: "default", Name: "svc-1"},
 							},
 						},
-						Imports: []v1alpha2.RoutePolicySpecRule{
+						Imports: []trafficv1alpha2.RoutePolicySpecRule{
 							{
 								HubName: "cluster-1",
-								Service: v1alpha2.RoutePolicySpecRuleService{Namespace: "default", Name: "svc-1"},
+								Service: trafficv1alpha2.RoutePolicySpecRuleService{Namespace: "default", Name: "svc-1"},
 							},
 						},
 					},
@@ -86,7 +86,7 @@ func Test_mcsToRoutePolicies(t *testing.T) {
 		{
 			name: "unmatch",
 			args: args{
-				exportMap: map[string][]*v1alpha1.ServiceExport{
+				exportMap: map[string][]*mcsv1alpha1.ServiceExport{
 					"cluster-0": {
 						{
 							ObjectMeta: metav1.ObjectMeta{
@@ -96,7 +96,7 @@ func Test_mcsToRoutePolicies(t *testing.T) {
 						},
 					},
 				},
-				importMap: map[string][]*v1alpha1.ServiceImport{
+				importMap: map[string][]*mcsv1alpha1.ServiceImport{
 					"cluster-1": {
 						{
 							ObjectMeta: metav1.ObjectMeta{
@@ -107,12 +107,12 @@ func Test_mcsToRoutePolicies(t *testing.T) {
 					},
 				},
 			},
-			want: []*v1alpha2.RoutePolicy{},
+			want: []*trafficv1alpha2.RoutePolicy{},
 		},
 		{
 			name: "1 to 2",
 			args: args{
-				exportMap: map[string][]*v1alpha1.ServiceExport{
+				exportMap: map[string][]*mcsv1alpha1.ServiceExport{
 					"cluster-0": {
 						{
 							ObjectMeta: metav1.ObjectMeta{
@@ -122,7 +122,7 @@ func Test_mcsToRoutePolicies(t *testing.T) {
 						},
 					},
 				},
-				importMap: map[string][]*v1alpha1.ServiceImport{
+				importMap: map[string][]*mcsv1alpha1.ServiceImport{
 					"cluster-1": {
 						{
 							ObjectMeta: metav1.ObjectMeta{
@@ -141,28 +141,28 @@ func Test_mcsToRoutePolicies(t *testing.T) {
 					},
 				},
 			},
-			want: []*v1alpha2.RoutePolicy{
+			want: []*trafficv1alpha2.RoutePolicy{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "mcs-default-svc-1",
 						Namespace: "ferry-system",
 						Labels:    labelsForRoutePolicy,
 					},
-					Spec: v1alpha2.RoutePolicySpec{
-						Exports: []v1alpha2.RoutePolicySpecRule{
+					Spec: trafficv1alpha2.RoutePolicySpec{
+						Exports: []trafficv1alpha2.RoutePolicySpecRule{
 							{
 								HubName: "cluster-0",
-								Service: v1alpha2.RoutePolicySpecRuleService{Namespace: "default", Name: "svc-1"},
+								Service: trafficv1alpha2.RoutePolicySpecRuleService{Namespace: "default", Name: "svc-1"},
 							},
 						},
-						Imports: []v1alpha2.RoutePolicySpecRule{
+						Imports: []trafficv1alpha2.RoutePolicySpecRule{
 							{
 								HubName: "cluster-1",
-								Service: v1alpha2.RoutePolicySpecRuleService{Namespace: "default", Name: "svc-1"},
+								Service: trafficv1alpha2.RoutePolicySpecRuleService{Namespace: "default", Name: "svc-1"},
 							},
 							{
 								HubName: "cluster-2",
-								Service: v1alpha2.RoutePolicySpecRuleService{Namespace: "default", Name: "svc-1"},
+								Service: trafficv1alpha2.RoutePolicySpecRuleService{Namespace: "default", Name: "svc-1"},
 							},
 						},
 					},
@@ -172,7 +172,7 @@ func Test_mcsToRoutePolicies(t *testing.T) {
 		{
 			name: "2 to 1",
 			args: args{
-				exportMap: map[string][]*v1alpha1.ServiceExport{
+				exportMap: map[string][]*mcsv1alpha1.ServiceExport{
 					"cluster-0": {
 						{
 							ObjectMeta: metav1.ObjectMeta{
@@ -190,7 +190,7 @@ func Test_mcsToRoutePolicies(t *testing.T) {
 						},
 					},
 				},
-				importMap: map[string][]*v1alpha1.ServiceImport{
+				importMap: map[string][]*mcsv1alpha1.ServiceImport{
 					"cluster-1": {
 						{
 							ObjectMeta: metav1.ObjectMeta{
@@ -201,28 +201,28 @@ func Test_mcsToRoutePolicies(t *testing.T) {
 					},
 				},
 			},
-			want: []*v1alpha2.RoutePolicy{
+			want: []*trafficv1alpha2.RoutePolicy{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "mcs-default-svc-1",
 						Namespace: "ferry-system",
 						Labels:    labelsForRoutePolicy,
 					},
-					Spec: v1alpha2.RoutePolicySpec{
-						Exports: []v1alpha2.RoutePolicySpecRule{
+					Spec: trafficv1alpha2.RoutePolicySpec{
+						Exports: []trafficv1alpha2.RoutePolicySpecRule{
 							{
 								HubName: "cluster-0",
-								Service: v1alpha2.RoutePolicySpecRuleService{Namespace: "default", Name: "svc-1"},
+								Service: trafficv1alpha2.RoutePolicySpecRuleService{Namespace: "default", Name: "svc-1"},
 							},
 							{
 								HubName: "cluster-2",
-								Service: v1alpha2.RoutePolicySpecRuleService{Namespace: "default", Name: "svc-1"},
+								Service: trafficv1alpha2.RoutePolicySpecRuleService{Namespace: "default", Name: "svc-1"},
 							},
 						},
-						Imports: []v1alpha2.RoutePolicySpecRule{
+						Imports: []trafficv1alpha2.RoutePolicySpecRule{
 							{
 								HubName: "cluster-1",
-								Service: v1alpha2.RoutePolicySpecRuleService{Namespace: "default", Name: "svc-1"},
+								Service: trafficv1alpha2.RoutePolicySpecRuleService{Namespace: "default", Name: "svc-1"},
 							},
 						},
 					},
@@ -232,7 +232,7 @@ func Test_mcsToRoutePolicies(t *testing.T) {
 		{
 			name: "2 to 2",
 			args: args{
-				exportMap: map[string][]*v1alpha1.ServiceExport{
+				exportMap: map[string][]*mcsv1alpha1.ServiceExport{
 					"cluster-0": {
 						{
 							ObjectMeta: metav1.ObjectMeta{
@@ -250,7 +250,7 @@ func Test_mcsToRoutePolicies(t *testing.T) {
 						},
 					},
 				},
-				importMap: map[string][]*v1alpha1.ServiceImport{
+				importMap: map[string][]*mcsv1alpha1.ServiceImport{
 					"cluster-1": {
 						{
 							ObjectMeta: metav1.ObjectMeta{
@@ -269,32 +269,32 @@ func Test_mcsToRoutePolicies(t *testing.T) {
 					},
 				},
 			},
-			want: []*v1alpha2.RoutePolicy{
+			want: []*trafficv1alpha2.RoutePolicy{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "mcs-default-svc-1",
 						Namespace: "ferry-system",
 						Labels:    labelsForRoutePolicy,
 					},
-					Spec: v1alpha2.RoutePolicySpec{
-						Exports: []v1alpha2.RoutePolicySpecRule{
+					Spec: trafficv1alpha2.RoutePolicySpec{
+						Exports: []trafficv1alpha2.RoutePolicySpecRule{
 							{
 								HubName: "cluster-0",
-								Service: v1alpha2.RoutePolicySpecRuleService{Namespace: "default", Name: "svc-1"},
+								Service: trafficv1alpha2.RoutePolicySpecRuleService{Namespace: "default", Name: "svc-1"},
 							},
 							{
 								HubName: "cluster-2",
-								Service: v1alpha2.RoutePolicySpecRuleService{Namespace: "default", Name: "svc-1"},
+								Service: trafficv1alpha2.RoutePolicySpecRuleService{Namespace: "default", Name: "svc-1"},
 							},
 						},
-						Imports: []v1alpha2.RoutePolicySpecRule{
+						Imports: []trafficv1alpha2.RoutePolicySpecRule{
 							{
 								HubName: "cluster-1",
-								Service: v1alpha2.RoutePolicySpecRuleService{Namespace: "default", Name: "svc-1"},
+								Service: trafficv1alpha2.RoutePolicySpecRuleService{Namespace: "default", Name: "svc-1"},
 							},
 							{
 								HubName: "cluster-3",
-								Service: v1alpha2.RoutePolicySpecRuleService{Namespace: "default", Name: "svc-1"},
+								Service: trafficv1alpha2.RoutePolicySpecRuleService{Namespace: "default", Name: "svc-1"},
 							},
 						},
 					},

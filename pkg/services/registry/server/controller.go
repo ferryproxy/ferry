@@ -24,7 +24,7 @@ import (
 	"path"
 	"sync"
 
-	"github.com/ferryproxy/api/apis/traffic/v1alpha2"
+	trafficv1alpha2 "github.com/ferryproxy/api/apis/traffic/v1alpha2"
 	"github.com/ferryproxy/ferry/pkg/client"
 	"github.com/ferryproxy/ferry/pkg/consts"
 	"github.com/ferryproxy/ferry/pkg/ferryctl/kubectl"
@@ -125,7 +125,7 @@ func (c *Controller) Create(rw http.ResponseWriter, r *http.Request) {
 		ImportHubName:   importHubName,
 		ImportName:      exportHubName + "-apiserver",
 		ImportNamespace: consts.FerryTunnelNamespace,
-		ImportGateway: v1alpha2.HubSpecGateway{
+		ImportGateway: trafficv1alpha2.HubSpecGateway{
 			Reachable: true,
 			Address:   c.TunnelAddress,
 		},
@@ -135,7 +135,7 @@ func (c *Controller) Create(rw http.ResponseWriter, r *http.Request) {
 		ExportHubName:    exportHubName,
 		ExportName:       "kubernetes",
 		ExportNamespace:  "default",
-		ExportGateway: v1alpha2.HubSpecGateway{
+		ExportGateway: trafficv1alpha2.HubSpecGateway{
 			Reachable: false,
 			Address:   "",
 		},
@@ -183,19 +183,19 @@ func (c *Controller) Create(rw http.ResponseWriter, r *http.Request) {
 
 	importHubResource = append(importHubResource, &secret)
 
-	hub := &v1alpha2.Hub{
+	hub := &trafficv1alpha2.Hub{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      joinHub.HubName,
 			Namespace: consts.FerryNamespace,
 		},
-		Spec: v1alpha2.HubSpec{
-			Gateway: v1alpha2.HubSpecGateway{
-				NavigationWay: []v1alpha2.HubSpecGatewayWay{
+		Spec: trafficv1alpha2.HubSpec{
+			Gateway: trafficv1alpha2.HubSpecGateway{
+				NavigationWay: []trafficv1alpha2.HubSpecGatewayWay{
 					{
 						HubName: importHubName,
 					},
 				},
-				ReceptionWay: []v1alpha2.HubSpecGatewayWay{
+				ReceptionWay: []trafficv1alpha2.HubSpecGatewayWay{
 					{
 						HubName: importHubName,
 					},

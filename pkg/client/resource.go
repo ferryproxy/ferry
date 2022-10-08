@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/ferryproxy/api/apis/traffic/v1alpha2"
+	trafficv1alpha2 "github.com/ferryproxy/api/apis/traffic/v1alpha2"
 	"github.com/ferryproxy/ferry/pkg/consts"
 	"github.com/ferryproxy/ferry/pkg/utils/objref"
 	"github.com/go-logr/logr"
@@ -31,7 +31,7 @@ import (
 )
 
 type hub struct {
-	*v1alpha2.Hub
+	*trafficv1alpha2.Hub
 }
 
 func (r hub) Apply(ctx context.Context, logger logr.Logger, clientset Interface) (err error) {
@@ -102,7 +102,7 @@ func (r hub) Delete(ctx context.Context, logger logr.Logger, clientset Interface
 }
 
 type routePolicy struct {
-	*v1alpha2.RoutePolicy
+	*trafficv1alpha2.RoutePolicy
 }
 
 func (r routePolicy) Apply(ctx context.Context, logger logr.Logger, clientset Interface) (err error) {
@@ -173,7 +173,7 @@ func (r routePolicy) Delete(ctx context.Context, logger logr.Logger, clientset I
 }
 
 type route struct {
-	*v1alpha2.Route
+	*trafficv1alpha2.Route
 }
 
 func (r route) Apply(ctx context.Context, logger logr.Logger, clientset Interface) (err error) {

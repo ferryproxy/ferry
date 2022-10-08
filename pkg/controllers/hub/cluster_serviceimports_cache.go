@@ -27,7 +27,7 @@ import (
 	"github.com/ferryproxy/ferry/pkg/utils/trybuffer"
 	"github.com/go-logr/logr"
 	"k8s.io/client-go/tools/cache"
-	"sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
+	mcsv1alpha1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 	"sigs.k8s.io/mcs-api/pkg/client/informers/externalversions"
 )
 
@@ -37,7 +37,7 @@ type clusterServiceImportCache struct {
 	cancel    context.CancelFunc
 
 	clientset client.Interface
-	cache     map[objref.ObjectRef]*v1alpha1.ServiceImport
+	cache     map[objref.ObjectRef]*mcsv1alpha1.ServiceImport
 	syncFunc  func()
 
 	logger logr.Logger
@@ -59,7 +59,7 @@ func newClusterServiceImportCache(conf clusterServiceImportCacheConfig) *cluster
 		clientset: conf.Clientset,
 		logger:    conf.Logger,
 		syncFunc:  conf.SyncFunc,
-		cache:     map[objref.ObjectRef]*v1alpha1.ServiceImport{},
+		cache:     map[objref.ObjectRef]*mcsv1alpha1.ServiceImport{},
 	}
 	return c
 }
@@ -68,7 +68,7 @@ func (c *clusterServiceImportCache) ResetClientset(clientset client.Interface) e
 	c.mut.Lock()
 	defer c.mut.Unlock()
 
-	c.cache = map[objref.ObjectRef]*v1alpha1.ServiceImport{}
+	c.cache = map[objref.ObjectRef]*mcsv1alpha1.ServiceImport{}
 	if c.cancel != nil {
 		c.cancel()
 	}
@@ -106,7 +106,7 @@ func (c *clusterServiceImportCache) Close() {
 	c.cancel()
 }
 
-func (c *clusterServiceImportCache) ForEach(fun func(svc *v1alpha1.ServiceImport)) {
+func (c *clusterServiceImportCache) ForEach(fun func(svc *mcsv1alpha1.ServiceImport)) {
 	c.mut.RLock()
 	defer c.mut.RUnlock()
 
@@ -115,9 +115,9 @@ func (c *clusterServiceImportCache) ForEach(fun func(svc *v1alpha1.ServiceImport
 	}
 }
 
-func (c *clusterServiceImportCache) List() []*v1alpha1.ServiceImport {
-	svcs := make([]*v1alpha1.ServiceImport, 0, len(c.cache))
-	c.ForEach(func(svc *v1alpha1.ServiceImport) {
+func (c *clusterServiceImportCache) List() []*mcsv1alpha1.ServiceImport {
+	svcs := make([]*mcsv1alpha1.ServiceImport, 0, len(c.cache))
+	c.ForEach(func(svc *mcsv1alpha1.ServiceImport) {
 		svcs = append(svcs, svc)
 	})
 
@@ -127,12 +127,12 @@ func (c *clusterServiceImportCache) List() []*v1alpha1.ServiceImport {
 	return svcs
 }
 
-func (c *clusterServiceImportCache) ListByNamespace(namespace string) []*v1alpha1.ServiceImport {
+func (c *clusterServiceImportCache) ListByNamespace(namespace string) []*mcsv1alpha1.ServiceImport {
 	if namespace == "" {
 		return c.List()
 	}
-	svcs := make([]*v1alpha1.ServiceImport, 0, len(c.cache))
-	c.ForEach(func(svc *v1alpha1.ServiceImport) {
+	svcs := make([]*mcsv1alpha1.ServiceImport, 0, len(c.cache))
+	c.ForEach(func(svc *mcsv1alpha1.ServiceImport) {
 		if svc.Namespace != namespace {
 			return
 		}
@@ -146,7 +146,7 @@ func (c *clusterServiceImportCache) ListByNamespace(namespace string) []*v1alpha
 }
 
 func (c *clusterServiceImportCache) onAdd(obj interface{}) {
-	svc := obj.(*v1alpha1.ServiceImport)
+	svc := obj.(*mcsv1alpha1.ServiceImport)
 	c.logger.Info("onAdd",
 		"serviceImport", objref.KObj(svc),
 	)
@@ -160,7 +160,7 @@ func (c *clusterServiceImportCache) onAdd(obj interface{}) {
 }
 
 func (c *clusterServiceImportCache) onUpdate(oldObj, newObj interface{}) {
-	svc := newObj.(*v1alpha1.ServiceImport)
+	svc := newObj.(*mcsv1alpha1.ServiceImport)
 	c.logger.Info("onUpdate",
 		"serviceImport", objref.KObj(svc),
 	)
@@ -173,7 +173,7 @@ func (c *clusterServiceImportCache) onUpdate(oldObj, newObj interface{}) {
 }
 
 func (c *clusterServiceImportCache) onDelete(obj interface{}) {
-	svc := obj.(*v1alpha1.ServiceImport)
+	svc := obj.(*mcsv1alpha1.ServiceImport)
 	c.logger.Info("onDelete",
 		"serviceImport", objref.KObj(svc),
 	)

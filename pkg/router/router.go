@@ -19,7 +19,7 @@ package router
 import (
 	"fmt"
 
-	"github.com/ferryproxy/api/apis/traffic/v1alpha2"
+	trafficv1alpha2 "github.com/ferryproxy/api/apis/traffic/v1alpha2"
 	"github.com/ferryproxy/ferry/pkg/consts"
 	"github.com/ferryproxy/ferry/pkg/router/discovery"
 	"github.com/ferryproxy/ferry/pkg/utils/diffobjs"
@@ -31,7 +31,7 @@ import (
 
 type HubInterface interface {
 	ListServices(name string) []*corev1.Service
-	GetHubGateway(hubName string, forHub string) v1alpha2.HubSpecGateway
+	GetHubGateway(hubName string, forHub string) trafficv1alpha2.HubSpecGateway
 	GetAuthorized(name string) string
 	GetPortPeer(importHubName string, cluster, namespace, name string, port int32) (int32, error)
 }
@@ -66,8 +66,8 @@ type Router struct {
 	hubsChain *HubsChain
 }
 
-func (d *Router) BuildResource(rules []*v1alpha2.Route, ways []string) (out map[string][]objref.KMetadata, err error) {
-	mappings := map[objref.ObjectRef][]*v1alpha2.Route{}
+func (d *Router) BuildResource(rules []*trafficv1alpha2.Route, ways []string) (out map[string][]objref.KMetadata, err error) {
+	mappings := map[objref.ObjectRef][]*trafficv1alpha2.Route{}
 
 	for _, rule := range rules {
 		exportRef := objref.ObjectRef{Name: rule.Spec.Export.Service.Name, Namespace: rule.Spec.Export.Service.Namespace}

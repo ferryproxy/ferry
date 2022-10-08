@@ -20,7 +20,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/ferryproxy/api/apis/traffic/v1alpha2"
+	trafficv1alpha2 "github.com/ferryproxy/api/apis/traffic/v1alpha2"
 	"github.com/ferryproxy/ferry/pkg/utils/objref"
 	corev1 "k8s.io/api/core/v1"
 )
@@ -39,7 +39,7 @@ func TestMarshalYAML(t *testing.T) {
 			args: args{
 				objs: []objref.KMetadata{
 					&corev1.Pod{},
-					&v1alpha2.Hub{},
+					&trafficv1alpha2.Hub{},
 				},
 			},
 			want: []byte(`apiVersion: v1
