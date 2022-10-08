@@ -19,6 +19,7 @@ package route
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"strings"
 	"sync"
 	"time"
@@ -92,6 +93,7 @@ type MappingController struct {
 	routeInterface RouteInterface
 
 	routes         []*trafficv1alpha2.Route
+	nextRoutes     []*trafficv1alpha2.Route
 	cacheResources map[string][]objref.KMetadata
 	logger         logr.Logger
 	way            []string
@@ -147,34 +149,7 @@ func (m *MappingController) Sync() {
 func (m *MappingController) SetRoutes(routes []*trafficv1alpha2.Route) {
 	m.mut.Lock()
 	defer m.mut.Unlock()
-
-	for _, route := range routes {
-		conds := []metav1.Condition{}
-		err := m.updatePort(route)
-		if err != nil {
-			conds = append(conds, metav1.Condition{
-				Type:    trafficv1alpha2.PortsAllocatedCondition,
-				Status:  metav1.ConditionFalse,
-				Reason:  "FailedPortsAllocated",
-				Message: err.Error(),
-			})
-		} else {
-			conds = append(conds, metav1.Condition{
-				Type:   trafficv1alpha2.PortsAllocatedCondition,
-				Status: metav1.ConditionTrue,
-				Reason: trafficv1alpha2.PortsAllocatedCondition,
-			})
-		}
-		m.routeInterface.UpdateRouteCondition(route.Name, conds)
-	}
-	deleted := diffobjs.ShouldDeleted(m.routes, routes)
-	for _, route := range deleted {
-		err := m.deletePort(route)
-		if err != nil {
-			m.logger.Error(err, "delete port")
-		}
-	}
-	m.routes = routes
+	m.nextRoutes = routes
 }
 
 func (m *MappingController) loadLastConfigMap(ctx context.Context, name string, opt metav1.ListOptions) error {
@@ -236,15 +211,46 @@ func (m *MappingController) sync() {
 	}
 	ctx := m.ctx
 
+	condsExcept := map[string][]metav1.Condition{}
 	conds := []metav1.Condition{}
 
 	defer func() {
 		if len(conds) != 0 {
 			for _, route := range m.routes {
-				m.routeInterface.UpdateRouteCondition(route.Name, conds)
+				m.routeInterface.UpdateRouteCondition(route.Name, append(condsExcept[route.Name], conds...))
 			}
 		}
 	}()
+
+	if !reflect.DeepEqual(m.routes, m.nextRoutes) {
+		for _, route := range m.nextRoutes {
+			conds := []metav1.Condition{}
+			err := m.updatePort(route)
+			if err != nil {
+				conds = append(conds, metav1.Condition{
+					Type:    trafficv1alpha2.PortsAllocatedCondition,
+					Status:  metav1.ConditionFalse,
+					Reason:  "FailedPortsAllocated",
+					Message: err.Error(),
+				})
+			} else {
+				conds = append(conds, metav1.Condition{
+					Type:   trafficv1alpha2.PortsAllocatedCondition,
+					Status: metav1.ConditionTrue,
+					Reason: trafficv1alpha2.PortsAllocatedCondition,
+				})
+			}
+			condsExcept[route.Name] = conds
+		}
+		deleted := diffobjs.ShouldDeleted(m.routes, m.nextRoutes)
+		for _, route := range deleted {
+			err := m.deletePort(route)
+			if err != nil {
+				m.logger.Error(err, "delete port")
+			}
+		}
+		m.routes = m.nextRoutes
+	}
 
 	way, err := m.solution.CalculateWays(m.exportHubName, m.importHubName)
 	if err != nil {
