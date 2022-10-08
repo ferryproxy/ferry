@@ -38,7 +38,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
-	"sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
+	mcsv1alpha1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 )
 
 type HubControllerConfig struct {
@@ -551,14 +551,14 @@ func (c *HubController) disableMCS(f *trafficv1alpha2.Hub) {
 	}
 }
 
-func (c *HubController) ListMCS(namespace string) (map[string][]*v1alpha1.ServiceImport, map[string][]*v1alpha1.ServiceExport) {
+func (c *HubController) ListMCS(namespace string) (map[string][]*mcsv1alpha1.ServiceImport, map[string][]*mcsv1alpha1.ServiceExport) {
 	c.mut.RLock()
 	defer c.mut.RUnlock()
 	if len(c.cacheServiceImport) == 0 && len(c.cacheServiceExport) == 0 {
 		return nil, nil
 	}
 
-	importMap := map[string][]*v1alpha1.ServiceImport{}
+	importMap := map[string][]*mcsv1alpha1.ServiceImport{}
 	for name, imports := range c.cacheServiceImport {
 		list := imports.ListByNamespace(namespace)
 		if len(list) == 0 {
@@ -567,7 +567,7 @@ func (c *HubController) ListMCS(namespace string) (map[string][]*v1alpha1.Servic
 		importMap[name] = list
 	}
 
-	exportMap := map[string][]*v1alpha1.ServiceExport{}
+	exportMap := map[string][]*mcsv1alpha1.ServiceExport{}
 	for name, exports := range c.cacheServiceExport {
 		list := exports.ListByNamespace(namespace)
 		if len(list) == 0 {

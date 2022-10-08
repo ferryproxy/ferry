@@ -30,11 +30,11 @@ import (
 	"github.com/go-logr/logr"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	"sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
+	mcsv1alpha1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 )
 
 type HubInterface interface {
-	ListMCS(namespace string) (map[string][]*v1alpha1.ServiceImport, map[string][]*v1alpha1.ServiceExport)
+	ListMCS(namespace string) (map[string][]*mcsv1alpha1.ServiceImport, map[string][]*mcsv1alpha1.ServiceExport)
 }
 
 type MCSControllerConfig struct {
@@ -114,7 +114,7 @@ func (m *MCSController) Sync(ctx context.Context) {
 	}
 }
 
-func mcsToRoutePolicies(importMap map[string][]*v1alpha1.ServiceImport, exportMap map[string][]*v1alpha1.ServiceExport) []*trafficv1alpha2.RoutePolicy {
+func mcsToRoutePolicies(importMap map[string][]*mcsv1alpha1.ServiceImport, exportMap map[string][]*mcsv1alpha1.ServiceExport) []*trafficv1alpha2.RoutePolicy {
 	rulesImport := map[objref.ObjectRef][]string{}
 	for name, imports := range importMap {
 		for _, i := range imports {

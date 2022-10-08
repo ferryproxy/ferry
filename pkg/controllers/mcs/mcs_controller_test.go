@@ -22,13 +22,13 @@ import (
 	trafficv1alpha2 "github.com/ferryproxy/api/apis/traffic/v1alpha2"
 	"github.com/google/go-cmp/cmp"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
+	mcsv1alpha1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 )
 
 func Test_mcsToRoutePolicies(t *testing.T) {
 	type args struct {
-		importMap map[string][]*v1alpha1.ServiceImport
-		exportMap map[string][]*v1alpha1.ServiceExport
+		importMap map[string][]*mcsv1alpha1.ServiceImport
+		exportMap map[string][]*mcsv1alpha1.ServiceExport
 	}
 	tests := []struct {
 		name string
@@ -38,7 +38,7 @@ func Test_mcsToRoutePolicies(t *testing.T) {
 		{
 			name: "1 to 1",
 			args: args{
-				exportMap: map[string][]*v1alpha1.ServiceExport{
+				exportMap: map[string][]*mcsv1alpha1.ServiceExport{
 					"cluster-0": {
 						{
 							ObjectMeta: metav1.ObjectMeta{
@@ -48,7 +48,7 @@ func Test_mcsToRoutePolicies(t *testing.T) {
 						},
 					},
 				},
-				importMap: map[string][]*v1alpha1.ServiceImport{
+				importMap: map[string][]*mcsv1alpha1.ServiceImport{
 					"cluster-1": {
 						{
 							ObjectMeta: metav1.ObjectMeta{
@@ -86,7 +86,7 @@ func Test_mcsToRoutePolicies(t *testing.T) {
 		{
 			name: "unmatch",
 			args: args{
-				exportMap: map[string][]*v1alpha1.ServiceExport{
+				exportMap: map[string][]*mcsv1alpha1.ServiceExport{
 					"cluster-0": {
 						{
 							ObjectMeta: metav1.ObjectMeta{
@@ -96,7 +96,7 @@ func Test_mcsToRoutePolicies(t *testing.T) {
 						},
 					},
 				},
-				importMap: map[string][]*v1alpha1.ServiceImport{
+				importMap: map[string][]*mcsv1alpha1.ServiceImport{
 					"cluster-1": {
 						{
 							ObjectMeta: metav1.ObjectMeta{
@@ -112,7 +112,7 @@ func Test_mcsToRoutePolicies(t *testing.T) {
 		{
 			name: "1 to 2",
 			args: args{
-				exportMap: map[string][]*v1alpha1.ServiceExport{
+				exportMap: map[string][]*mcsv1alpha1.ServiceExport{
 					"cluster-0": {
 						{
 							ObjectMeta: metav1.ObjectMeta{
@@ -122,7 +122,7 @@ func Test_mcsToRoutePolicies(t *testing.T) {
 						},
 					},
 				},
-				importMap: map[string][]*v1alpha1.ServiceImport{
+				importMap: map[string][]*mcsv1alpha1.ServiceImport{
 					"cluster-1": {
 						{
 							ObjectMeta: metav1.ObjectMeta{
@@ -172,7 +172,7 @@ func Test_mcsToRoutePolicies(t *testing.T) {
 		{
 			name: "2 to 1",
 			args: args{
-				exportMap: map[string][]*v1alpha1.ServiceExport{
+				exportMap: map[string][]*mcsv1alpha1.ServiceExport{
 					"cluster-0": {
 						{
 							ObjectMeta: metav1.ObjectMeta{
@@ -190,7 +190,7 @@ func Test_mcsToRoutePolicies(t *testing.T) {
 						},
 					},
 				},
-				importMap: map[string][]*v1alpha1.ServiceImport{
+				importMap: map[string][]*mcsv1alpha1.ServiceImport{
 					"cluster-1": {
 						{
 							ObjectMeta: metav1.ObjectMeta{
@@ -232,7 +232,7 @@ func Test_mcsToRoutePolicies(t *testing.T) {
 		{
 			name: "2 to 2",
 			args: args{
-				exportMap: map[string][]*v1alpha1.ServiceExport{
+				exportMap: map[string][]*mcsv1alpha1.ServiceExport{
 					"cluster-0": {
 						{
 							ObjectMeta: metav1.ObjectMeta{
@@ -250,7 +250,7 @@ func Test_mcsToRoutePolicies(t *testing.T) {
 						},
 					},
 				},
-				importMap: map[string][]*v1alpha1.ServiceImport{
+				importMap: map[string][]*mcsv1alpha1.ServiceImport{
 					"cluster-1": {
 						{
 							ObjectMeta: metav1.ObjectMeta{

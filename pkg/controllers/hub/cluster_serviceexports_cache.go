@@ -27,7 +27,7 @@ import (
 	"github.com/ferryproxy/ferry/pkg/utils/trybuffer"
 	"github.com/go-logr/logr"
 	"k8s.io/client-go/tools/cache"
-	"sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
+	mcsv1alpha1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 	"sigs.k8s.io/mcs-api/pkg/client/informers/externalversions"
 )
 
@@ -37,7 +37,7 @@ type clusterServiceExportCache struct {
 	cancel    context.CancelFunc
 
 	clientset client.Interface
-	cache     map[objref.ObjectRef]*v1alpha1.ServiceExport
+	cache     map[objref.ObjectRef]*mcsv1alpha1.ServiceExport
 	syncFunc  func()
 
 	logger logr.Logger
@@ -59,7 +59,7 @@ func newClusterServiceExportCache(conf clusterServiceExportCacheConfig) *cluster
 		clientset: conf.Clientset,
 		logger:    conf.Logger,
 		syncFunc:  conf.SyncFunc,
-		cache:     map[objref.ObjectRef]*v1alpha1.ServiceExport{},
+		cache:     map[objref.ObjectRef]*mcsv1alpha1.ServiceExport{},
 	}
 	return c
 }
@@ -68,7 +68,7 @@ func (c *clusterServiceExportCache) ResetClientset(clientset client.Interface) e
 	c.mut.Lock()
 	defer c.mut.Unlock()
 
-	c.cache = map[objref.ObjectRef]*v1alpha1.ServiceExport{}
+	c.cache = map[objref.ObjectRef]*mcsv1alpha1.ServiceExport{}
 	if c.cancel != nil {
 		c.cancel()
 	}
@@ -106,7 +106,7 @@ func (c *clusterServiceExportCache) Close() {
 	c.cancel()
 }
 
-func (c *clusterServiceExportCache) ForEach(fun func(svc *v1alpha1.ServiceExport)) {
+func (c *clusterServiceExportCache) ForEach(fun func(svc *mcsv1alpha1.ServiceExport)) {
 	c.mut.RLock()
 	defer c.mut.RUnlock()
 
@@ -115,9 +115,9 @@ func (c *clusterServiceExportCache) ForEach(fun func(svc *v1alpha1.ServiceExport
 	}
 }
 
-func (c *clusterServiceExportCache) List() []*v1alpha1.ServiceExport {
-	svcs := make([]*v1alpha1.ServiceExport, 0, len(c.cache))
-	c.ForEach(func(svc *v1alpha1.ServiceExport) {
+func (c *clusterServiceExportCache) List() []*mcsv1alpha1.ServiceExport {
+	svcs := make([]*mcsv1alpha1.ServiceExport, 0, len(c.cache))
+	c.ForEach(func(svc *mcsv1alpha1.ServiceExport) {
 		svcs = append(svcs, svc)
 	})
 
@@ -127,12 +127,12 @@ func (c *clusterServiceExportCache) List() []*v1alpha1.ServiceExport {
 	return svcs
 }
 
-func (c *clusterServiceExportCache) ListByNamespace(namespace string) []*v1alpha1.ServiceExport {
+func (c *clusterServiceExportCache) ListByNamespace(namespace string) []*mcsv1alpha1.ServiceExport {
 	if namespace == "" {
 		return c.List()
 	}
-	svcs := make([]*v1alpha1.ServiceExport, 0, len(c.cache))
-	c.ForEach(func(svc *v1alpha1.ServiceExport) {
+	svcs := make([]*mcsv1alpha1.ServiceExport, 0, len(c.cache))
+	c.ForEach(func(svc *mcsv1alpha1.ServiceExport) {
 		if svc.Namespace != namespace {
 			return
 		}
@@ -146,7 +146,7 @@ func (c *clusterServiceExportCache) ListByNamespace(namespace string) []*v1alpha
 }
 
 func (c *clusterServiceExportCache) onAdd(obj interface{}) {
-	svc := obj.(*v1alpha1.ServiceExport)
+	svc := obj.(*mcsv1alpha1.ServiceExport)
 	c.logger.Info("onAdd",
 		"serviceExport", objref.KObj(svc),
 	)
@@ -160,7 +160,7 @@ func (c *clusterServiceExportCache) onAdd(obj interface{}) {
 }
 
 func (c *clusterServiceExportCache) onUpdate(oldObj, newObj interface{}) {
-	svc := newObj.(*v1alpha1.ServiceExport)
+	svc := newObj.(*mcsv1alpha1.ServiceExport)
 	c.logger.Info("onUpdate",
 		"serviceExport", objref.KObj(svc),
 	)
@@ -173,7 +173,7 @@ func (c *clusterServiceExportCache) onUpdate(oldObj, newObj interface{}) {
 }
 
 func (c *clusterServiceExportCache) onDelete(obj interface{}) {
-	svc := obj.(*v1alpha1.ServiceExport)
+	svc := obj.(*mcsv1alpha1.ServiceExport)
 	c.logger.Info("onDelete",
 		"serviceExport", objref.KObj(svc),
 	)
