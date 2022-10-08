@@ -47,7 +47,6 @@ type RouteControllerConfig struct {
 type RouteController struct {
 	ctx                    context.Context
 	mut                    sync.RWMutex
-	mutStatus              sync.Mutex
 	clientset              client.Interface
 	hubInterface           HubInterface
 	cache                  map[string]*trafficv1alpha2.Route
@@ -111,8 +110,8 @@ func (c *RouteController) Run(ctx context.Context) error {
 }
 
 func (c *RouteController) UpdateRouteCondition(name string, conditions []metav1.Condition) {
-	c.mutStatus.Lock()
-	defer c.mutStatus.Unlock()
+	c.mut.Lock()
+	defer c.mut.Unlock()
 
 	var retErr error
 	defer func() {
