@@ -19,7 +19,6 @@ package router
 import (
 	"github.com/ferryproxy/api/apis/traffic/v1alpha2"
 	"github.com/ferryproxy/ferry/pkg/utils/objref"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -86,29 +85,6 @@ func (f *dateSource) GetPortPeer(importHubName string, cluster, namespace, name 
 	return f.bindPort, nil
 }
 
-func (f *dateSource) ListServices(name string) []*corev1.Service {
-	if name != f.exportHubName {
-		return nil
-	}
-	svc := &corev1.Service{
-
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      f.exportName,
-			Namespace: f.exportNamespace,
-		},
-		Spec: corev1.ServiceSpec{
-			Ports: []corev1.ServicePort{
-				{
-					Port:     f.port,
-					Protocol: corev1.ProtocolTCP,
-				},
-			},
-		},
-	}
-	return []*corev1.Service{
-		svc,
-	}
-}
 func (f *dateSource) GetHubGateway(hubName string, forHub string) v1alpha2.HubSpecGateway {
 	if hubName == f.importHubName {
 		return f.importGateway
@@ -156,12 +132,22 @@ func (f *Manual) BuildResource() (out map[string][]objref.KMetadata, err error) 
 						Name:      f.dateSource.importName,
 						Namespace: f.dateSource.importNamespace,
 					},
+					Ports: []v1alpha2.RouteSpecRulePort{
+						{
+							Port: f.dateSource.port,
+						},
+					},
 				},
 				Export: v1alpha2.RouteSpecRule{
 					HubName: f.dateSource.exportHubName,
 					Service: v1alpha2.RouteSpecRuleService{
 						Name:      f.dateSource.exportName,
 						Namespace: f.dateSource.exportNamespace,
+					},
+					Ports: []v1alpha2.RouteSpecRulePort{
+						{
+							Port: f.dateSource.port,
+						},
 					},
 				},
 			},

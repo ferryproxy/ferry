@@ -140,8 +140,8 @@ github.com/evanphx/json-patch/v5 v5.0.0/go.mod h1:G79N1coSVB93tBe7j6PhzjmR3/2Vvl
 github.com/fatih/color v1.7.0/go.mod h1:Zm6kSWBoL9eyXnKyktHP6abPY2pDugNf5KwzbycvMj4=
 github.com/felixge/httpsnoop v1.0.1 h1:lvB5Jl89CsZtGIWuTcDM1E/vkVs49/Ml7JJe07l8SPQ=
 github.com/felixge/httpsnoop v1.0.1/go.mod h1:m8KPJKqk1gH5J9DgRY2ASl2lWCfGKXixSwevea8zH2U=
-github.com/ferryproxy/api v0.4.2 h1:2SBq/ljIzL6TeyoiM3OjO0Bnx0J2f5g+CUjoLWWyano=
-github.com/ferryproxy/api v0.4.2/go.mod h1:vFqYueEfIwpU2o3Y8/ryKKn5S3WBR4wVgHgh21zwpeQ=
+github.com/ferryproxy/api v0.4.3-0.20220929110018-87b27802e21a h1:FwMc7CdF8u+EWEnJMiZXEeDu3pqsjSfLn65Iun6iuuE=
+github.com/ferryproxy/api v0.4.3-0.20220929110018-87b27802e21a/go.mod h1:vFqYueEfIwpU2o3Y8/ryKKn5S3WBR4wVgHgh21zwpeQ=
 github.com/ferryproxy/client-go v0.4.0 h1:pTlCUc7Q77d99yNru01WbKe8Ie8sBSpDO/h4ZmMW5gk=
 github.com/ferryproxy/client-go v0.4.0/go.mod h1:A0DBMIJFYM4j+qvgHxTamZH3m56xfmuDnC+8E2gOtto=
 github.com/flowstack/go-jsonschema v0.1.1/go.mod h1:yL7fNggx1o8rm9RlgXv7hTBWxdBM0rVwpMwimd3F3N0=

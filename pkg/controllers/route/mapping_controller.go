@@ -18,7 +18,6 @@ package route
 
 import (
 	"context"
-	"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -38,8 +37,6 @@ import (
 )
 
 type HubInterface interface {
-	GetService(hubName string, namespace, name string) (*corev1.Service, bool)
-	ListServices(name string) []*corev1.Service
 	GetHub(name string) *v1alpha2.Hub
 	GetHubGateway(hubName string, forHub string) v1alpha2.HubSpecGateway
 	GetAuthorized(name string) string
@@ -420,15 +417,7 @@ func (m *MappingController) Close() {
 }
 
 func (m *MappingController) updatePort(f *v1alpha2.Route) error {
-	svc, ok := m.hubInterface.GetService(f.Spec.Export.HubName, f.Spec.Export.Service.Namespace, f.Spec.Export.Service.Name)
-	if !ok {
-		return fmt.Errorf("not found export service")
-	}
-
-	for _, port := range svc.Spec.Ports {
-		if port.Protocol != corev1.ProtocolTCP {
-			continue
-		}
+	for _, port := range f.Spec.Import.Ports {
 		_, err := m.hubInterface.GetPortPeer(f.Spec.Import.HubName,
 			f.Spec.Export.HubName, f.Spec.Export.Service.Namespace, f.Spec.Export.Service.Name, port.Port)
 		if err != nil {
@@ -439,14 +428,7 @@ func (m *MappingController) updatePort(f *v1alpha2.Route) error {
 }
 
 func (m *MappingController) deletePort(f *v1alpha2.Route) error {
-	svc, ok := m.hubInterface.GetService(f.Spec.Export.HubName, f.Spec.Export.Service.Namespace, f.Spec.Export.Service.Name)
-	if !ok {
-		return fmt.Errorf("not found export service")
-	}
-	for _, port := range svc.Spec.Ports {
-		if port.Protocol != corev1.ProtocolTCP {
-			continue
-		}
+	for _, port := range f.Spec.Import.Ports {
 		_, err := m.hubInterface.DeletePortPeer(f.Spec.Import.HubName,
 			f.Spec.Export.HubName, f.Spec.Export.Service.Namespace, f.Spec.Export.Service.Name, port.Port)
 		if err == nil {
