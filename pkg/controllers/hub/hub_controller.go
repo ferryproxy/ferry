@@ -212,6 +212,7 @@ func (c *HubController) updateClientset(hubName string) (client.Interface, error
 
 	if updated {
 		c.enableCache(hubName, clientset)
+		c.checkHealth(hubName)
 	}
 
 	if IsEnabledMCS(hub) {
@@ -327,8 +328,6 @@ func (c *HubController) onAdd(obj interface{}) {
 			"hub", objref.KRef(consts.FerryNamespace, f.Name),
 		)
 	}
-
-	c.checkHealth(f.Name)
 }
 
 func IsEnabledMCS(f *trafficv1alpha2.Hub) bool {
@@ -428,8 +427,6 @@ func (c *HubController) onUpdate(oldObj, newObj interface{}) {
 			"hub", objref.KRef(consts.FerryNamespace, f.Name),
 		)
 	}
-
-	c.checkHealth(f.Name)
 }
 
 func (c *HubController) checkHealth(hubName string) {
