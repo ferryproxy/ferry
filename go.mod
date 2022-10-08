@@ -13,7 +13,7 @@ require (
 	github.com/spf13/pflag v1.0.5
 	github.com/wzshiming/anyproxy v0.7.6
 	github.com/wzshiming/bridge v0.8.5
-	github.com/wzshiming/sshproxy v0.4.0
+	github.com/wzshiming/sshproxy v0.4.1
 	go.uber.org/zap v1.21.0
 	golang.org/x/crypto v0.0.0-20220622213112-05595931fe9d
 	k8s.io/api v0.24.2
@@ -52,7 +52,7 @@ require (
 	github.com/wzshiming/shadowsocks v0.3.1 // indirect
 	github.com/wzshiming/socks4 v0.3.1 // indirect
 	github.com/wzshiming/socks5 v0.4.1 // indirect
-	github.com/wzshiming/sshd v0.2.0 // indirect
+	github.com/wzshiming/sshd v0.2.1 // indirect
 	github.com/wzshiming/trie v0.1.0 // indirect
 	go.uber.org/atomic v1.9.0 // indirect
 	go.uber.org/multierr v1.8.0 // indirect
