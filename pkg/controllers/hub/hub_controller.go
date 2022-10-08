@@ -129,8 +129,13 @@ func (c *HubController) UpdateHubConditions(name string, conditions []metav1.Con
 	status := v1alpha2.HubStatus{}
 	status.LastSynchronizationTimestamp = metav1.Now()
 
+	updated := false
+	dur := 10 * time.Second
 	for _, condition := range conditions {
-		c.conditionsManager.Set(name, condition)
+		updated = updated || c.conditionsManager.SetWithDuration(name, condition, dur)
+	}
+	if !updated {
+		return
 	}
 
 	ready, reason := c.conditionsManager.Ready(name,
