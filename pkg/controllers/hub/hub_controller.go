@@ -25,7 +25,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ferryproxy/api/apis/traffic/v1alpha2"
+	trafficv1alpha2 "github.com/ferryproxy/api/apis/traffic/v1alpha2"
 	externalversions "github.com/ferryproxy/client-go/generated/informers/externalversions"
 	"github.com/ferryproxy/ferry/pkg/client"
 	"github.com/ferryproxy/ferry/pkg/conditions"
@@ -54,7 +54,7 @@ type HubController struct {
 	ctx                context.Context
 	logger             logr.Logger
 	clientset          client.Interface
-	cacheHub           map[string]*v1alpha2.Hub
+	cacheHub           map[string]*trafficv1alpha2.Hub
 	cacheClientset     map[string]client.Interface
 	cacheService       map[string]*clusterServiceCache
 	cacheServiceExport map[string]*clusterServiceExportCache
@@ -73,7 +73,7 @@ func NewHubController(conf HubControllerConfig) *HubController {
 		namespace:          conf.Namespace,
 		logger:             conf.Logger,
 		syncFunc:           conf.SyncFunc,
-		cacheHub:           map[string]*v1alpha2.Hub{},
+		cacheHub:           map[string]*trafficv1alpha2.Hub{},
 		cacheClientset:     map[string]client.Interface{},
 		cacheService:       map[string]*clusterServiceCache{},
 		cacheServiceExport: map[string]*clusterServiceExportCache{},
@@ -126,7 +126,7 @@ func (c *HubController) UpdateHubConditions(name string, conditions []metav1.Con
 		}
 	}()
 
-	status := v1alpha2.HubStatus{}
+	status := trafficv1alpha2.HubStatus{}
 	status.LastSynchronizationTimestamp = metav1.Now()
 
 	updated := false
@@ -139,19 +139,19 @@ func (c *HubController) UpdateHubConditions(name string, conditions []metav1.Con
 	}
 
 	ready, reason := c.conditionsManager.Ready(name,
-		v1alpha2.ConnectedCondition,
-		v1alpha2.TunnelHealthCondition,
+		trafficv1alpha2.ConnectedCondition,
+		trafficv1alpha2.TunnelHealthCondition,
 	)
 	if ready {
 		c.conditionsManager.Set(name, metav1.Condition{
-			Type:   v1alpha2.HubReady,
+			Type:   trafficv1alpha2.HubReady,
 			Status: metav1.ConditionTrue,
-			Reason: v1alpha2.HubReady,
+			Reason: trafficv1alpha2.HubReady,
 		})
-		status.Phase = v1alpha2.HubReady
+		status.Phase = trafficv1alpha2.HubReady
 	} else {
 		c.conditionsManager.Set(name, metav1.Condition{
-			Type:   v1alpha2.HubReady,
+			Type:   trafficv1alpha2.HubReady,
 			Status: metav1.ConditionFalse,
 			Reason: "NotReady",
 		})
@@ -194,7 +194,7 @@ func (c *HubController) updateClientset(hubName string) (client.Interface, error
 		c.logger.Error(err, "tryConnectAndUpdateStatus")
 		c.UpdateHubConditions(hubName, []metav1.Condition{
 			{
-				Type:    v1alpha2.ConnectedCondition,
+				Type:    trafficv1alpha2.ConnectedCondition,
 				Status:  metav1.ConditionFalse,
 				Reason:  "Disconnected",
 				Message: err.Error(),
@@ -204,7 +204,7 @@ func (c *HubController) updateClientset(hubName string) (client.Interface, error
 	}
 	c.UpdateHubConditions(hubName, []metav1.Condition{
 		{
-			Type:   v1alpha2.ConnectedCondition,
+			Type:   trafficv1alpha2.ConnectedCondition,
 			Status: metav1.ConditionTrue,
 			Reason: "Connected",
 		},
@@ -306,11 +306,11 @@ func (c *HubController) DeletePortPeer(importHubName string, cluster, namespace,
 }
 
 func (c *HubController) HubReady(hubName string) bool {
-	return c.conditionsManager.IsTrue(hubName, v1alpha2.HubReady)
+	return c.conditionsManager.IsTrue(hubName, trafficv1alpha2.HubReady)
 }
 
 func (c *HubController) onAdd(obj interface{}) {
-	f := obj.(*v1alpha2.Hub)
+	f := obj.(*trafficv1alpha2.Hub)
 	f = f.DeepCopy()
 	c.logger.Info("onAdd",
 		"hub", objref.KObj(f),
@@ -331,7 +331,7 @@ func (c *HubController) onAdd(obj interface{}) {
 	c.checkHealth(f.Name)
 }
 
-func IsEnabledMCS(f *v1alpha2.Hub) bool {
+func IsEnabledMCS(f *trafficv1alpha2.Hub) bool {
 	return f != nil && f.Labels != nil && f.Labels[consts.LabelMCSMarkHubKey] == consts.LabelMCSMarkHubValue
 }
 
@@ -412,7 +412,7 @@ func (c *HubController) updateKubeconfig(name string) error {
 }
 
 func (c *HubController) onUpdate(oldObj, newObj interface{}) {
-	f := newObj.(*v1alpha2.Hub)
+	f := newObj.(*trafficv1alpha2.Hub)
 	f = f.DeepCopy()
 	c.logger.Info("onUpdate",
 		"hub", objref.KObj(f),
@@ -442,7 +442,7 @@ func (c *HubController) checkHealth(hubName string) {
 		)
 		c.UpdateHubConditions(hubName, []metav1.Condition{
 			{
-				Type:    v1alpha2.TunnelHealthCondition,
+				Type:    trafficv1alpha2.TunnelHealthCondition,
 				Status:  metav1.ConditionFalse,
 				Reason:  "Unhealth",
 				Message: err.Error(),
@@ -451,7 +451,7 @@ func (c *HubController) checkHealth(hubName string) {
 	} else {
 		c.UpdateHubConditions(hubName, []metav1.Condition{
 			{
-				Type:   v1alpha2.TunnelHealthCondition,
+				Type:   trafficv1alpha2.TunnelHealthCondition,
 				Status: metav1.ConditionTrue,
 				Reason: "Health",
 			},
@@ -496,7 +496,7 @@ func (c *HubController) enableCache(hubName string, clientset client.Interface) 
 	}
 }
 
-func (c *HubController) enableMCS(f *v1alpha2.Hub, clientset client.Interface) {
+func (c *HubController) enableMCS(f *trafficv1alpha2.Hub, clientset client.Interface) {
 	if clientset == nil {
 		return
 	}
@@ -540,7 +540,7 @@ func (c *HubController) enableMCS(f *v1alpha2.Hub, clientset client.Interface) {
 	return
 }
 
-func (c *HubController) disableMCS(f *v1alpha2.Hub) {
+func (c *HubController) disableMCS(f *trafficv1alpha2.Hub) {
 	if c.cacheServiceExport[f.Name] != nil {
 		c.cacheServiceExport[f.Name].Close()
 		delete(c.cacheServiceExport, f.Name)
@@ -579,7 +579,7 @@ func (c *HubController) ListMCS(namespace string) (map[string][]*v1alpha1.Servic
 }
 
 func (c *HubController) onDelete(obj interface{}) {
-	f := obj.(*v1alpha2.Hub)
+	f := obj.(*trafficv1alpha2.Hub)
 	c.logger.Info("onDelete",
 		"hub", objref.KObj(f),
 	)
@@ -602,16 +602,16 @@ func (c *HubController) onDelete(obj interface{}) {
 	c.syncFunc()
 }
 
-func (c *HubController) GetHub(name string) *v1alpha2.Hub {
+func (c *HubController) GetHub(name string) *trafficv1alpha2.Hub {
 	c.mut.RLock()
 	defer c.mut.RUnlock()
 	return c.cacheHub[name]
 }
 
-func (c *HubController) ListHubs() []*v1alpha2.Hub {
+func (c *HubController) ListHubs() []*trafficv1alpha2.Hub {
 	c.mut.RLock()
 	defer c.mut.RUnlock()
-	out := make([]*v1alpha2.Hub, 0, len(c.cacheHub))
+	out := make([]*trafficv1alpha2.Hub, 0, len(c.cacheHub))
 	for _, hub := range c.cacheHub {
 		out = append(out, hub.DeepCopy())
 	}
@@ -621,7 +621,7 @@ func (c *HubController) ListHubs() []*v1alpha2.Hub {
 	return out
 }
 
-func (c *HubController) GetHubGateway(hubName string, forHub string) v1alpha2.HubSpecGateway {
+func (c *HubController) GetHubGateway(hubName string, forHub string) trafficv1alpha2.HubSpecGateway {
 	hub := c.cacheHub[hubName]
 	if hub != nil {
 		if hub.Spec.Override != nil {
@@ -632,19 +632,19 @@ func (c *HubController) GetHubGateway(hubName string, forHub string) v1alpha2.Hu
 		}
 		return hub.Spec.Gateway
 	}
-	return v1alpha2.HubSpecGateway{}
+	return trafficv1alpha2.HubSpecGateway{}
 }
 
 func (c *HubController) Sync(ctx context.Context) {
 	hubs := c.ListHubs()
 	for _, hub := range hubs {
-		connectedCondition := c.conditionsManager.Find(hub.Name, v1alpha2.ConnectedCondition)
+		connectedCondition := c.conditionsManager.Find(hub.Name, trafficv1alpha2.ConnectedCondition)
 		if connectedCondition == nil || (connectedCondition.Status == metav1.ConditionFalse &&
 			time.Since(connectedCondition.LastTransitionTime.Time) > 10*time.Second) {
 			c.checkHealth(hub.Name)
 		}
 
-		tunnelHealthCondition := c.conditionsManager.Find(hub.Name, v1alpha2.TunnelHealthCondition)
+		tunnelHealthCondition := c.conditionsManager.Find(hub.Name, trafficv1alpha2.TunnelHealthCondition)
 		if tunnelHealthCondition == nil || (tunnelHealthCondition.Status == metav1.ConditionFalse &&
 			time.Since(tunnelHealthCondition.LastTransitionTime.Time) > 10*time.Second) {
 			c.ResetClientset(hub.Name)

@@ -26,7 +26,7 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/ferryproxy/api/apis/traffic/v1alpha2"
+	trafficv1alpha2 "github.com/ferryproxy/api/apis/traffic/v1alpha2"
 	externalversions "github.com/ferryproxy/client-go/generated/informers/externalversions"
 	"github.com/ferryproxy/ferry/pkg/client"
 	"github.com/ferryproxy/ferry/pkg/conditions"
@@ -43,7 +43,7 @@ import (
 )
 
 type HubInterface interface {
-	ListHubs() []*v1alpha2.Hub
+	ListHubs() []*trafficv1alpha2.Hub
 	ListServices(hubName string) []*corev1.Service
 }
 
@@ -61,10 +61,10 @@ type RoutePolicyController struct {
 	mutStatus              sync.Mutex
 	clientset              client.Interface
 	hubInterface           HubInterface
-	cache                  map[string]*v1alpha2.RoutePolicy
+	cache                  map[string]*trafficv1alpha2.RoutePolicy
 	namespace              string
 	logger                 logr.Logger
-	cacheRoutePolicyRoutes []*v1alpha2.Route
+	cacheRoutePolicyRoutes []*trafficv1alpha2.Route
 	syncFunc               func()
 	conditionsManager      *conditions.ConditionsManager
 }
@@ -76,13 +76,13 @@ func NewRoutePolicyController(conf RoutePolicyControllerConfig) *RoutePolicyCont
 		logger:            conf.Logger,
 		hubInterface:      conf.HubInterface,
 		syncFunc:          conf.SyncFunc,
-		cache:             map[string]*v1alpha2.RoutePolicy{},
+		cache:             map[string]*trafficv1alpha2.RoutePolicy{},
 		conditionsManager: conditions.NewConditionsManager(),
 	}
 }
 
-func (c *RoutePolicyController) list() []*v1alpha2.RoutePolicy {
-	var list []*v1alpha2.RoutePolicy
+func (c *RoutePolicyController) list() []*trafficv1alpha2.RoutePolicy {
+	var list []*trafficv1alpha2.RoutePolicy
 	for _, v := range c.cache {
 		item := c.cache[v.Name]
 		if item == nil {
@@ -96,7 +96,7 @@ func (c *RoutePolicyController) list() []*v1alpha2.RoutePolicy {
 	return list
 }
 
-func (c *RoutePolicyController) get(name string) *v1alpha2.RoutePolicy {
+func (c *RoutePolicyController) get(name string) *trafficv1alpha2.RoutePolicy {
 	return c.cache[name]
 }
 
@@ -148,18 +148,18 @@ func (c *RoutePolicyController) UpdateRoutePolicyCondition(name string, routeCou
 		}
 	}()
 
-	status := v1alpha2.RoutePolicyStatus{}
+	status := trafficv1alpha2.RoutePolicyStatus{}
 
 	if routeCount > 0 {
 		c.conditionsManager.Set(name, metav1.Condition{
-			Type:   v1alpha2.RoutePolicyReady,
+			Type:   trafficv1alpha2.RoutePolicyReady,
 			Status: metav1.ConditionTrue,
-			Reason: v1alpha2.RoutePolicyReady,
+			Reason: trafficv1alpha2.RoutePolicyReady,
 		})
-		status.Phase = v1alpha2.RoutePolicyReady
+		status.Phase = trafficv1alpha2.RoutePolicyReady
 	} else {
 		c.conditionsManager.Set(name, metav1.Condition{
-			Type:   v1alpha2.RoutePolicyReady,
+			Type:   trafficv1alpha2.RoutePolicyReady,
 			Status: metav1.ConditionTrue,
 			Reason: "NotReady",
 		})
@@ -189,7 +189,7 @@ func (c *RoutePolicyController) UpdateRoutePolicyCondition(name string, routeCou
 }
 
 func (c *RoutePolicyController) onAdd(obj interface{}) {
-	f := obj.(*v1alpha2.RoutePolicy)
+	f := obj.(*trafficv1alpha2.RoutePolicy)
 	f = f.DeepCopy()
 	c.logger.Info("onAdd",
 		"routePolicy", objref.KObj(f),
@@ -206,7 +206,7 @@ func (c *RoutePolicyController) onAdd(obj interface{}) {
 }
 
 func (c *RoutePolicyController) onUpdate(oldObj, newObj interface{}) {
-	f := newObj.(*v1alpha2.RoutePolicy)
+	f := newObj.(*trafficv1alpha2.RoutePolicy)
 	f = f.DeepCopy()
 	c.logger.Info("onUpdate",
 		"routePolicy", objref.KObj(f),
@@ -226,7 +226,7 @@ func (c *RoutePolicyController) onUpdate(oldObj, newObj interface{}) {
 }
 
 func (c *RoutePolicyController) onDelete(obj interface{}) {
-	f := obj.(*v1alpha2.RoutePolicy)
+	f := obj.(*trafficv1alpha2.RoutePolicy)
 	c.logger.Info("onDelete",
 		"routePolicy", objref.KObj(f),
 	)
@@ -285,8 +285,8 @@ func (c *RoutePolicyController) Sync(ctx context.Context) {
 	}
 }
 
-func policiesToRoutes(hubInterface HubInterface, policies []*v1alpha2.RoutePolicy) []*v1alpha2.Route {
-	out := []*v1alpha2.Route{}
+func policiesToRoutes(hubInterface HubInterface, policies []*trafficv1alpha2.RoutePolicy) []*trafficv1alpha2.Route {
+	out := []*trafficv1alpha2.Route{}
 	rules := groupFerryPolicies(policies)
 	controller := true
 	for exportHubName, rule := range rules {
@@ -368,14 +368,14 @@ func policiesToRoutes(hubInterface HubInterface, policies []*v1alpha2.RoutePolic
 					suffix := hash(fmt.Sprintf("%s|%s|%s|%s|%s|%s",
 						exportHubName, exportNamespace, exportName,
 						importHubName, importNamespace, importName))
-					out = append(out, &v1alpha2.Route{
+					out = append(out, &trafficv1alpha2.Route{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      fmt.Sprintf("%s-%s", policy.Name, suffix),
 							Namespace: policy.Namespace,
 							Labels:    maps.Merge(policy.Labels, labelsForRoute),
 							OwnerReferences: []metav1.OwnerReference{
 								{
-									APIVersion: v1alpha2.GroupVersion.String(),
+									APIVersion: trafficv1alpha2.GroupVersion.String(),
 									Kind:       "RoutePolicy",
 									Name:       policy.Name,
 									UID:        policy.UID,
@@ -383,17 +383,17 @@ func policiesToRoutes(hubInterface HubInterface, policies []*v1alpha2.RoutePolic
 								},
 							},
 						},
-						Spec: v1alpha2.RouteSpec{
-							Import: v1alpha2.RouteSpecRule{
+						Spec: trafficv1alpha2.RouteSpec{
+							Import: trafficv1alpha2.RouteSpecRule{
 								HubName: importHubName,
-								Service: v1alpha2.RouteSpecRuleService{
+								Service: trafficv1alpha2.RouteSpecRuleService{
 									Name:      importName,
 									Namespace: importNamespace,
 								},
 							},
-							Export: v1alpha2.RouteSpecRule{
+							Export: trafficv1alpha2.RouteSpecRule{
 								HubName: exportHubName,
-								Service: v1alpha2.RouteSpecRuleService{
+								Service: trafficv1alpha2.RouteSpecRuleService{
 									Name:      exportName,
 									Namespace: exportNamespace,
 								},
@@ -410,7 +410,7 @@ func policiesToRoutes(hubInterface HubInterface, policies []*v1alpha2.RoutePolic
 	return out
 }
 
-func groupFerryPolicies(policies []*v1alpha2.RoutePolicy) map[string]map[string][]groupRoutePolicy {
+func groupFerryPolicies(policies []*trafficv1alpha2.RoutePolicy) map[string]map[string][]groupRoutePolicy {
 	mapping := map[string]map[string][]groupRoutePolicy{}
 	for _, policy := range policies {
 
@@ -442,9 +442,9 @@ func groupFerryPolicies(policies []*v1alpha2.RoutePolicy) map[string]map[string]
 }
 
 type groupRoutePolicy struct {
-	Policy *v1alpha2.RoutePolicy
-	Export v1alpha2.RoutePolicySpecRuleService
-	Import v1alpha2.RoutePolicySpecRuleService
+	Policy *trafficv1alpha2.RoutePolicy
+	Export trafficv1alpha2.RoutePolicySpecRuleService
+	Import trafficv1alpha2.RoutePolicySpecRuleService
 }
 
 var labelsForRoute = map[string]string{

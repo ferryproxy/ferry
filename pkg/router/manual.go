@@ -17,7 +17,7 @@ limitations under the License.
 package router
 
 import (
-	"github.com/ferryproxy/api/apis/traffic/v1alpha2"
+	trafficv1alpha2 "github.com/ferryproxy/api/apis/traffic/v1alpha2"
 	"github.com/ferryproxy/ferry/pkg/utils/objref"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -30,12 +30,12 @@ type ManualConfig struct {
 	ExportName       string
 	ExportNamespace  string
 	ExportAuthorized string
-	ExportGateway    v1alpha2.HubSpecGateway
+	ExportGateway    trafficv1alpha2.HubSpecGateway
 	ImportHubName    string
 	ImportName       string
 	ImportNamespace  string
 	ImportAuthorized string
-	ImportGateway    v1alpha2.HubSpecGateway
+	ImportGateway    trafficv1alpha2.HubSpecGateway
 	Port             int32
 	BindPort         int32
 }
@@ -72,12 +72,12 @@ type dateSource struct {
 	exportName       string
 	exportNamespace  string
 	exportAuthorized string
-	exportGateway    v1alpha2.HubSpecGateway
+	exportGateway    trafficv1alpha2.HubSpecGateway
 	importHubName    string
 	importName       string
 	importNamespace  string
 	importAuthorized string
-	importGateway    v1alpha2.HubSpecGateway
+	importGateway    trafficv1alpha2.HubSpecGateway
 	port             int32
 	bindPort         int32
 }
@@ -109,13 +109,13 @@ func (f *dateSource) ListServices(name string) []*corev1.Service {
 		svc,
 	}
 }
-func (f *dateSource) GetHubGateway(hubName string, forHub string) v1alpha2.HubSpecGateway {
+func (f *dateSource) GetHubGateway(hubName string, forHub string) trafficv1alpha2.HubSpecGateway {
 	if hubName == f.importHubName {
 		return f.importGateway
 	} else if hubName == f.exportHubName {
 		return f.exportGateway
 	}
-	return v1alpha2.HubSpecGateway{}
+	return trafficv1alpha2.HubSpecGateway{}
 }
 
 func (f *dateSource) GetAuthorized(name string) string {
@@ -144,22 +144,22 @@ func (f *Manual) BuildResource() (out map[string][]objref.KMetadata, err error) 
 		HubInterface:  &f.dateSource,
 	})
 
-	routes := []*v1alpha2.Route{
+	routes := []*trafficv1alpha2.Route{
 		{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: f.dateSource.routeName,
 			},
-			Spec: v1alpha2.RouteSpec{
-				Import: v1alpha2.RouteSpecRule{
+			Spec: trafficv1alpha2.RouteSpec{
+				Import: trafficv1alpha2.RouteSpecRule{
 					HubName: f.dateSource.importHubName,
-					Service: v1alpha2.RouteSpecRuleService{
+					Service: trafficv1alpha2.RouteSpecRuleService{
 						Name:      f.dateSource.importName,
 						Namespace: f.dateSource.importNamespace,
 					},
 				},
-				Export: v1alpha2.RouteSpecRule{
+				Export: trafficv1alpha2.RouteSpecRule{
 					HubName: f.dateSource.exportHubName,
-					Service: v1alpha2.RouteSpecRuleService{
+					Service: trafficv1alpha2.RouteSpecRuleService{
 						Name:      f.dateSource.exportName,
 						Namespace: f.dateSource.exportNamespace,
 					},

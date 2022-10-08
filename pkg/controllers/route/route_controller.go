@@ -24,7 +24,7 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/ferryproxy/api/apis/traffic/v1alpha2"
+	trafficv1alpha2 "github.com/ferryproxy/api/apis/traffic/v1alpha2"
 	externalversions "github.com/ferryproxy/client-go/generated/informers/externalversions"
 	"github.com/ferryproxy/ferry/pkg/client"
 	"github.com/ferryproxy/ferry/pkg/conditions"
@@ -50,9 +50,9 @@ type RouteController struct {
 	mutStatus              sync.Mutex
 	clientset              client.Interface
 	hubInterface           HubInterface
-	cache                  map[string]*v1alpha2.Route
+	cache                  map[string]*trafficv1alpha2.Route
 	cacheMappingController map[clusterPair]*MappingController
-	cacheRoutes            map[clusterPair][]*v1alpha2.Route
+	cacheRoutes            map[clusterPair][]*trafficv1alpha2.Route
 	namespace              string
 	syncFunc               func()
 	logger                 logr.Logger
@@ -66,15 +66,15 @@ func NewRouteController(conf *RouteControllerConfig) *RouteController {
 		hubInterface:           conf.HubInterface,
 		logger:                 conf.Logger,
 		syncFunc:               conf.SyncFunc,
-		cache:                  map[string]*v1alpha2.Route{},
+		cache:                  map[string]*trafficv1alpha2.Route{},
 		cacheMappingController: map[clusterPair]*MappingController{},
-		cacheRoutes:            map[clusterPair][]*v1alpha2.Route{},
+		cacheRoutes:            map[clusterPair][]*trafficv1alpha2.Route{},
 		conditionsManager:      conditions.NewConditionsManager(),
 	}
 }
 
-func (c *RouteController) list() []*v1alpha2.Route {
-	var list []*v1alpha2.Route
+func (c *RouteController) list() []*trafficv1alpha2.Route {
+	var list []*trafficv1alpha2.Route
 	for _, v := range c.cache {
 		item := c.cache[v.Name]
 		if item == nil {
@@ -134,22 +134,22 @@ func (c *RouteController) UpdateRouteCondition(name string, conditions []metav1.
 	}
 
 	ready, reason := c.conditionsManager.Ready(name,
-		v1alpha2.PortsAllocatedCondition,
-		v1alpha2.RouteSyncedCondition,
-		v1alpha2.ExportHubReadyCondition,
-		v1alpha2.ImportHubReadyCondition,
-		v1alpha2.PathReachableCondition,
+		trafficv1alpha2.PortsAllocatedCondition,
+		trafficv1alpha2.RouteSyncedCondition,
+		trafficv1alpha2.ExportHubReadyCondition,
+		trafficv1alpha2.ImportHubReadyCondition,
+		trafficv1alpha2.PathReachableCondition,
 	)
 	if ready {
 		c.conditionsManager.Set(name, metav1.Condition{
-			Type:   v1alpha2.HubReady,
+			Type:   trafficv1alpha2.HubReady,
 			Status: metav1.ConditionTrue,
-			Reason: v1alpha2.HubReady,
+			Reason: trafficv1alpha2.HubReady,
 		})
-		status.Phase = v1alpha2.HubReady
+		status.Phase = trafficv1alpha2.HubReady
 	} else {
 		c.conditionsManager.Set(name, metav1.Condition{
-			Type:   v1alpha2.HubReady,
+			Type:   trafficv1alpha2.HubReady,
 			Status: metav1.ConditionFalse,
 			Reason: "NotReady",
 		})
@@ -161,8 +161,8 @@ func (c *RouteController) UpdateRouteCondition(name string, conditions []metav1.
 	status.Export = fmt.Sprintf("%s.%s", fp.Spec.Export.Service.Name, fp.Spec.Export.Service.Namespace)
 	status.Conditions = c.conditionsManager.Get(name)
 
-	if cond := c.conditionsManager.Find(name, v1alpha2.PathReachableCondition); cond != nil {
-		if c.conditionsManager.IsTrue(name, v1alpha2.PathReachableCondition) {
+	if cond := c.conditionsManager.Find(name, trafficv1alpha2.PathReachableCondition); cond != nil {
+		if c.conditionsManager.IsTrue(name, trafficv1alpha2.PathReachableCondition) {
 			status.Way = cond.Message
 		} else {
 			status.Way = "<unreachable>"
@@ -190,7 +190,7 @@ func (c *RouteController) UpdateRouteCondition(name string, conditions []metav1.
 }
 
 func (c *RouteController) onAdd(obj interface{}) {
-	f := obj.(*v1alpha2.Route)
+	f := obj.(*trafficv1alpha2.Route)
 	f = f.DeepCopy()
 	c.logger.Info("onAdd",
 		"route", objref.KObj(f),
@@ -205,7 +205,7 @@ func (c *RouteController) onAdd(obj interface{}) {
 }
 
 func (c *RouteController) onUpdate(oldObj, newObj interface{}) {
-	f := newObj.(*v1alpha2.Route)
+	f := newObj.(*trafficv1alpha2.Route)
 	f = f.DeepCopy()
 	c.logger.Info("onUpdate",
 		"route", objref.KObj(f),
@@ -225,7 +225,7 @@ func (c *RouteController) onUpdate(oldObj, newObj interface{}) {
 }
 
 func (c *RouteController) onDelete(obj interface{}) {
-	f := obj.(*v1alpha2.Route)
+	f := obj.(*trafficv1alpha2.Route)
 	c.logger.Info("onDelete",
 		"route", objref.KObj(f),
 	)
@@ -323,8 +323,8 @@ func (c *RouteController) startMappingController(ctx context.Context, key cluste
 	return mc, nil
 }
 
-func groupRoutes(rules []*v1alpha2.Route) map[clusterPair][]*v1alpha2.Route {
-	mapping := map[clusterPair][]*v1alpha2.Route{}
+func groupRoutes(rules []*trafficv1alpha2.Route) map[clusterPair][]*trafficv1alpha2.Route {
+	mapping := map[clusterPair][]*trafficv1alpha2.Route{}
 
 	for _, spec := range rules {
 		rule := spec.Spec
@@ -341,7 +341,7 @@ func groupRoutes(rules []*v1alpha2.Route) map[clusterPair][]*v1alpha2.Route {
 		}
 
 		if _, ok := mapping[key]; !ok {
-			mapping[key] = []*v1alpha2.Route{}
+			mapping[key] = []*trafficv1alpha2.Route{}
 		}
 
 		mapping[key] = append(mapping[key], spec)
@@ -354,7 +354,7 @@ type clusterPair struct {
 	Import string
 }
 
-func calculateRoutesPatch(older, newer map[clusterPair][]*v1alpha2.Route) (updated, deleted []clusterPair) {
+func calculateRoutesPatch(older, newer map[clusterPair][]*trafficv1alpha2.Route) (updated, deleted []clusterPair) {
 	exist := map[clusterPair]struct{}{}
 
 	for key := range older {

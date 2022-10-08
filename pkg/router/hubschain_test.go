@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/ferryproxy/api/apis/traffic/v1alpha2"
+	trafficv1alpha2 "github.com/ferryproxy/api/apis/traffic/v1alpha2"
 	"github.com/ferryproxy/ferry/pkg/utils/objref"
 	"github.com/google/go-cmp/cmp"
 	"github.com/wzshiming/sshproxy/permissions"
@@ -36,7 +36,7 @@ func TestHubsChain_Build(t *testing.T) {
 
 	tests := []struct {
 		name      string
-		hubs      map[string]*v1alpha2.Hub
+		hubs      map[string]*trafficv1alpha2.Hub
 		ways      []string
 		wantBound map[string]*Bound
 		wantErr   bool
@@ -48,17 +48,17 @@ func TestHubsChain_Build(t *testing.T) {
 		// 0b0
 		{
 			name: "2 hubs 0b0",
-			hubs: map[string]*v1alpha2.Hub{
+			hubs: map[string]*trafficv1alpha2.Hub{
 				"export": {
-					Spec: v1alpha2.HubSpec{
-						Gateway: v1alpha2.HubSpecGateway{
+					Spec: trafficv1alpha2.HubSpec{
+						Gateway: trafficv1alpha2.HubSpecGateway{
 							Reachable: true,
 							Address:   "export:8080",
 						},
 					},
 				},
 				"import": {
-					Spec: v1alpha2.HubSpec{},
+					Spec: trafficv1alpha2.HubSpec{},
 				},
 			},
 			ways: []string{
@@ -95,13 +95,13 @@ func TestHubsChain_Build(t *testing.T) {
 		// 0b1
 		{
 			name: "2 hubs 0b1",
-			hubs: map[string]*v1alpha2.Hub{
+			hubs: map[string]*trafficv1alpha2.Hub{
 				"export": {
-					Spec: v1alpha2.HubSpec{},
+					Spec: trafficv1alpha2.HubSpec{},
 				},
 				"import": {
-					Spec: v1alpha2.HubSpec{
-						Gateway: v1alpha2.HubSpecGateway{
+					Spec: trafficv1alpha2.HubSpec{
+						Gateway: trafficv1alpha2.HubSpecGateway{
 							Reachable: true,
 							Address:   "import:8080",
 						},
@@ -143,20 +143,20 @@ func TestHubsChain_Build(t *testing.T) {
 		// 0b10
 		{
 			name: "3 hubs 0b10",
-			hubs: map[string]*v1alpha2.Hub{
+			hubs: map[string]*trafficv1alpha2.Hub{
 				"export": {
-					Spec: v1alpha2.HubSpec{},
+					Spec: trafficv1alpha2.HubSpec{},
 				},
 				"repeater": {
-					Spec: v1alpha2.HubSpec{
-						Gateway: v1alpha2.HubSpecGateway{
+					Spec: trafficv1alpha2.HubSpec{
+						Gateway: trafficv1alpha2.HubSpecGateway{
 							Reachable: true,
 							Address:   "repeater:8080",
 						},
 					},
 				},
 				"import": {
-					Spec: v1alpha2.HubSpec{},
+					Spec: trafficv1alpha2.HubSpec{},
 				},
 			},
 			ways: []string{
@@ -216,21 +216,21 @@ func TestHubsChain_Build(t *testing.T) {
 		// 0b01
 		{
 			name: "3 hubs 0b01",
-			hubs: map[string]*v1alpha2.Hub{
+			hubs: map[string]*trafficv1alpha2.Hub{
 				"export": {
-					Spec: v1alpha2.HubSpec{
-						Gateway: v1alpha2.HubSpecGateway{
+					Spec: trafficv1alpha2.HubSpec{
+						Gateway: trafficv1alpha2.HubSpecGateway{
 							Reachable: true,
 							Address:   "export:8080",
 						},
 					},
 				},
 				"repeater": {
-					Spec: v1alpha2.HubSpec{},
+					Spec: trafficv1alpha2.HubSpec{},
 				},
 				"import": {
-					Spec: v1alpha2.HubSpec{
-						Gateway: v1alpha2.HubSpecGateway{
+					Spec: trafficv1alpha2.HubSpec{
+						Gateway: trafficv1alpha2.HubSpecGateway{
 							Reachable: true,
 							Address:   "import:8080",
 						},
@@ -284,10 +284,10 @@ func TestHubsChain_Build(t *testing.T) {
 		// 0b00
 		{
 			name: "3 hubs 0b00",
-			hubs: map[string]*v1alpha2.Hub{
+			hubs: map[string]*trafficv1alpha2.Hub{
 				"export": {
-					Spec: v1alpha2.HubSpec{
-						Override: map[string]v1alpha2.HubSpecGateway{
+					Spec: trafficv1alpha2.HubSpec{
+						Override: map[string]trafficv1alpha2.HubSpecGateway{
 							"repeater": {
 								Reachable: true,
 								Address:   "export:8080",
@@ -296,8 +296,8 @@ func TestHubsChain_Build(t *testing.T) {
 					},
 				},
 				"repeater": {
-					Spec: v1alpha2.HubSpec{
-						Override: map[string]v1alpha2.HubSpecGateway{
+					Spec: trafficv1alpha2.HubSpec{
+						Override: map[string]trafficv1alpha2.HubSpecGateway{
 							"import": {
 								Reachable: true,
 								Address:   "repeater:8080",
@@ -306,7 +306,7 @@ func TestHubsChain_Build(t *testing.T) {
 					},
 				},
 				"import": {
-					Spec: v1alpha2.HubSpec{},
+					Spec: trafficv1alpha2.HubSpec{},
 				},
 			},
 			ways: []string{
@@ -356,13 +356,13 @@ func TestHubsChain_Build(t *testing.T) {
 		// 0b11
 		{
 			name: "3 hubs 0b11",
-			hubs: map[string]*v1alpha2.Hub{
+			hubs: map[string]*trafficv1alpha2.Hub{
 				"export": {
-					Spec: v1alpha2.HubSpec{},
+					Spec: trafficv1alpha2.HubSpec{},
 				},
 				"repeater": {
-					Spec: v1alpha2.HubSpec{
-						Override: map[string]v1alpha2.HubSpecGateway{
+					Spec: trafficv1alpha2.HubSpec{
+						Override: map[string]trafficv1alpha2.HubSpecGateway{
 							"export": {
 								Reachable: true,
 								Address:   "repeater:8080",
@@ -371,8 +371,8 @@ func TestHubsChain_Build(t *testing.T) {
 					},
 				},
 				"import": {
-					Spec: v1alpha2.HubSpec{
-						Override: map[string]v1alpha2.HubSpecGateway{
+					Spec: trafficv1alpha2.HubSpec{
+						Override: map[string]trafficv1alpha2.HubSpecGateway{
 							"repeater": {
 								Reachable: true,
 								Address:   "import:8080",
@@ -427,10 +427,10 @@ func TestHubsChain_Build(t *testing.T) {
 		// 0b000
 		{
 			name: "4 hubs 0b000",
-			hubs: map[string]*v1alpha2.Hub{
+			hubs: map[string]*trafficv1alpha2.Hub{
 				"export": {
-					Spec: v1alpha2.HubSpec{
-						Override: map[string]v1alpha2.HubSpecGateway{
+					Spec: trafficv1alpha2.HubSpec{
+						Override: map[string]trafficv1alpha2.HubSpecGateway{
 							"repeater-export": {
 								Reachable: true,
 								Address:   "export:8080",
@@ -439,8 +439,8 @@ func TestHubsChain_Build(t *testing.T) {
 					},
 				},
 				"repeater-export": {
-					Spec: v1alpha2.HubSpec{
-						Override: map[string]v1alpha2.HubSpecGateway{
+					Spec: trafficv1alpha2.HubSpec{
+						Override: map[string]trafficv1alpha2.HubSpecGateway{
 							"repeater-import": {
 								Reachable: true,
 								Address:   "repeater-export:8080",
@@ -449,8 +449,8 @@ func TestHubsChain_Build(t *testing.T) {
 					},
 				},
 				"repeater-import": {
-					Spec: v1alpha2.HubSpec{
-						Override: map[string]v1alpha2.HubSpecGateway{
+					Spec: trafficv1alpha2.HubSpec{
+						Override: map[string]trafficv1alpha2.HubSpecGateway{
 							"import": {
 								Reachable: true,
 								Address:   "repeater-import:8080",
@@ -459,7 +459,7 @@ func TestHubsChain_Build(t *testing.T) {
 					},
 				},
 				"import": {
-					Spec: v1alpha2.HubSpec{},
+					Spec: trafficv1alpha2.HubSpec{},
 				},
 			},
 			ways: []string{
@@ -521,13 +521,13 @@ func TestHubsChain_Build(t *testing.T) {
 		// 0b111
 		{
 			name: "4 hubs 0b111",
-			hubs: map[string]*v1alpha2.Hub{
+			hubs: map[string]*trafficv1alpha2.Hub{
 				"export": {
-					Spec: v1alpha2.HubSpec{},
+					Spec: trafficv1alpha2.HubSpec{},
 				},
 				"repeater-export": {
-					Spec: v1alpha2.HubSpec{
-						Override: map[string]v1alpha2.HubSpecGateway{
+					Spec: trafficv1alpha2.HubSpec{
+						Override: map[string]trafficv1alpha2.HubSpecGateway{
 							"export": {
 								Reachable: true,
 								Address:   "repeater-export:8080",
@@ -536,8 +536,8 @@ func TestHubsChain_Build(t *testing.T) {
 					},
 				},
 				"repeater-import": {
-					Spec: v1alpha2.HubSpec{
-						Override: map[string]v1alpha2.HubSpecGateway{
+					Spec: trafficv1alpha2.HubSpec{
+						Override: map[string]trafficv1alpha2.HubSpecGateway{
 							"repeater-export": {
 								Reachable: true,
 								Address:   "repeater-import:8080",
@@ -546,8 +546,8 @@ func TestHubsChain_Build(t *testing.T) {
 					},
 				},
 				"import": {
-					Spec: v1alpha2.HubSpec{
-						Override: map[string]v1alpha2.HubSpecGateway{
+					Spec: trafficv1alpha2.HubSpec{
+						Override: map[string]trafficv1alpha2.HubSpecGateway{
 							"repeater-import": {
 								Reachable: true,
 								Address:   "import:8080",
@@ -614,13 +614,13 @@ func TestHubsChain_Build(t *testing.T) {
 		// 0b100
 		{
 			name: "4 hubs 0b100",
-			hubs: map[string]*v1alpha2.Hub{
+			hubs: map[string]*trafficv1alpha2.Hub{
 				"export": {
-					Spec: v1alpha2.HubSpec{},
+					Spec: trafficv1alpha2.HubSpec{},
 				},
 				"repeater-export": {
-					Spec: v1alpha2.HubSpec{
-						Override: map[string]v1alpha2.HubSpecGateway{
+					Spec: trafficv1alpha2.HubSpec{
+						Override: map[string]trafficv1alpha2.HubSpecGateway{
 							"export": {
 								Reachable: true,
 								Address:   "repeater-export:8080",
@@ -633,8 +633,8 @@ func TestHubsChain_Build(t *testing.T) {
 					},
 				},
 				"repeater-import": {
-					Spec: v1alpha2.HubSpec{
-						Override: map[string]v1alpha2.HubSpecGateway{
+					Spec: trafficv1alpha2.HubSpec{
+						Override: map[string]trafficv1alpha2.HubSpecGateway{
 							"import": {
 								Reachable: true,
 								Address:   "repeater-import:8080",
@@ -643,7 +643,7 @@ func TestHubsChain_Build(t *testing.T) {
 					},
 				},
 				"import": {
-					Spec: v1alpha2.HubSpec{},
+					Spec: trafficv1alpha2.HubSpec{},
 				},
 			},
 			ways: []string{
@@ -709,10 +709,10 @@ func TestHubsChain_Build(t *testing.T) {
 		// 0b011
 		{
 			name: "4 hubs 0b011",
-			hubs: map[string]*v1alpha2.Hub{
+			hubs: map[string]*trafficv1alpha2.Hub{
 				"export": {
-					Spec: v1alpha2.HubSpec{
-						Override: map[string]v1alpha2.HubSpecGateway{
+					Spec: trafficv1alpha2.HubSpec{
+						Override: map[string]trafficv1alpha2.HubSpecGateway{
 							"repeater-export": {
 								Reachable: true,
 								Address:   "export:8080",
@@ -721,11 +721,11 @@ func TestHubsChain_Build(t *testing.T) {
 					},
 				},
 				"repeater-export": {
-					Spec: v1alpha2.HubSpec{},
+					Spec: trafficv1alpha2.HubSpec{},
 				},
 				"repeater-import": {
-					Spec: v1alpha2.HubSpec{
-						Override: map[string]v1alpha2.HubSpecGateway{
+					Spec: trafficv1alpha2.HubSpec{
+						Override: map[string]trafficv1alpha2.HubSpecGateway{
 							"repeater-export": {
 								Reachable: true,
 								Address:   "repeater-import:8080",
@@ -734,8 +734,8 @@ func TestHubsChain_Build(t *testing.T) {
 					},
 				},
 				"import": {
-					Spec: v1alpha2.HubSpec{
-						Override: map[string]v1alpha2.HubSpecGateway{
+					Spec: trafficv1alpha2.HubSpec{
+						Override: map[string]trafficv1alpha2.HubSpecGateway{
 							"repeater-import": {
 								Reachable: true,
 								Address:   "import:8080",
@@ -802,13 +802,13 @@ func TestHubsChain_Build(t *testing.T) {
 		// 0b110
 		{
 			name: "4 hubs 0b110",
-			hubs: map[string]*v1alpha2.Hub{
+			hubs: map[string]*trafficv1alpha2.Hub{
 				"export": {
-					Spec: v1alpha2.HubSpec{},
+					Spec: trafficv1alpha2.HubSpec{},
 				},
 				"repeater-export": {
-					Spec: v1alpha2.HubSpec{
-						Override: map[string]v1alpha2.HubSpecGateway{
+					Spec: trafficv1alpha2.HubSpec{
+						Override: map[string]trafficv1alpha2.HubSpecGateway{
 							"export": {
 								Reachable: true,
 								Address:   "repeater-export:8080",
@@ -817,8 +817,8 @@ func TestHubsChain_Build(t *testing.T) {
 					},
 				},
 				"repeater-import": {
-					Spec: v1alpha2.HubSpec{
-						Override: map[string]v1alpha2.HubSpecGateway{
+					Spec: trafficv1alpha2.HubSpec{
+						Override: map[string]trafficv1alpha2.HubSpecGateway{
 							"import": {
 								Reachable: true,
 								Address:   "repeater-import:8080",
@@ -831,7 +831,7 @@ func TestHubsChain_Build(t *testing.T) {
 					},
 				},
 				"import": {
-					Spec: v1alpha2.HubSpec{},
+					Spec: trafficv1alpha2.HubSpec{},
 				},
 			},
 			ways: []string{
@@ -898,10 +898,10 @@ func TestHubsChain_Build(t *testing.T) {
 		// 0b001
 		{
 			name: "4 hubs 0b001",
-			hubs: map[string]*v1alpha2.Hub{
+			hubs: map[string]*trafficv1alpha2.Hub{
 				"export": {
-					Spec: v1alpha2.HubSpec{
-						Override: map[string]v1alpha2.HubSpecGateway{
+					Spec: trafficv1alpha2.HubSpec{
+						Override: map[string]trafficv1alpha2.HubSpecGateway{
 							"repeater-export": {
 								Reachable: true,
 								Address:   "export:8080",
@@ -910,8 +910,8 @@ func TestHubsChain_Build(t *testing.T) {
 					},
 				},
 				"repeater-export": {
-					Spec: v1alpha2.HubSpec{
-						Override: map[string]v1alpha2.HubSpecGateway{
+					Spec: trafficv1alpha2.HubSpec{
+						Override: map[string]trafficv1alpha2.HubSpecGateway{
 							"repeater-import": {
 								Reachable: true,
 								Address:   "repeater-export:8080",
@@ -920,8 +920,8 @@ func TestHubsChain_Build(t *testing.T) {
 					},
 				},
 				"repeater-import": {
-					Spec: v1alpha2.HubSpec{
-						Override: map[string]v1alpha2.HubSpecGateway{
+					Spec: trafficv1alpha2.HubSpec{
+						Override: map[string]trafficv1alpha2.HubSpecGateway{
 							"repeater-export": {
 								Reachable: true,
 								Address:   "repeater-import:8080",
@@ -930,8 +930,8 @@ func TestHubsChain_Build(t *testing.T) {
 					},
 				},
 				"import": {
-					Spec: v1alpha2.HubSpec{
-						Override: map[string]v1alpha2.HubSpecGateway{
+					Spec: trafficv1alpha2.HubSpec{
+						Override: map[string]trafficv1alpha2.HubSpecGateway{
 							"repeater-import": {
 								Reachable: true,
 								Address:   "import:8080",
@@ -998,13 +998,13 @@ func TestHubsChain_Build(t *testing.T) {
 		// 0b101
 		{
 			name: "4 hubs 0b101",
-			hubs: map[string]*v1alpha2.Hub{
+			hubs: map[string]*trafficv1alpha2.Hub{
 				"export": {
-					Spec: v1alpha2.HubSpec{},
+					Spec: trafficv1alpha2.HubSpec{},
 				},
 				"repeater-export": {
-					Spec: v1alpha2.HubSpec{
-						Override: map[string]v1alpha2.HubSpecGateway{
+					Spec: trafficv1alpha2.HubSpec{
+						Override: map[string]trafficv1alpha2.HubSpecGateway{
 							"export": {
 								Reachable: true,
 								Address:   "repeater-export:8080",
@@ -1017,13 +1017,13 @@ func TestHubsChain_Build(t *testing.T) {
 					},
 				},
 				"repeater-import": {
-					Spec: v1alpha2.HubSpec{
-						Override: map[string]v1alpha2.HubSpecGateway{},
+					Spec: trafficv1alpha2.HubSpec{
+						Override: map[string]trafficv1alpha2.HubSpecGateway{},
 					},
 				},
 				"import": {
-					Spec: v1alpha2.HubSpec{
-						Override: map[string]v1alpha2.HubSpecGateway{
+					Spec: trafficv1alpha2.HubSpec{
+						Override: map[string]trafficv1alpha2.HubSpecGateway{
 							"repeater-import": {
 								Reachable: true,
 								Address:   "import:8080",
@@ -1096,10 +1096,10 @@ func TestHubsChain_Build(t *testing.T) {
 		// 0b010
 		{
 			name: "4 hubs 0b010",
-			hubs: map[string]*v1alpha2.Hub{
+			hubs: map[string]*trafficv1alpha2.Hub{
 				"export": {
-					Spec: v1alpha2.HubSpec{
-						Override: map[string]v1alpha2.HubSpecGateway{
+					Spec: trafficv1alpha2.HubSpec{
+						Override: map[string]trafficv1alpha2.HubSpecGateway{
 							"repeater-export": {
 								Reachable: true,
 								Address:   "export:8080",
@@ -1108,13 +1108,13 @@ func TestHubsChain_Build(t *testing.T) {
 					},
 				},
 				"repeater-export": {
-					Spec: v1alpha2.HubSpec{
-						Override: map[string]v1alpha2.HubSpecGateway{},
+					Spec: trafficv1alpha2.HubSpec{
+						Override: map[string]trafficv1alpha2.HubSpecGateway{},
 					},
 				},
 				"repeater-import": {
-					Spec: v1alpha2.HubSpec{
-						Override: map[string]v1alpha2.HubSpecGateway{
+					Spec: trafficv1alpha2.HubSpec{
+						Override: map[string]trafficv1alpha2.HubSpecGateway{
 							"repeater-export": {
 								Reachable: true,
 								Address:   "repeater-import:8080",
@@ -1127,8 +1127,8 @@ func TestHubsChain_Build(t *testing.T) {
 					},
 				},
 				"import": {
-					Spec: v1alpha2.HubSpec{
-						Override: map[string]v1alpha2.HubSpecGateway{},
+					Spec: trafficv1alpha2.HubSpec{
+						Override: map[string]trafficv1alpha2.HubSpecGateway{},
 					},
 				},
 			},
@@ -1199,13 +1199,13 @@ func TestHubsChain_Build(t *testing.T) {
 		// 0b0
 		{
 			name: "2 hubs 0b0 with proxy",
-			hubs: map[string]*v1alpha2.Hub{
+			hubs: map[string]*trafficv1alpha2.Hub{
 				"export": {
-					Spec: v1alpha2.HubSpec{
-						Gateway: v1alpha2.HubSpecGateway{
+					Spec: trafficv1alpha2.HubSpec{
+						Gateway: trafficv1alpha2.HubSpecGateway{
 							Reachable: true,
 							Address:   "export:8080",
-							ReceptionProxy: []v1alpha2.HubSpecGatewayProxy{
+							ReceptionProxy: []trafficv1alpha2.HubSpecGatewayProxy{
 								{
 									Proxy: "socks5://export-reception-1:8080",
 								},
@@ -1217,9 +1217,9 @@ func TestHubsChain_Build(t *testing.T) {
 					},
 				},
 				"import": {
-					Spec: v1alpha2.HubSpec{
-						Gateway: v1alpha2.HubSpecGateway{
-							NavigationProxy: []v1alpha2.HubSpecGatewayProxy{
+					Spec: trafficv1alpha2.HubSpec{
+						Gateway: trafficv1alpha2.HubSpecGateway{
+							NavigationProxy: []trafficv1alpha2.HubSpecGatewayProxy{
 								{
 									Proxy: "socks5://import-navigation-1:8080",
 								},
@@ -1268,11 +1268,11 @@ func TestHubsChain_Build(t *testing.T) {
 		// 0b1
 		{
 			name: "2 hubs 0b1 with proxy",
-			hubs: map[string]*v1alpha2.Hub{
+			hubs: map[string]*trafficv1alpha2.Hub{
 				"export": {
-					Spec: v1alpha2.HubSpec{
-						Gateway: v1alpha2.HubSpecGateway{
-							NavigationProxy: []v1alpha2.HubSpecGatewayProxy{
+					Spec: trafficv1alpha2.HubSpec{
+						Gateway: trafficv1alpha2.HubSpecGateway{
+							NavigationProxy: []trafficv1alpha2.HubSpecGatewayProxy{
 								{
 									Proxy: "socks5://export-navigation-1:8080",
 								},
@@ -1284,11 +1284,11 @@ func TestHubsChain_Build(t *testing.T) {
 					},
 				},
 				"import": {
-					Spec: v1alpha2.HubSpec{
-						Gateway: v1alpha2.HubSpecGateway{
+					Spec: trafficv1alpha2.HubSpec{
+						Gateway: trafficv1alpha2.HubSpecGateway{
 							Reachable: true,
 							Address:   "import:8080",
-							ReceptionProxy: []v1alpha2.HubSpecGatewayProxy{
+							ReceptionProxy: []trafficv1alpha2.HubSpecGatewayProxy{
 								{
 									Proxy: "socks5://import-reception-1:8080",
 								},
@@ -1336,11 +1336,11 @@ func TestHubsChain_Build(t *testing.T) {
 		// 0b10
 		{
 			name: "3 hubs 0b10 with proxy",
-			hubs: map[string]*v1alpha2.Hub{
+			hubs: map[string]*trafficv1alpha2.Hub{
 				"export": {
-					Spec: v1alpha2.HubSpec{
-						Gateway: v1alpha2.HubSpecGateway{
-							NavigationProxy: []v1alpha2.HubSpecGatewayProxy{
+					Spec: trafficv1alpha2.HubSpec{
+						Gateway: trafficv1alpha2.HubSpecGateway{
+							NavigationProxy: []trafficv1alpha2.HubSpecGatewayProxy{
 								{
 									Proxy: "socks5://export-navigation-1:8080",
 								},
@@ -1352,11 +1352,11 @@ func TestHubsChain_Build(t *testing.T) {
 					},
 				},
 				"repeater": {
-					Spec: v1alpha2.HubSpec{
-						Gateway: v1alpha2.HubSpecGateway{
+					Spec: trafficv1alpha2.HubSpec{
+						Gateway: trafficv1alpha2.HubSpecGateway{
 							Reachable: true,
 							Address:   "repeater:8080",
-							ReceptionProxy: []v1alpha2.HubSpecGatewayProxy{
+							ReceptionProxy: []trafficv1alpha2.HubSpecGatewayProxy{
 								{
 									Proxy: "socks5://repeater-reception-1:8080",
 								},
@@ -1368,9 +1368,9 @@ func TestHubsChain_Build(t *testing.T) {
 					},
 				},
 				"import": {
-					Spec: v1alpha2.HubSpec{
-						Gateway: v1alpha2.HubSpecGateway{
-							NavigationProxy: []v1alpha2.HubSpecGatewayProxy{
+					Spec: trafficv1alpha2.HubSpec{
+						Gateway: trafficv1alpha2.HubSpecGateway{
+							NavigationProxy: []trafficv1alpha2.HubSpecGatewayProxy{
 								{
 									Proxy: "socks5://import-navigation-1:8080",
 								},
@@ -1436,13 +1436,13 @@ func TestHubsChain_Build(t *testing.T) {
 		// 0b01
 		{
 			name: "3 hubs 0b01 with proxy",
-			hubs: map[string]*v1alpha2.Hub{
+			hubs: map[string]*trafficv1alpha2.Hub{
 				"export": {
-					Spec: v1alpha2.HubSpec{
-						Gateway: v1alpha2.HubSpecGateway{
+					Spec: trafficv1alpha2.HubSpec{
+						Gateway: trafficv1alpha2.HubSpecGateway{
 							Reachable: true,
 							Address:   "export:8080",
-							ReceptionProxy: []v1alpha2.HubSpecGatewayProxy{
+							ReceptionProxy: []trafficv1alpha2.HubSpecGatewayProxy{
 								{
 									Proxy: "socks5://export-reception-1:8080",
 								},
@@ -1454,9 +1454,9 @@ func TestHubsChain_Build(t *testing.T) {
 					},
 				},
 				"repeater": {
-					Spec: v1alpha2.HubSpec{
-						Gateway: v1alpha2.HubSpecGateway{
-							NavigationProxy: []v1alpha2.HubSpecGatewayProxy{
+					Spec: trafficv1alpha2.HubSpec{
+						Gateway: trafficv1alpha2.HubSpecGateway{
+							NavigationProxy: []trafficv1alpha2.HubSpecGatewayProxy{
 								{
 									Proxy: "socks5://repeater-navigation-1:8080",
 								},
@@ -1468,11 +1468,11 @@ func TestHubsChain_Build(t *testing.T) {
 					},
 				},
 				"import": {
-					Spec: v1alpha2.HubSpec{
-						Gateway: v1alpha2.HubSpecGateway{
+					Spec: trafficv1alpha2.HubSpec{
+						Gateway: trafficv1alpha2.HubSpecGateway{
 							Reachable: true,
 							Address:   "import:8080",
-							ReceptionProxy: []v1alpha2.HubSpecGatewayProxy{
+							ReceptionProxy: []trafficv1alpha2.HubSpecGatewayProxy{
 								{
 									Proxy: "socks5://import-reception-1:8080",
 								},
@@ -1538,14 +1538,14 @@ func TestHubsChain_Build(t *testing.T) {
 		// 0b00
 		{
 			name: "3 hubs 0b00 with proxy",
-			hubs: map[string]*v1alpha2.Hub{
+			hubs: map[string]*trafficv1alpha2.Hub{
 				"export": {
-					Spec: v1alpha2.HubSpec{
-						Override: map[string]v1alpha2.HubSpecGateway{
+					Spec: trafficv1alpha2.HubSpec{
+						Override: map[string]trafficv1alpha2.HubSpecGateway{
 							"repeater": {
 								Reachable: true,
 								Address:   "export:8080",
-								ReceptionProxy: []v1alpha2.HubSpecGatewayProxy{
+								ReceptionProxy: []trafficv1alpha2.HubSpecGatewayProxy{
 									{
 										Proxy: "socks5://export-reception-1:8080",
 									},
@@ -1558,9 +1558,9 @@ func TestHubsChain_Build(t *testing.T) {
 					},
 				},
 				"repeater": {
-					Spec: v1alpha2.HubSpec{
-						Gateway: v1alpha2.HubSpecGateway{
-							NavigationProxy: []v1alpha2.HubSpecGatewayProxy{
+					Spec: trafficv1alpha2.HubSpec{
+						Gateway: trafficv1alpha2.HubSpecGateway{
+							NavigationProxy: []trafficv1alpha2.HubSpecGatewayProxy{
 								{
 									Proxy: "socks5://repeater-navigation-1:8080",
 								},
@@ -1569,11 +1569,11 @@ func TestHubsChain_Build(t *testing.T) {
 								},
 							},
 						},
-						Override: map[string]v1alpha2.HubSpecGateway{
+						Override: map[string]trafficv1alpha2.HubSpecGateway{
 							"import": {
 								Reachable: true,
 								Address:   "repeater:8080",
-								ReceptionProxy: []v1alpha2.HubSpecGatewayProxy{
+								ReceptionProxy: []trafficv1alpha2.HubSpecGatewayProxy{
 									{
 										Proxy: "socks5://repeater-reception-1:8080",
 									},
@@ -1581,7 +1581,7 @@ func TestHubsChain_Build(t *testing.T) {
 										Proxy: "socks5://repeater-reception-2:8080",
 									},
 								},
-								NavigationProxy: []v1alpha2.HubSpecGatewayProxy{
+								NavigationProxy: []trafficv1alpha2.HubSpecGatewayProxy{
 									{
 										Proxy: "socks5://repeater-navigation-1:8080",
 									},
@@ -1594,9 +1594,9 @@ func TestHubsChain_Build(t *testing.T) {
 					},
 				},
 				"import": {
-					Spec: v1alpha2.HubSpec{
-						Gateway: v1alpha2.HubSpecGateway{
-							NavigationProxy: []v1alpha2.HubSpecGatewayProxy{
+					Spec: trafficv1alpha2.HubSpec{
+						Gateway: trafficv1alpha2.HubSpecGateway{
+							NavigationProxy: []trafficv1alpha2.HubSpecGatewayProxy{
 								{
 									Proxy: "socks5://import-navigation-1:8080",
 								},
@@ -1657,11 +1657,11 @@ func TestHubsChain_Build(t *testing.T) {
 		// 0b11
 		{
 			name: "3 hubs 0b11 with proxy",
-			hubs: map[string]*v1alpha2.Hub{
+			hubs: map[string]*trafficv1alpha2.Hub{
 				"export": {
-					Spec: v1alpha2.HubSpec{
-						Gateway: v1alpha2.HubSpecGateway{
-							NavigationProxy: []v1alpha2.HubSpecGatewayProxy{
+					Spec: trafficv1alpha2.HubSpec{
+						Gateway: trafficv1alpha2.HubSpecGateway{
+							NavigationProxy: []trafficv1alpha2.HubSpecGatewayProxy{
 								{
 									Proxy: "socks5://export-navigation-1:8080",
 								},
@@ -1673,9 +1673,9 @@ func TestHubsChain_Build(t *testing.T) {
 					},
 				},
 				"repeater": {
-					Spec: v1alpha2.HubSpec{
-						Gateway: v1alpha2.HubSpecGateway{
-							NavigationProxy: []v1alpha2.HubSpecGatewayProxy{
+					Spec: trafficv1alpha2.HubSpec{
+						Gateway: trafficv1alpha2.HubSpecGateway{
+							NavigationProxy: []trafficv1alpha2.HubSpecGatewayProxy{
 								{
 									Proxy: "socks5://repeater-navigation-1:8080",
 								},
@@ -1684,11 +1684,11 @@ func TestHubsChain_Build(t *testing.T) {
 								},
 							},
 						},
-						Override: map[string]v1alpha2.HubSpecGateway{
+						Override: map[string]trafficv1alpha2.HubSpecGateway{
 							"export": {
 								Reachable: true,
 								Address:   "repeater:8080",
-								NavigationProxy: []v1alpha2.HubSpecGatewayProxy{
+								NavigationProxy: []trafficv1alpha2.HubSpecGatewayProxy{
 									{
 										Proxy: "socks5://repeater-navigation-1:8080",
 									},
@@ -1696,7 +1696,7 @@ func TestHubsChain_Build(t *testing.T) {
 										Proxy: "socks5://repeater-navigation-2:8080",
 									},
 								},
-								ReceptionProxy: []v1alpha2.HubSpecGatewayProxy{
+								ReceptionProxy: []trafficv1alpha2.HubSpecGatewayProxy{
 									{
 										Proxy: "socks5://repeater-reception-1:8080",
 									},
@@ -1709,12 +1709,12 @@ func TestHubsChain_Build(t *testing.T) {
 					},
 				},
 				"import": {
-					Spec: v1alpha2.HubSpec{
-						Override: map[string]v1alpha2.HubSpecGateway{
+					Spec: trafficv1alpha2.HubSpec{
+						Override: map[string]trafficv1alpha2.HubSpecGateway{
 							"repeater": {
 								Reachable: true,
 								Address:   "import:8080",
-								ReceptionProxy: []v1alpha2.HubSpecGatewayProxy{
+								ReceptionProxy: []trafficv1alpha2.HubSpecGatewayProxy{
 									{
 										Proxy: "socks5://import-reception-1:8080",
 									},
@@ -1797,14 +1797,14 @@ func TestHubsChain_Build(t *testing.T) {
 }
 
 type fakeDataSource struct {
-	hubs map[string]*v1alpha2.Hub
+	hubs map[string]*trafficv1alpha2.Hub
 }
 
 func (f *fakeDataSource) GetAuthorized(hubName string) string {
 	return fmt.Sprintf("%s-%s", hubName, "authorized")
 }
 
-func (f *fakeDataSource) GetHubGateway(hubName string, forHub string) v1alpha2.HubSpecGateway {
+func (f *fakeDataSource) GetHubGateway(hubName string, forHub string) trafficv1alpha2.HubSpecGateway {
 	hub := f.hubs[hubName]
 	if hub.Spec.Override == nil {
 		return hub.Spec.Gateway

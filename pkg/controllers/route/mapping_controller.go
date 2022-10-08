@@ -23,7 +23,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ferryproxy/api/apis/traffic/v1alpha2"
+	trafficv1alpha2 "github.com/ferryproxy/api/apis/traffic/v1alpha2"
 	"github.com/ferryproxy/ferry/pkg/client"
 	"github.com/ferryproxy/ferry/pkg/consts"
 	"github.com/ferryproxy/ferry/pkg/router"
@@ -40,8 +40,8 @@ import (
 type HubInterface interface {
 	GetService(hubName string, namespace, name string) (*corev1.Service, bool)
 	ListServices(name string) []*corev1.Service
-	GetHub(name string) *v1alpha2.Hub
-	GetHubGateway(hubName string, forHub string) v1alpha2.HubSpecGateway
+	GetHub(name string) *trafficv1alpha2.Hub
+	GetHubGateway(hubName string, forHub string) trafficv1alpha2.HubSpecGateway
 	GetAuthorized(name string) string
 	Clientset(hubName string) (client.Interface, error)
 	ResetClientset(hubName string)
@@ -91,7 +91,7 @@ type MappingController struct {
 	hubInterface   HubInterface
 	routeInterface RouteInterface
 
-	routes         []*v1alpha2.Route
+	routes         []*trafficv1alpha2.Route
 	cacheResources map[string][]objref.KMetadata
 	logger         logr.Logger
 	way            []string
@@ -144,7 +144,7 @@ func (m *MappingController) Sync() {
 	m.try.Try()
 }
 
-func (m *MappingController) SetRoutes(routes []*v1alpha2.Route) {
+func (m *MappingController) SetRoutes(routes []*trafficv1alpha2.Route) {
 	m.mut.Lock()
 	defer m.mut.Unlock()
 
@@ -153,16 +153,16 @@ func (m *MappingController) SetRoutes(routes []*v1alpha2.Route) {
 		err := m.updatePort(route)
 		if err != nil {
 			conds = append(conds, metav1.Condition{
-				Type:    v1alpha2.PortsAllocatedCondition,
+				Type:    trafficv1alpha2.PortsAllocatedCondition,
 				Status:  metav1.ConditionFalse,
 				Reason:  "FailedPortsAllocated",
 				Message: err.Error(),
 			})
 		} else {
 			conds = append(conds, metav1.Condition{
-				Type:   v1alpha2.PortsAllocatedCondition,
+				Type:   trafficv1alpha2.PortsAllocatedCondition,
 				Status: metav1.ConditionTrue,
-				Reason: v1alpha2.PortsAllocatedCondition,
+				Reason: trafficv1alpha2.PortsAllocatedCondition,
 			})
 		}
 		m.routeInterface.UpdateRouteCondition(route.Name, conds)
@@ -250,7 +250,7 @@ func (m *MappingController) sync() {
 	if err != nil {
 		conds = append(conds,
 			metav1.Condition{
-				Type:    v1alpha2.PathReachableCondition,
+				Type:    trafficv1alpha2.PathReachableCondition,
 				Status:  metav1.ConditionFalse,
 				Reason:  "Unreachable",
 				Message: err.Error(),
@@ -264,7 +264,7 @@ func (m *MappingController) sync() {
 	if err != nil {
 		conds = append(conds,
 			metav1.Condition{
-				Type:    v1alpha2.PathReachableCondition,
+				Type:    trafficv1alpha2.PathReachableCondition,
 				Status:  metav1.ConditionFalse,
 				Reason:  "Unreachable",
 				Message: err.Error(),
@@ -276,9 +276,9 @@ func (m *MappingController) sync() {
 
 	conds = append(conds,
 		metav1.Condition{
-			Type:    v1alpha2.PathReachableCondition,
+			Type:    trafficv1alpha2.PathReachableCondition,
 			Status:  metav1.ConditionTrue,
-			Reason:  v1alpha2.PathReachableCondition,
+			Reason:  trafficv1alpha2.PathReachableCondition,
 			Message: strings.Join(way, ","),
 		},
 	)
@@ -349,22 +349,22 @@ loop:
 
 	conds = append(conds,
 		metav1.Condition{
-			Type:   v1alpha2.RouteSyncedCondition,
+			Type:   trafficv1alpha2.RouteSyncedCondition,
 			Status: metav1.ConditionTrue,
-			Reason: v1alpha2.RouteSyncedCondition,
+			Reason: trafficv1alpha2.RouteSyncedCondition,
 		},
 	)
 
 	importHubReady := m.hubInterface.HubReady(m.importHubName)
 	if importHubReady {
 		conds = append(conds, metav1.Condition{
-			Type:   v1alpha2.ImportHubReadyCondition,
+			Type:   trafficv1alpha2.ImportHubReadyCondition,
 			Status: metav1.ConditionTrue,
-			Reason: v1alpha2.ImportHubReadyCondition,
+			Reason: trafficv1alpha2.ImportHubReadyCondition,
 		})
 	} else {
 		conds = append(conds, metav1.Condition{
-			Type:   v1alpha2.ImportHubReadyCondition,
+			Type:   trafficv1alpha2.ImportHubReadyCondition,
 			Status: metav1.ConditionFalse,
 			Reason: "ImportHubNotReady",
 		})
@@ -373,13 +373,13 @@ loop:
 	exportHubReady := m.hubInterface.HubReady(m.exportHubName)
 	if exportHubReady {
 		conds = append(conds, metav1.Condition{
-			Type:   v1alpha2.ExportHubReadyCondition,
+			Type:   trafficv1alpha2.ExportHubReadyCondition,
 			Status: metav1.ConditionTrue,
-			Reason: v1alpha2.ExportHubReadyCondition,
+			Reason: trafficv1alpha2.ExportHubReadyCondition,
 		})
 	} else {
 		conds = append(conds, metav1.Condition{
-			Type:   v1alpha2.ExportHubReadyCondition,
+			Type:   trafficv1alpha2.ExportHubReadyCondition,
 			Status: metav1.ConditionFalse,
 			Reason: "ExportHubNotReady",
 		})
@@ -419,7 +419,7 @@ func (m *MappingController) Close() {
 	}
 }
 
-func (m *MappingController) updatePort(f *v1alpha2.Route) error {
+func (m *MappingController) updatePort(f *trafficv1alpha2.Route) error {
 	svc, ok := m.hubInterface.GetService(f.Spec.Export.HubName, f.Spec.Export.Service.Namespace, f.Spec.Export.Service.Name)
 	if !ok {
 		return fmt.Errorf("not found export service")
@@ -438,7 +438,7 @@ func (m *MappingController) updatePort(f *v1alpha2.Route) error {
 	return nil
 }
 
-func (m *MappingController) deletePort(f *v1alpha2.Route) error {
+func (m *MappingController) deletePort(f *trafficv1alpha2.Route) error {
 	svc, ok := m.hubInterface.GetService(f.Spec.Export.HubName, f.Spec.Export.Service.Namespace, f.Spec.Export.Service.Name)
 	if !ok {
 		return fmt.Errorf("not found export service")

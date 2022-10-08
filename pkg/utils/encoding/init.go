@@ -17,7 +17,7 @@ limitations under the License.
 package encoding
 
 import (
-	"github.com/ferryproxy/api/apis/traffic/v1alpha2"
+	trafficv1alpha2 "github.com/ferryproxy/api/apis/traffic/v1alpha2"
 	"github.com/ferryproxy/ferry/pkg/utils/objref"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -28,7 +28,7 @@ var scheme = runtime.NewScheme()
 
 func init() {
 	utilruntime.Must(corev1.AddToScheme(scheme))
-	utilruntime.Must(v1alpha2.AddToScheme(scheme))
+	utilruntime.Must(trafficv1alpha2.AddToScheme(scheme))
 }
 
 func convert(objs []objref.KMetadata) []runtime.Object {

@@ -17,11 +17,11 @@ limitations under the License.
 package router
 
 import (
-	"github.com/ferryproxy/api/apis/traffic/v1alpha2"
+	trafficv1alpha2 "github.com/ferryproxy/api/apis/traffic/v1alpha2"
 )
 
 type SolutionConfig struct {
-	GetHubGateway func(hubName string, forHub string) v1alpha2.HubSpecGateway
+	GetHubGateway func(hubName string, forHub string) trafficv1alpha2.HubSpecGateway
 }
 
 func NewSolution(conf SolutionConfig) *Solution {
@@ -31,7 +31,7 @@ func NewSolution(conf SolutionConfig) *Solution {
 }
 
 type Solution struct {
-	getHubGateway func(hubName string, forHub string) v1alpha2.HubSpecGateway
+	getHubGateway func(hubName string, forHub string) trafficv1alpha2.HubSpecGateway
 }
 
 // CalculateWays is calculated the ways based on the export hub and import hub
@@ -39,7 +39,7 @@ func (s *Solution) CalculateWays(exportHub, importHub string) ([]string, error) 
 	ways := []string{exportHub, importHub}
 
 	hubs := map[string]int{}
-	insertFunc := func(i int, vs ...v1alpha2.HubSpecGatewayWay) {
+	insertFunc := func(i int, vs ...trafficv1alpha2.HubSpecGatewayWay) {
 		w := make([]string, 0, len(ways)+len(vs))
 		w = append(w, ways[:i]...)
 

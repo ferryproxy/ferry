@@ -19,7 +19,7 @@ package router
 import (
 	"testing"
 
-	"github.com/ferryproxy/api/apis/traffic/v1alpha2"
+	trafficv1alpha2 "github.com/ferryproxy/api/apis/traffic/v1alpha2"
 	"github.com/ferryproxy/ferry/pkg/consts"
 	"github.com/ferryproxy/ferry/pkg/utils/objref"
 	"github.com/google/go-cmp/cmp"
@@ -42,7 +42,7 @@ func TestManualBuildResource(t *testing.T) {
 				ExportName:       "export-name",
 				ExportNamespace:  "export-namespace",
 				ExportAuthorized: "export-authorized",
-				ExportGateway: v1alpha2.HubSpecGateway{
+				ExportGateway: trafficv1alpha2.HubSpecGateway{
 					Address:   "export-address",
 					Reachable: true,
 				},
@@ -50,7 +50,7 @@ func TestManualBuildResource(t *testing.T) {
 				ImportName:       "import-name",
 				ImportNamespace:  "import-namespace",
 				ImportAuthorized: "import-authorized",
-				ImportGateway: v1alpha2.HubSpecGateway{
+				ImportGateway: trafficv1alpha2.HubSpecGateway{
 					Address:   "",
 					Reachable: false,
 				},
@@ -147,7 +147,7 @@ func TestManualBuildResource(t *testing.T) {
 				ExportName:       "export-name",
 				ExportNamespace:  "export-namespace",
 				ExportAuthorized: "export-authorized",
-				ExportGateway: v1alpha2.HubSpecGateway{
+				ExportGateway: trafficv1alpha2.HubSpecGateway{
 					Address:   "",
 					Reachable: false,
 				},
@@ -155,7 +155,7 @@ func TestManualBuildResource(t *testing.T) {
 				ImportName:       "import-name",
 				ImportNamespace:  "import-namespace",
 				ImportAuthorized: "import-authorized",
-				ImportGateway: v1alpha2.HubSpecGateway{
+				ImportGateway: trafficv1alpha2.HubSpecGateway{
 					Address:   "import-address",
 					Reachable: true,
 				},

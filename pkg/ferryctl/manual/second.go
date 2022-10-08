@@ -22,7 +22,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/ferryproxy/api/apis/traffic/v1alpha2"
+	trafficv1alpha2 "github.com/ferryproxy/api/apis/traffic/v1alpha2"
 	"github.com/ferryproxy/ferry/pkg/consts"
 	"github.com/ferryproxy/ferry/pkg/router"
 	"github.com/ferryproxy/ferry/pkg/utils/encoding"
@@ -89,7 +89,7 @@ func Second(conf SecondConfig) (applyResource, otherResource, importAddress stri
 		ImportHubName:   importHubName,
 		ImportName:      importName,
 		ImportNamespace: importNamespace,
-		ImportGateway: v1alpha2.HubSpecGateway{
+		ImportGateway: trafficv1alpha2.HubSpecGateway{
 			Reachable: conf.ImportTunnelAddress != "",
 			Address:   conf.ImportTunnelAddress,
 		},
@@ -99,7 +99,7 @@ func Second(conf SecondConfig) (applyResource, otherResource, importAddress stri
 		ExportHubName:    exportHubName,
 		ExportName:       exportName,
 		ExportNamespace:  exportNamespace,
-		ExportGateway: v1alpha2.HubSpecGateway{
+		ExportGateway: trafficv1alpha2.HubSpecGateway{
 			Reachable: conf.ExportTunnelAddress != "",
 			Address:   conf.ExportTunnelAddress,
 		},

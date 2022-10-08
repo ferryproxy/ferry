@@ -24,7 +24,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/ferryproxy/api/apis/traffic/v1alpha2"
+	trafficv1alpha2 "github.com/ferryproxy/api/apis/traffic/v1alpha2"
 	"github.com/ferryproxy/ferry/pkg/consts"
 	"github.com/ferryproxy/ferry/pkg/utils/objref"
 	"github.com/wzshiming/sshproxy/permissions"
@@ -33,7 +33,7 @@ import (
 )
 
 type HubsChainConfig struct {
-	GetHubGateway func(hubName string, forHub string) v1alpha2.HubSpecGateway
+	GetHubGateway func(hubName string, forHub string) trafficv1alpha2.HubSpecGateway
 }
 
 func NewHubsChain(conf HubsChainConfig) *HubsChain {
@@ -45,7 +45,7 @@ func NewHubsChain(conf HubsChainConfig) *HubsChain {
 type HubsChain struct {
 
 	// Get export's gateway for import
-	getHubGateway func(hubName string, forHub string) v1alpha2.HubSpecGateway
+	getHubGateway func(hubName string, forHub string) trafficv1alpha2.HubSpecGateway
 }
 
 func (h *HubsChain) Build(name string, origin, destination objref.ObjectRef, originPort, peerPort int32, ways []string) (map[string]*Bound, error) {
@@ -286,8 +286,8 @@ func (h *HubsChain) buildSelf(
 
 func (h *HubsChain) buildPeer(
 	name string, origin, destination objref.ObjectRef, originPort, peerPort int32,
-	exportHubName string, exportRepeater bool, exportGateway v1alpha2.HubSpecGateway,
-	importHubName string, importRepeater bool, importGateway v1alpha2.HubSpecGateway,
+	exportHubName string, exportRepeater bool, exportGateway trafficv1alpha2.HubSpecGateway,
+	importHubName string, importRepeater bool, importGateway trafficv1alpha2.HubSpecGateway,
 ) (exportHubChain *Chain, importHubChain *Chain, err error) {
 
 	chain := &Chain{
@@ -312,8 +312,8 @@ func (h *HubsChain) buildPeer(
 	}
 
 	if exportGateway.Reachable {
-		proxies := []v1alpha2.HubSpecGatewayProxy{}
-		proxies = append(proxies, v1alpha2.HubSpecGatewayProxy{
+		proxies := []trafficv1alpha2.HubSpecGatewayProxy{}
+		proxies = append(proxies, trafficv1alpha2.HubSpecGatewayProxy{
 			HubName: exportHubName,
 		})
 		proxies = append(proxies, exportGateway.ReceptionProxy...)
@@ -321,8 +321,8 @@ func (h *HubsChain) buildPeer(
 		chain.Proxy = h.proxies(chain.Proxy, importHubName, proxies)
 		return nil, chain, nil
 	} else if importGateway.Reachable {
-		binds := []v1alpha2.HubSpecGatewayProxy{}
-		binds = append(binds, v1alpha2.HubSpecGatewayProxy{
+		binds := []trafficv1alpha2.HubSpecGatewayProxy{}
+		binds = append(binds, trafficv1alpha2.HubSpecGatewayProxy{
 			HubName: importHubName,
 		})
 		binds = append(binds, importGateway.ReceptionProxy...)
@@ -334,7 +334,7 @@ func (h *HubsChain) buildPeer(
 	return nil, nil, fmt.Errorf("both export %q and import %q hubs are unreachable", exportHubName, importHubName)
 }
 
-func (h *HubsChain) proxies(a []string, prev string, proxies []v1alpha2.HubSpecGatewayProxy) []string {
+func (h *HubsChain) proxies(a []string, prev string, proxies []trafficv1alpha2.HubSpecGatewayProxy) []string {
 	for _, r := range proxies {
 		if r.HubName != "" {
 			gw := h.getHubGateway(r.HubName, prev)

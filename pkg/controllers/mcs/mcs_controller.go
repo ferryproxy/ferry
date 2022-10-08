@@ -22,7 +22,7 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/ferryproxy/api/apis/traffic/v1alpha2"
+	trafficv1alpha2 "github.com/ferryproxy/api/apis/traffic/v1alpha2"
 	"github.com/ferryproxy/ferry/pkg/client"
 	"github.com/ferryproxy/ferry/pkg/consts"
 	"github.com/ferryproxy/ferry/pkg/utils/diffobjs"
@@ -51,7 +51,7 @@ type MCSController struct {
 	namespace          string
 	mut                sync.RWMutex
 	hubInterface       HubInterface
-	cacheRoutePolicies []*v1alpha2.RoutePolicy
+	cacheRoutePolicies []*trafficv1alpha2.RoutePolicy
 }
 
 func NewMCSController(conf *MCSControllerConfig) *MCSController {
@@ -114,7 +114,7 @@ func (m *MCSController) Sync(ctx context.Context) {
 	}
 }
 
-func mcsToRoutePolicies(importMap map[string][]*v1alpha1.ServiceImport, exportMap map[string][]*v1alpha1.ServiceExport) []*v1alpha2.RoutePolicy {
+func mcsToRoutePolicies(importMap map[string][]*v1alpha1.ServiceImport, exportMap map[string][]*v1alpha1.ServiceExport) []*trafficv1alpha2.RoutePolicy {
 	rulesImport := map[objref.ObjectRef][]string{}
 	for name, imports := range importMap {
 		for _, i := range imports {
@@ -137,16 +137,16 @@ func mcsToRoutePolicies(importMap map[string][]*v1alpha1.ServiceImport, exportMa
 		}
 	}
 
-	policies := []*v1alpha2.RoutePolicy{}
+	policies := []*trafficv1alpha2.RoutePolicy{}
 	for n, rule := range rulesImport {
 		if len(rulesExport[n]) == 0 {
 			continue
 		}
-		exports := []v1alpha2.RoutePolicySpecRule{}
+		exports := []trafficv1alpha2.RoutePolicySpecRule{}
 		for _, r := range rulesExport[n] {
-			exports = append(exports, v1alpha2.RoutePolicySpecRule{
+			exports = append(exports, trafficv1alpha2.RoutePolicySpecRule{
 				HubName: r,
-				Service: v1alpha2.RoutePolicySpecRuleService{
+				Service: trafficv1alpha2.RoutePolicySpecRuleService{
 					Namespace: n.Namespace,
 					Name:      n.Name,
 				},
@@ -156,11 +156,11 @@ func mcsToRoutePolicies(importMap map[string][]*v1alpha1.ServiceImport, exportMa
 			continue
 		}
 
-		imports := []v1alpha2.RoutePolicySpecRule{}
+		imports := []trafficv1alpha2.RoutePolicySpecRule{}
 		for _, r := range rule {
-			imports = append(imports, v1alpha2.RoutePolicySpecRule{
+			imports = append(imports, trafficv1alpha2.RoutePolicySpecRule{
 				HubName: r,
-				Service: v1alpha2.RoutePolicySpecRuleService{
+				Service: trafficv1alpha2.RoutePolicySpecRuleService{
 					Namespace: n.Namespace,
 					Name:      n.Name,
 				},
@@ -176,13 +176,13 @@ func mcsToRoutePolicies(importMap map[string][]*v1alpha1.ServiceImport, exportMa
 		sort.Slice(imports, func(i, j int) bool {
 			return imports[i].HubName < imports[j].HubName
 		})
-		policy := v1alpha2.RoutePolicy{
+		policy := trafficv1alpha2.RoutePolicy{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      fmt.Sprintf("mcs-%s-%s", n.Namespace, n.Name),
 				Namespace: consts.FerryNamespace,
 				Labels:    labelsForRoutePolicy,
 			},
-			Spec: v1alpha2.RoutePolicySpec{
+			Spec: trafficv1alpha2.RoutePolicySpec{
 				Exports: exports,
 				Imports: imports,
 			},
