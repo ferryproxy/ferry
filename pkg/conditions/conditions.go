@@ -107,11 +107,12 @@ func (c *ConditionsManager) Ready(name string, conditionTypes ...string) (bool, 
 	}
 
 	notReadyReasons := []string{}
+	netSetReasons := []string{}
 
 	for _, conditionType := range conditionTypes {
 		cond := meta.FindStatusCondition(conds, conditionType)
 		if cond == nil {
-			notReadyReasons = append(notReadyReasons, conditionType+"NotSet")
+			netSetReasons = append(netSetReasons, conditionType+"NotSet")
 			continue
 		}
 		if cond.Status == metav1.ConditionTrue {
@@ -125,8 +126,13 @@ func (c *ConditionsManager) Ready(name string, conditionTypes ...string) (bool, 
 		notReadyReasons = append(notReadyReasons, cond.Reason+string(cond.Status))
 	}
 
-	if len(notReadyReasons) == 0 {
-		return true, ""
+	if len(notReadyReasons) != 0 {
+		return false, strings.Join(notReadyReasons, ",")
 	}
-	return false, strings.Join(notReadyReasons, ",")
+
+	if len(netSetReasons) != 0 {
+		return false, strings.Join(netSetReasons, ",")
+	}
+
+	return true, ""
 }

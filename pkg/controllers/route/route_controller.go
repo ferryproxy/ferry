@@ -112,7 +112,10 @@ func (c *RouteController) Run(ctx context.Context) error {
 func (c *RouteController) UpdateRouteCondition(name string, conditions []metav1.Condition) {
 	c.mut.Lock()
 	defer c.mut.Unlock()
+	c.updateRouteCondition(name, conditions)
+}
 
+func (c *RouteController) updateRouteCondition(name string, conditions []metav1.Condition) {
 	var retErr error
 	defer func() {
 		if retErr != nil {
@@ -164,10 +167,10 @@ func (c *RouteController) UpdateRouteCondition(name string, conditions []metav1.
 		if c.conditionsManager.IsTrue(name, trafficv1alpha2.PathReachableCondition) {
 			status.Way = cond.Message
 		} else {
-			status.Way = "<unreachable>"
+			status.Way = fp.Spec.Export.HubName + ",<unreachable>," + fp.Spec.Import.HubName
 		}
 	} else {
-		status.Way = "<unknown>"
+		status.Way = fp.Spec.Export.HubName + ",<unknown>," + fp.Spec.Import.HubName
 	}
 
 	data, err := json.Marshal(map[string]interface{}{
@@ -261,9 +264,28 @@ func (c *RouteController) Sync(ctx context.Context) {
 	for _, key := range updated {
 		logger := logger.WithValues("export", key.Export, "import", key.Import)
 		logger.Info("Update mapping controller")
-		mc, err := c.startMappingController(ctx, key)
+		mc, failedConds, err := c.startMappingController(ctx, key)
 		if err != nil {
 			logger.Error(err, "start mapping controller")
+			routes := newerRoutes[key]
+			conds := []metav1.Condition{
+				{
+					Type:    trafficv1alpha2.RouteSyncedCondition,
+					Status:  metav1.ConditionFalse,
+					Reason:  "Unsynced",
+					Message: err.Error(),
+				},
+			}
+			for _, route := range routes {
+				c.updateRouteCondition(route.Name, conds)
+			}
+			continue
+		}
+		if len(failedConds) != 0 {
+			routes := newerRoutes[key]
+			for _, route := range routes {
+				c.updateRouteCondition(route.Name, failedConds)
+			}
 			continue
 		}
 
@@ -286,20 +308,34 @@ func (c *RouteController) getMappingController(key clusterPair) *MappingControll
 	return c.cacheMappingController[key]
 }
 
-func (c *RouteController) startMappingController(ctx context.Context, key clusterPair) (*MappingController, error) {
+func (c *RouteController) startMappingController(ctx context.Context, key clusterPair) (*MappingController, []metav1.Condition, error) {
 	mc := c.cacheMappingController[key]
 	if mc != nil {
-		return mc, nil
+		return mc, nil, nil
 	}
 
-	exportCluster := c.hubInterface.GetHub(key.Export)
-	if exportCluster == nil {
-		return nil, fmt.Errorf("not found cluster information %q", key.Export)
+	conds := []metav1.Condition{}
+
+	exportHub := c.hubInterface.GetHub(key.Export)
+	if exportHub == nil {
+		conds = append(conds, metav1.Condition{
+			Type:   trafficv1alpha2.ExportHubReadyCondition,
+			Status: metav1.ConditionFalse,
+			Reason: "ExportHubNotExist",
+		})
 	}
 
-	importCluster := c.hubInterface.GetHub(key.Import)
-	if importCluster == nil {
-		return nil, fmt.Errorf("not found cluster information %q", key.Import)
+	importHub := c.hubInterface.GetHub(key.Import)
+	if importHub == nil {
+		conds = append(conds, metav1.Condition{
+			Type:   trafficv1alpha2.ImportHubReadyCondition,
+			Status: metav1.ConditionFalse,
+			Reason: "ImportHubNotExist",
+		})
+	}
+
+	if len(conds) != 0 {
+		return nil, conds, nil
 	}
 
 	mc = NewMappingController(MappingControllerConfig{
@@ -315,11 +351,11 @@ func (c *RouteController) startMappingController(ctx context.Context, key cluste
 
 	err := mc.Start(ctx)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	c.cacheMappingController[key] = mc
-	return mc, nil
+	return mc, nil, nil
 }
 
 func groupRoutes(rules []*trafficv1alpha2.Route) map[clusterPair][]*trafficv1alpha2.Route {
