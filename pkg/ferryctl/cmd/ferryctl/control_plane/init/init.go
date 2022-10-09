@@ -51,7 +51,13 @@ func NewCommand(logger log.Logger) *cobra.Command {
 			}
 
 			kctl := kubectl.NewKubectl()
-			err := data_plane.ClusterInit(cmd.Context(), data_plane.ClusterInitConfig{
+
+			err := control_plane.CrdInit(cmd.Context())
+			if err != nil {
+				return err
+			}
+
+			err = data_plane.ClusterInit(cmd.Context(), data_plane.ClusterInitConfig{
 				FerryTunnelImage:  vars.FerryTunnelImage,
 				TunnelServiceType: tunnelServiceType,
 			})
