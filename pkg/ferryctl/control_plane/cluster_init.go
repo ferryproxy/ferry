@@ -36,10 +36,6 @@ type ClusterInitConfig struct {
 
 func ClusterInit(ctx context.Context, conf ClusterInitConfig) error {
 	kctl := kubectl.NewKubectl()
-	err := kctl.ApplyWithReader(ctx, strings.NewReader(crdYaml))
-	if err != nil {
-		return err
-	}
 
 	fmt.Fprintf(os.Stderr, "ferry controller image: %s\n", conf.FerryControllerImage)
 	ferry, err := BuildInitFerry(BuildInitFerryConfig{
