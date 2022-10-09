@@ -619,7 +619,7 @@ func (c *HubController) ListHubs() []*trafficv1alpha2.Hub {
 }
 
 func (c *HubController) GetHubGateway(hubName string, forHub string) trafficv1alpha2.HubSpecGateway {
-	hub := c.cacheHub[hubName]
+	hub := c.GetHub(hubName)
 	if hub != nil {
 		if hub.Spec.Override != nil {
 			h, ok := hub.Spec.Override[forHub]
