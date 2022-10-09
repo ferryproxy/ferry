@@ -17,7 +17,6 @@ limitations under the License.
 package init
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/ferryproxy/ferry/pkg/ferryctl/control_plane"
@@ -46,9 +45,6 @@ func NewCommand(logger log.Logger) *cobra.Command {
 		Short: "Control plane init commands",
 		Long:  `Control plane init commands is used to initialize the control plane`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if len(args) > 0 {
-				return fmt.Errorf("too many arguments")
-			}
 
 			kctl := kubectl.NewKubectl()
 			err := data_plane.ClusterInit(cmd.Context(), data_plane.ClusterInitConfig{
